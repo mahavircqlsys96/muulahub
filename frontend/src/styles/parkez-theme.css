@@ -1,0 +1,506 @@
+/* ============================================================
+   PARKEZ ADMIN — Premium Deep Navy + Teal + Purple Theme
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* ── Brand Colors ── */
+  --p-teal:        #f91942;
+  --p-teal-dark:   #d81537;
+  --p-teal-glow:   rgba(249,25,66,0.25);
+  --p-purple:      #ff4d6d;
+  --p-purple-dark: #e83e5a;
+  --p-purple-glow: rgba(255,77,109,0.25);
+  --p-pink:        #ff0055;
+
+  /* ── Gradient Definitions ── */
+  --grad-primary:   linear-gradient(135deg, #f91942 0%, #ff4d6d 100%);
+  --grad-btn:       linear-gradient(135deg, #f91942 0%, #ff0055 100%);
+  --grad-btn-hover: linear-gradient(135deg, #d81537 0%, #e83e5a 100%);
+  --grad-sidebar:   #ffffff;
+  --grad-card-accent: linear-gradient(135deg, #f91942 0%, #ff4d6d 100%);
+
+  /* ── Background Layers ── */
+  --bg-base:      #f4f7f6;
+  --bg-elevated:  #ffffff;
+  --bg-surface:   #ffffff;
+  --bg-surface-2: #f8fafc;
+  --bg-surface-3: #f1f5f9;
+
+  /* ── Borders ── */
+  --border:       rgba(0,0,0,0.06);
+  --border-soft:  rgba(0,0,0,0.03);
+  --border-glow:  rgba(249,25,66,0.3);
+
+  /* ── Typography ── */
+  --text:         #1f2937;
+  --text-muted:   #6b7280;
+  --text-dim:     rgba(0,0,0,0.35);
+
+  /* ── Shadows ── */
+  --shadow-card:  0 4px 20px rgba(0,0,0,0.05);
+  --shadow-glow:  0 0 20px rgba(249,25,66,0.2);
+  --shadow-btn:   0 4px 15px rgba(249,25,66,0.35);
+}
+
+/* ── Base Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  min-height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-base) !important;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   LAYOUT SHELL
+   ============================================================ */
+.parkez-layout__sidebar-wrap {
+  background: var(--grad-sidebar) !important;
+  border-right: 1px solid var(--border);
+}
+.parkez-layout__main {
+  background: var(--bg-base) !important;
+}
+.parkez-layout__scroll {
+  background: var(--bg-base) !important;
+}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.parkez-navbar {
+  background: rgba(255,255,255,0.95) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  backdrop-filter: blur(12px);
+}
+.parkez-navbar h2,
+.parkez-navbar h6 {
+  color: var(--text) !important;
+  font-weight: 600;
+}
+.parkez-navbar .dropdown-menu {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.parkez-navbar .dropdown-item {
+  color: var(--text);
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.parkez-navbar .dropdown-item:hover {
+  background: rgba(249,25,66,0.12);
+  color: var(--p-teal);
+}
+.parkez-navbar .navbar-toggler {
+  background: var(--bg-surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.parkez-sidebar {
+  background: var(--grad-sidebar) !important;
+  border-right: 1px solid var(--border) !important;
+}
+.parkez-sidebar .nav-link {
+  color: var(--text-muted) !important;
+  border-radius: 10px;
+  margin: 2px 8px;
+  transition: all 0.2s ease;
+}
+.parkez-sidebar .nav-link.active,
+.parkez-sidebar .nav-link.active.bg-info {
+  background: var(--grad-btn) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  box-shadow: var(--shadow-btn) !important;
+}
+.parkez-sidebar .nav-link:hover:not(.active) {
+  background: rgba(249,25,66,0.1);
+  color: var(--p-teal) !important;
+}
+.parkez-sidebar hr.horizontal {
+  border-color: var(--border) !important;
+  opacity: 1;
+}
+
+/* ============================================================
+   CARDS & TABLES
+   ============================================================ */
+.parkez-layout__scroll .card {
+  background: var(--bg-surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+.parkez-layout__scroll .card-header,
+.parkez-layout__scroll .section-body .card {
+  background: var(--bg-surface) !important;
+}
+
+/* Table */
+.parkez-layout__scroll .table {
+  color: var(--text);
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(255,255,255,0.02);
+  --bs-table-hover-bg: rgba(249,25,66,0.07);
+}
+.parkez-layout__scroll .table thead th {
+  color: var(--text-muted);
+  border-color: var(--border);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+.parkez-layout__scroll .table td,
+.parkez-layout__scroll .table th {
+  border-color: var(--border-soft);
+  vertical-align: middle;
+}
+
+/* Forms */
+.parkez-layout__scroll .form-control,
+.parkez-layout__scroll .form-select {
+  background: var(--bg-surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 10px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+.parkez-layout__scroll .form-control:focus,
+.parkez-layout__scroll .form-select:focus {
+  border-color: var(--p-teal) !important;
+  box-shadow: 0 0 0 3px var(--p-teal-glow) !important;
+  background: var(--bg-surface-3) !important;
+  color: var(--text) !important;
+}
+.parkez-layout__scroll .form-control::placeholder {
+  color: var(--text-dim);
+}
+.parkez-layout__scroll label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Disabled / Readonly */
+.form-control:disabled,
+.form-control[readonly] {
+  background: var(--bg-surface) !important;
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
+
+/* Pagination */
+.parkez-layout__scroll .page-link {
+  background: var(--bg-surface-2);
+  border-color: var(--border);
+  color: var(--p-teal);
+}
+.parkez-layout__scroll .page-item.active .page-link {
+  background: var(--grad-btn);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* List group */
+.parkez-layout__scroll .list-group-item {
+  background: var(--bg-surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+.parkez-layout__scroll .list-group-item a {
+  color: var(--p-teal);
+}
+
+/* ============================================================
+   BUTTONS — Override "bg-info" to Teal-Purple gradient
+   ============================================================ */
+.bg-info {
+  background: var(--grad-btn) !important;
+}
+.btn-info,
+.btn.bg-info {
+  background: var(--grad-btn) !important;
+  border: none !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  box-shadow: var(--shadow-btn);
+  transition: all 0.25s ease !important;
+}
+.btn-info:hover,
+.btn.bg-info:hover {
+  background: var(--grad-btn-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(249,25,66,0.4) !important;
+  color: #fff !important;
+}
+.btn-info:disabled,
+.btn.bg-info:disabled {
+  opacity: 0.55;
+  transform: none;
+}
+
+.text-info  { color: var(--p-teal) !important; }
+.border-info { border-color: var(--p-teal) !important; }
+.shadow-info { box-shadow: var(--shadow-glow) !important; }
+
+/* Danger buttons */
+.parkez-layout__scroll .btn-danger {
+  border-color: #b02a37;
+  border-radius: 10px !important;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.parkez-footer {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   DASHBOARD CARDS
+   ============================================================ */
+.dashboard-card {
+  position: relative;
+  overflow: hidden !important;
+  margin-top: 15px !important;
+  border-radius: 16px !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dashboard-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(249,25,66,0.2) !important;
+}
+.dashboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--grad-primary);
+  border-radius: 16px 16px 0 0;
+}
+.dashboard-card .card-header {
+  padding: 1.25rem !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  min-height: 100px;
+}
+.dashboard-card .icon-shape {
+  width: 56px;
+  height: 56px;
+  background: var(--grad-primary) !important;
+  position: relative !important;
+  margin-right: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 20px rgba(249,25,66,0.35) !important;
+  flex-shrink: 0;
+}
+.dashboard-card .icon-shape i {
+  color: #fff !important;
+  font-size: 26px !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+.dashboard-card .text-end {
+  text-align: left !important;
+  width: auto !important;
+  padding-top: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-title {
+  font-size: 0.75rem !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+.dashboard-count {
+  font-size: 1.6rem !important;
+  font-weight: 800;
+  color: var(--text) !important;
+  margin: 0;
+  display: block;
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@media (max-width: 1199.98px) { .dashboard-card { margin-top: 30px !important; } }
+@media (max-width: 575.98px) {
+  .dashboard-card .card-header { padding: 1rem !important; min-height: 80px !important; }
+  .dashboard-card .icon-shape { width: 44px; height: 44px; margin-right: 10px; }
+  .dashboard-card .icon-shape i { font-size: 20px !important; }
+  .dashboard-title { font-size: 0.65rem !important; }
+  .dashboard-count { font-size: 1.2rem !important; }
+}
+
+/* ============================================================
+   AUTH PAGES (Login / Forgot / Reset)
+   ============================================================ */
+.parkez-auth-page {
+  min-height: 100vh;
+  background: var(--bg-base) !important;
+}
+.parkez-auth-card .card {
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+.parkez-auth-card .form-control {
+  background: var(--bg-surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 10px;
+}
+.parkez-auth-card .form-control:focus {
+  border-color: var(--p-teal) !important;
+  box-shadow: 0 0 0 3px var(--p-teal-glow) !important;
+}
+.parkez-auth-card .card-body,
+.parkez-auth-card .text-start {
+  color: var(--text);
+}
+
+/* ============================================================
+   ADMIN GRADIENT BUTTONS (global)
+   ============================================================ */
+.admin-gradient-btn {
+  background: var(--grad-btn);
+  border: none;
+  color: #fff;
+  padding: 0.65rem 1.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-btn);
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-gradient-btn:hover {
+  background: var(--grad-btn-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(249,25,66,0.4);
+}
+.admin-gradient-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+button.admin-gradient-btn { width: 100%; justify-content: center; }
+
+.admin-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--p-teal);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.admin-back-btn:hover { color: var(--p-purple); text-decoration: underline; }
+
+/* ============================================================
+   GLOBAL INPUTS (outside layout scroll)
+   ============================================================ */
+input, select, textarea, .form-control {
+  color: var(--text) !important;
+  background-color: var(--bg-surface-2) !important;
+}
+input[type="password"],
+input[type="text"],
+input[type="email"] { color: var(--text) !important; }
+input:focus, select:focus, textarea:focus, .form-control:focus {
+  color: var(--text) !important;
+  background-color: var(--bg-surface-3) !important;
+}
+::placeholder { color: var(--text-dim) !important; }
+
+label, .form-label, .col-form-label { color: var(--text-muted) !important; }
+h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6 { color: var(--text) !important; }
+.text-dark    { color: var(--text) !important; }
+.text-secondary { color: var(--text-muted) !important; }
+
+/* ============================================================
+   STATUS BADGES
+   ============================================================ */
+.status-select { color: #fff; font-weight: 500; }
+.status-pending {
+  background: linear-gradient(135deg,#f59e0b,#d97706) !important;
+  border-color: transparent !important;
+}
+.status-verified {
+  background: linear-gradient(135deg,#10b981,#059669) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+.status-select:disabled { opacity: 0.8; cursor: not-allowed; }
+
+/* ============================================================
+   ICON FONTS — keep FA / Material glyphs inside buttons
+   ============================================================ */
+.btn i.fas,.btn i.far,.btn i.fab {
+  font-family: "Font Awesome 7 Free","Font Awesome 6 Free","Font Awesome 5 Free",sans-serif !important;
+  font-weight: 900; font-size: 0.95rem;
+  line-height: 1; display: inline-block;
+  vertical-align: middle; pointer-events: none;
+}
+.btn i.far { font-weight: 400; }
+.btn .material-icons,.btn i.material-icons {
+  font-family: "Material Icons",sans-serif !important;
+  font-weight: normal; font-style: normal;
+  font-size: 1.25rem; line-height: 1;
+  display: inline-block; vertical-align: middle;
+  pointer-events: none; -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   PHONE INPUT
+   ============================================================ */
+button.react-international-phone-country-selector-button {
+  height: 44px !important;
+  border: 1px solid var(--border) !important;
+  border-right-width: 0 !important;
+  background-color: var(--bg-surface-2) !important;
+  border-radius: 10px 0 0 10px !important;
+}

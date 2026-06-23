@@ -1,0 +1,456 @@
+/* Body overflow settings */
+body {
+  overflow-x: hidden;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+/* Status Colors */
+.status-badge.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.confirmed {
+  background-color: #e3fcef;
+  color: #0f5132;
+}
+
+.status-badge.completed {
+  background-color: #e7f1ff;
+  color: #084298;
+}
+
+.status-badge.cancelled {
+  background-color: #fdecea;
+  color: #842029;
+}
+.status-badge.failed {
+  background-color: #fdecea;
+  color: #842029;
+}
+.status-badge.success {
+  background-color: #fdecea;
+  color: #0f5132;
+}
+
+.upload-wrapper {
+  cursor: pointer;
+}
+
+.upload-preview {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px dashed black;
+}
+
+/* Overlay */
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Icon (FIXED) */
+.upload-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  color: black;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+
+  transition: transform 0.3s ease;
+}
+
+/* Hover Effects */
+.upload-wrapper:hover .upload-icon {
+  transform: scale(1.15);
+}
+
+/* Remove default black focus border */
+.react-tel-input .form-control:focus {
+  border-color: #dde1e5 !important;
+  border: none;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Flag button focus */
+.react-tel-input .flag-dropdown:focus,
+.react-tel-input .selected-flag:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: #dde1e5 !important;
+}
+
+/* .dashboard-title {
+  color: #6c757d;         
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-count {
+  color: #212529;          
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+}
+
+.dashboard-card:hover .dashboard-count {
+  color: black;
+}
+
+.dashboard-card:hover .dashboard-title {
+  color: black;
+}
+
+
+.dashboard-card {
+  transition: all 0.35s ease;
+  border-radius: 14px;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-card:hover .icon-shape {
+  transform: rotate(8deg) scale(1.1);
+}
+
+.icon-shape {
+  transition: all 0.35s ease;
+} */
+
+.dashboard-card {
+  background: linear-gradient(135deg, #f8fbff, #eef3ff);
+  border: none;
+  border-radius: 16px;
+  transition: all 0.35s ease;
+  /* overflow: hidden; */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* Hover */
+.dashboard-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 18px 40px rgba(37, 173, 153, 0.25);
+}
+
+/* Title */
+.dashboard-title {
+  color: #4b5563; /* modern gray */
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Count */
+.dashboard-count {
+  color: #1f2937; /* dark slate */
+  font-weight: 700;
+  font-size: 30px;
+  margin: 0;
+}
+
+/* Hover text highlight */
+.dashboard-card:hover .dashboard-title,
+.dashboard-card:hover .dashboard-count {
+  color: black;
+}
+
+/* Icon */
+.icon-shape {
+  background: linear-gradient(135deg, black, #1e8e82) !important;
+  transition: all 0.35s ease;
+}
+
+/* Icon hover */
+.dashboard-card:hover .icon-shape {
+  transform: rotate(10deg) scale(1.12);
+  box-shadow: 0 10px 25px rgba(37, 173, 153, 0.5);
+}
+
+/* Icon color */
+.icon-shape i {
+  color: #ffffff;
+  opacity: 1;
+}
+
+/* Table Image Styling */
+.tableimg {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+/* Form Select Styling */
+.form-select {
+  padding: 0 0 0 5px;
+  background-color: grey;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+h6#tableHead {
+  margin: 0px;
+}
+.table.align-items-center td,
+.table.align-items-center th {
+  font-size: 14px;
+}
+.has-icon {
+  padding: 3px 6px;
+  font-size: 15px;
+  min-width: 33px;
+}
+
+.form-control {
+  border: 1px solid #ababab;
+  padding: 9px 15px;
+  color: #000 !important;
+}
+.form-control:focus {
+  border: 1px solid #000 !important;
+}
+
+.shadow-dark h6 {
+  margin: 0px !important;
+  padding: 10px 0px;
+}
+.card-body .shadow-dark {
+  background: rgb(112 112 112) !important;
+}
+@media screen and (max-width: 1360px) {
+  .form-select {
+    font-size: 12px;
+  }
+}
+
+/* Button and Table adjustments for medium screens (max-width: 1100px) */
+@media (max-width: 1100px) {
+  .btn {
+    font-size: 12px;
+    padding: 10px 15px;
+  }
+
+  .table th,
+  .table td {
+    font-size: 12px;
+  }
+
+  .form-select {
+    font-size: 10px;
+  }
+
+  .table i {
+    font-size: 14px;
+  }
+
+  .has-icon {
+    padding: 3px 7px;
+  }
+
+  .card-header h6 {
+    font-size: 16px;
+  }
+
+  .dropdown select {
+    font-size: 12px;
+    padding: 3px 7px;
+  }
+}
+
+/* Small screen adjustments (max-width: 1000px) */
+@media screen and (max-width: 1000px) {
+  .table th,
+  .table td {
+    font-size: 10px;
+    padding: 1px;
+  }
+
+  .table td {
+    word-wrap: break-word;
+  }
+
+  .form-select {
+    font-size: 10px;
+  }
+}
+
+/* Further adjustments for very small screens (max-width: 764px) */
+@media (max-width: 764px) {
+  #root > div {
+    display: initial !important;
+  }
+  .resturent_table tr td:nth-child(6) {
+    min-width: 250px;
+  }
+  .resturent_table tr td:nth-child(3) {
+    min-width: 180px;
+  }
+  .resturent_table tr td:nth-child(4) {
+    min-width: 180px;
+  }
+  .resturent_table tr td:nth-child(5) {
+    min-width: 180px;
+  }
+  .btn {
+    font-size: 12px;
+    padding: 10px 15px;
+  }
+  .card .card-body {
+    padding: 10px;
+  }
+
+  .table th,
+  .table td {
+    font-size: 8px;
+  }
+
+  .form-select {
+    font-size: 6px;
+    width: 60px;
+  }
+
+  .tableimg {
+    width: 25px;
+    height: 25px;
+  }
+
+  .table i {
+    font-size: 8px;
+  }
+
+  .has-icon {
+    padding: 2px 5px;
+  }
+
+  .card-header h6 {
+    font-size: 15px;
+  }
+
+  .dropdown select {
+    font-size: 10px;
+    padding: 2px 5px;
+  }
+}
+
+/* Adjustments for screens smaller than 665px */
+
+/* Table Responsiveness */
+.table-responsive {
+  max-width: 100%;
+  overflow-x: auto; /* Prevent horizontal scrolling */
+  margin-bottom: 0; /* Optional: remove bottom margin */
+}
+
+/* Table layout settings */
+.table {
+  width: 100%;
+  table-layout: auto; /* Let columns resize based on content */
+  border-spacing: 0; /* Optional: prevent spacing between cells */
+}
+
+/* Default padding for table cells */
+.table th,
+.table td {
+  padding: 0.75rem; /* Default padding */
+  text-align: center;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Adjust padding for medium screens */
+@media (max-width: 1200px) {
+  .table th,
+  .table td {
+    padding: 0.5rem !important; /* Reduce padding */
+  }
+}
+
+/* Adjust padding for smaller screens */
+@media (max-width: 992px) {
+  .table th,
+  .table td {
+    padding: 0.25rem !important; /* Further reduce padding */
+  }
+}
+
+/* For very small screens (mobile) */
+@media (max-width: 768px) {
+  .btn {
+    font-size: 12px;
+    padding: 10px 15px;
+  }
+  .btn.add_btn {
+    font-size: 12px;
+    padding: 12px 20px;
+  }
+
+  .form-select {
+    font-size: 14px;
+    width: 50px;
+  }
+
+  .tableimg {
+    width: 45px;
+    height: 45px;
+  }
+
+  .table i {
+    font-size: 12px;
+  }
+
+  .card-header h6 {
+    font-size: 16px;
+  }
+
+  .dropdown select {
+    font-size: 10px;
+    padding: 2px 5px;
+  }
+  .table th,
+  .table td {
+    padding: 7px 13px !important;
+    min-width: 69px;
+    font-size: 10px;
+  }
+  .table.resturent_table th:last-child {
+    min-width: 240px;
+  }
+
+  .form-select {
+    font-size: 8px;
+    width: 100%;
+  }
+  .has-icon {
+    padding: 7px 5px;
+  }
+}
