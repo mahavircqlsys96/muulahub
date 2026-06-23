@@ -17,7 +17,7 @@ admin.initializeApp({
 
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
-let TWILIO_ACCOUNT_SID_LET = process.env.TWILIO_ACCOUNT_SID;
+let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 // + 1 227 257 3061
 module.exports = {
   sendPushNotification: async (notificationData) => {
