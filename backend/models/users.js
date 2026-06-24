@@ -230,9 +230,9 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true
     },
     isOnline: {
-      type: DataTypes.TINYINT,
+      type: DataTypes.ENUM('online', 'offline'),
       allowNull: true,
-      defaultValue: 0
+      defaultValue: 'offline'
     },
     isProfileComplete: {
       type: DataTypes.TINYINT,
