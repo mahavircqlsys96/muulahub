@@ -3,7 +3,7 @@ var uuid = require("uuid").v4;
 const nodemailer = require("nodemailer");
 const ENV = process.env
 const admin = require("firebase-admin");
- const serviceAccount = require("./parkez-2ea64-firebase-adminsdk-fbsvc-b4b03bc9c2.json");
+//  const serviceAccount = require("./parkez-2ea64-firebase-adminsdk-fbsvc-b4b03bc9c2.json");
 const twilio = require("twilio");
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -11,9 +11,9 @@ const clientNumber = "+14155238886";
 const WhatsappclientNumber = "+14155238886";
 const fs = require('fs');
 const client = twilio(accountSid, authToken);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
 let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
