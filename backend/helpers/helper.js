@@ -35,7 +35,6 @@ module.exports = {
 
       const message = {
         token: token,
-
         // ✅ REQUIRED for popup when app is killed
         notification: {
           title: title || "ParkEZ",
