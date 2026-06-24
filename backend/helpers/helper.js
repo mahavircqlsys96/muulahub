@@ -14,7 +14,6 @@ const client = twilio(accountSid, authToken);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
 let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
