@@ -166,7 +166,8 @@ module.exports = {
         userName,
         deviceToken,
         deviceType,
-        referCode
+        referCode,
+        currency
       } = req.body;
 
       const loginTime = helper.unixTimestamp();
@@ -236,7 +237,8 @@ module.exports = {
         deviceType: deviceType,
         customerId: customer.id,
         referralCode: generatedReferralCode,
-        referredBy: referredByUserId
+        referredBy: referredByUserId,
+        currency: currency
       });
 
       const token = jwt.sign(
@@ -339,7 +341,8 @@ module.exports = {
           "email",
           "bio",
           "profileImage",
-          "isProfileComplete"
+          "isProfileComplete",
+          "currency"
         ]
       });
 
@@ -446,7 +449,8 @@ module.exports = {
           "profileImageProvider",
           "about",
           "hourlyPrice",
-          "isProfileComplete"
+          "isProfileComplete",
+          "currency"
         ]
       });
 
@@ -602,6 +606,7 @@ module.exports = {
         userName,
         hourlyPrice,
         bio,
+        currency,
         categoryIds
       } = req.body;
 
@@ -664,6 +669,7 @@ module.exports = {
       if (hourlyPrice) updateData.hourlyPrice = hourlyPrice;
       if (bio) updateData.bio = bio;
       if (profileImage) updateData.profileImage = profileImage;
+      if (currency) updateData.currency = currency;
 
       /* =========================
          Update User
@@ -808,6 +814,7 @@ module.exports = {
           "bio",
           "about",
           "hourlyPrice",
+          "currency",
           "referralCode"
         ]
       });
@@ -884,6 +891,7 @@ module.exports = {
         deviceToken,
         profileImage,
         referCode,
+        currency
       } = req.body;
 
       const loginTime = helper.unixTimestamp();
@@ -1008,7 +1016,8 @@ module.exports = {
           status: "active",
           isProfileComplte: 0, // Pending profile completion
           referralCode: generatedReferralCode,
-          referredBy: referredByUserId
+          referredBy: referredByUserId,
+          currency: currency
         });
 
       } else {

@@ -421,6 +421,27 @@ const UsersView = () => {
                       marginBottom: '4px',
                     }}
                   >
+                    Currency
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#111827',
+                    }}
+                  >
+                    {userDetails?.currency || '—'}
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#9ca3af',
+                      marginBottom: '4px',
+                    }}
+                  >
                     Money Spent
                   </div>
                   <div

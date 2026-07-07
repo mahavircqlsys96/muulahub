@@ -153,6 +153,10 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0,
     },
+    currency: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
     referralCode: {
       type: DataTypes.STRING(50),
       allowNull: true,

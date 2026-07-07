@@ -33,6 +33,7 @@ module.exports = function (io) {
   io.on('connection', function (socket) {
     socket.on('connectUser', async (data) => {
       try {
+
         const isValidToken = await middleware.authenticateToken(data.token);
 
         if (!isValidToken.success) {
@@ -103,13 +104,12 @@ module.exports = function (io) {
       }
     });
 
-
     socket.on('sendMessage', async (get_data) => {
       try {
         const isValidToken = await middleware.authenticateToken(get_data.token);
 
         if (!isValidToken.success) {
-          socket.emit("send_message", {
+          socket.emit("sendMessage", {
             code: 401,
             body: "Session Expired",
           });
@@ -135,7 +135,6 @@ module.exports = function (io) {
           createMessage = await chats.create({
             senderId: senderId,
             roomId: findConstant.id,
-            bookingId: get_data.bookingId,
             receiverId: get_data.receiverId,
             message: get_data.message,
             messageType: get_data.messageType,
@@ -201,7 +200,7 @@ module.exports = function (io) {
           });
 
           // ✅ Send only to sender
-          socket.emit('send_message', {
+          socket.emit('sendMessage', {
             success_message: 'Message sent successfully',
             code: 200,
             body: message
@@ -246,16 +245,16 @@ module.exports = function (io) {
 
           // 1 => iOS, 2 => Android
 
-          helper.sendNotification(findReceiver.fcmToken, ndata);
+          helper.sendPushNotification(findReceiver.fcmToken, ndata);
 
         } else {
           console.log("Notification turned off");
         }
         /* ------------------ WHERE CONDITION ------------------ */
 
-        socket.emit('send_message', successMessage);
+        socket.emit('sendMessage', successMessage);
 
-        io.to(findReceiver.socketId).emit('send_message', successMessage);
+        io.to(findReceiver.socketId).emit('sendMessage', successMessage);
         io.to(findReceiver.socketId).emit('message_alert', successMessage);
 
       } catch (error) {
@@ -328,371 +327,294 @@ module.exports = function (io) {
       }
     });
 
+    socket.on('getMessages', async (get_data) => {
+      try {
+        const isValidToken = await middleware.authenticateToken(get_data.token);
 
-    // socket.on('chat_list', async (get_data) => {
-    //   try {
-    //     const isValidToken = await middleware.authenticateToken(get_data.token);
+        if (!isValidToken.success) {
+          socket.emit("getMessages", {
+            code: 401,
+            body: "Session Expired",
+          });
+          return;
+        }
 
-    //     if (!isValidToken.success) {
-    //       socket.emit("chat_list", {
-    //         code: 401,
-    //         body: "Session Expired",
-    //       });
-    //       return;
-    //     }
+        const senderId = isValidToken.user.id;
 
-    //     const senderId = isValidToken.user.id;
+        /* ------------------ Pagination ------------------ */
+        const page = parseInt(get_data.page) || 1;
+        const limit = parseInt(get_data.limit) || 20;
+        const offset = (page - 1) * limit;
 
-    //     /* ------------------ Pagination ------------------ */
-    //     const page = parseInt(get_data.page) || 1;
-    //     const limit = parseInt(get_data.limit) || 20;
-    //     const offset = (page - 1) * limit;
+        /* ------------------ Sub Queries ------------------ */
+        const senderName = [Sequelize.literal(`(SELECT name FROM users WHERE users.id = sender_user_id)`), 'senderName'];
+        const senderImage = [Sequelize.literal(`(SELECT profileImage FROM users WHERE users.id = sender_user_id)`), 'senderImage'];
+        const receiverName = [Sequelize.literal(`(SELECT name FROM users WHERE users.id = receiver_user_id)`), 'receiverName'];
+        const receiverImage = [Sequelize.literal(`(SELECT profileImage FROM users WHERE users.id = receiver_user_id)`), 'receiverImage'];
 
-    //     /* ------------------ Sub Queries ------------------ */
-    //     const senderName = [Sequelize.literal(`(SELECT name FROM users WHERE users.id = sender_user_id)`), 'senderName'];
-    //     const senderImage = [Sequelize.literal(`(SELECT profileImage FROM users WHERE users.id = sender_user_id)`), 'senderImage'];
-    //     const receiverName = [Sequelize.literal(`(SELECT name FROM users WHERE users.id = receiver_user_id)`), 'receiverName'];
-    //     const receiverImage = [Sequelize.literal(`(SELECT profileImage FROM users WHERE users.id = receiver_user_id)`), 'receiverImage'];
+        /* ------------------ WHERE CONDITION ------------------ */
+        const whereCondition = {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                {
+                  senderId: senderId,
+                  receiverId: get_data.receiverId,
 
-    //     /* ------------------ WHERE CONDITION ------------------ */
-    //     const whereCondition = {
-    //       [Op.and]: [
-    //         {
-    //           [Op.or]: [
-    //             {
-    //               senderId: senderId,
-    //               receiverId: get_data.receiverId,
-    //               bookingId: get_data.bookingId,
-    //             },
-    //             {
-    //               senderId: get_data.receiverId,
-    //               receiverId: senderId,
-    //               bookingId: get_data.bookingId,
-    //             }
-    //           ]
-    //         },
+                },
+                {
+                  senderId: get_data.receiverId,
+                  receiverId: senderId,
 
-    //         // ❌ Exclude deleted messages for this user
-    //         '' Sequelize.literal(`NOT EXISTS (SELECT 1 FROM deleted_chats WHERE deleted_chats.chatId = chats.id AND deleted_chats.deletedBy = ${senderId})`)]''
-    //     };
+                }
+              ]
+            },
 
-    //     /* ------------------ COUNT (for pagination) ------------------ */
-    //     const totalMessages = await chats.count({
-    //       where: whereCondition
-    //     });
+            // ❌ Exclude deleted messages for this user
+            Sequelize.literal(`NOT EXISTS (SELECT 1 FROM deleted_chats WHERE deleted_chats.chatId = chats.id AND deleted_chats.deletedBy = ${senderId})`)
+          ]
+        };
 
-    //     /* ------------------ FETCH MESSAGES ------------------ */
-    //     const allMsg = await chats.findAll({
-    //       where: whereCondition,
-    //       order: [['id', 'DESC']], // latest first
-    //       limit,
-    //       offset,
-    //       attributes: {
-    //         include: [[Sequelize.literal(`CASE WHEN chats.receiverId = ${get_data.receiverId} THEN chats.senderId ELSE chats.receiverId END`), 'sender_user_id'],
-    //         [Sequelize.literal(`CASE WHEN chats.senderId = ${senderId} THEN chats.receiverId ELSE chats.senderId END`), 'receiver_user_id'],
-    //           senderName,
-    //           senderImage,
-    //           receiverName,
-    //           receiverImage
-    //         ]
-    //       }
-    //     });
+        /* ------------------ COUNT (for pagination) ------------------ */
+        const totalMessages = await chats.count({
+          where: whereCondition
+        });
 
-    //     const isBlockedByMe = await block_users.findOne({
-    //       where: {
-    //         blockBy: senderId,
-    //         blockTo: get_data.receiverId
-    //       }
-    //     });
-    //     const isBlockedByOther = await block_users.findOne({
-    //       where: {
-    //         blockTo: senderId,
-    //         blockBy: get_data.receiverId
-    //       }
-    //     });
-    //     const blockByMe = isBlockedByMe ? 1 : 0;
-    //     const blockByOther = isBlockedByOther ? 1 : 0;
+        /* ------------------ FETCH MESSAGES ------------------ */
+        const allMsg = await chats.findAll({
+          where: whereCondition,
+          order: [['id', 'DESC']], // latest first
+          limit,
+          offset,
+          attributes: {
+            include: [[Sequelize.literal(`CASE WHEN chats.receiverId = ${get_data.receiverId} THEN chats.senderId ELSE chats.receiverId END`), 'sender_user_id'],
+            [Sequelize.literal(`CASE WHEN chats.senderId = ${senderId} THEN chats.receiverId ELSE chats.senderId END`), 'receiver_user_id'],
+              senderName,
+              senderImage,
+              receiverName,
+              receiverImage
+            ]
+          }
+        });
 
-    //     /* ------------------ RESPONSE ------------------ */
-    //     socket.emit('chat_list', {
-    //       success_message: 'Messages Listing',
-    //       code: 200,
-    //       pagination: {
-    //         total: totalMessages,
-    //         page,
-    //         limit,
-    //         total_pages: Math.ceil(totalMessages / limit),
-    //         blockByMe: blockByMe,
-    //         blockByOther: blockByOther
-    //       },
-    //       body: allMsg
-    //     });
+        const isBlockedByMe = await block_users.findOne({
+          where: {
+            blockBy: senderId,
+            blockTo: get_data.receiverId
+          }
+        });
+        const isBlockedByOther = await block_users.findOne({
+          where: {
+            blockTo: senderId,
+            blockBy: get_data.receiverId
+          }
+        });
+        const blockByMe = isBlockedByMe ? 1 : 0;
+        const blockByOther = isBlockedByOther ? 1 : 0;
 
-    //   } catch (error) {
-    //     console.log(error);
-    //     socket.emit('chat_list', {
-    //       code: 500,
-    //       message: 'Something went wrong'
-    //     });
-    //   }
-    // });
+        /* ------------------ RESPONSE ------------------ */
+        socket.emit('getMessages', {
+          success_message: 'Messages Listing',
+          code: 200,
+          pagination: {
+            total: totalMessages,
+            page,
+            limit,
+            total_pages: Math.ceil(totalMessages / limit),
+            blockByMe: blockByMe,
+            blockByOther: blockByOther
+          },
+          body: allMsg
+        });
 
-    // socket.on('reportss', async (data) => {
-    //   try {
-
-    //     const isValidToken = await middleware.authenticateToken(data.token);
-
-    //     if (!isValidToken.success) {
-    //       socket.emit("chat_list", {
-    //         code: 401,
-    //         body: "Session Expired",
-    //       });
-    //       return;
-    //     }
-
-    //     const senderId = isValidToken.user.id;
-
-    //     const reportAdd = await reports.create({
-    //       reportBy: senderId,
-    //       referenceId: data.referenceId,
-    //       bookingId: data.bookingId,
-    //       reason: data.message, reportType: 'user'
-    //     });
-
-    //     const successMessage = {
-    //       success_message: "Report user successfully, admin will take action in 24 hours.",
-    //     };
-    //     socket.emit("reportss", successMessage);
-
-    //   } catch (error) {
-    //     console.error(error);
-    //     socket.emit("reportss", { error_message: "Failed to report  user" });
-    //   }
-    // });
-
-
-
+      } catch (error) {
+        console.log(error);
+        socket.emit('getMessages', {
+          code: 500,
+          message: 'Something went wrong'
+        });
+      }
+    });
     // //////////////////////////
+    socket.on('readMsg', async (data) => {
+      try {
+        const isValidToken = await middleware.authenticateToken(data.token);
 
-    // socket.on('read_msg', async (data) => {
-    //   try {
-    //     const isValidToken = await middleware.authenticateToken(data.token);
+        if (!isValidToken.success) {
+          socket.emit("chat_list", {
+            code: 401,
+            body: "Session Expired",
+          });
+          return;
+        }
 
-    //     if (!isValidToken.success) {
-    //       socket.emit("chat_list", {
-    //         code: 401,
-    //         body: "Session Expired",
-    //       });
-    //       return;
-    //     }
+        const senderId = isValidToken.user.id;
 
-    //     const senderId = isValidToken.user.id;
+        let update_read_status = await chats.update({
+          isRead: 1
+        }, {
+          where: {
+            senderId: data.receiverId,
+            receiverId: senderId,
 
-    //     let update_read_status = await chats.update({
-    //       isRead: 1
-    //     }, {
-    //       where: {
-    //         senderId: data.receiverId,
-    //         receiverId: senderId,
+          }
+        })
 
-    //       }
-    //     })
+        success_message = {
+          success_message: "message read successfully",
+        };
+        socket.emit("readMsg", success_message);
+      } catch (error) {
+        console.log(error, "Kerorroororoor");
+      }
 
-    //     success_message = {
-    //       success_message: "message read successfully",
-    //     };
-    //     socket.emit("read_msg", success_message);
-    //   } catch (error) {
-    //     console.log(error, "Kerorroororoor");
-    //   }
+    });
 
-    // });
+    socket.on('blockUser', async (data) => {
+      try {
+        const isValidToken = await middleware.authenticateToken(data.token);
 
-    // socket.on('blocked_users', async (data) => {
-    //   try {
-    //     const isValidToken = await middleware.authenticateToken(data.token);
+        if (!isValidToken.success) {
+          socket.emit("blockUser", {
+            code: 401,
+            body: "Session Expired",
+          });
+          return;
+        }
 
-    //     if (!isValidToken.success) {
-    //       socket.emit("chat_list", {
-    //         code: 401,
-    //         body: "Session Expired",
-    //       });
-    //       return;
-    //     }
+        const blockBy = isValidToken.user.id;
 
-    //     const blockBy = isValidToken.user.id;
+        const { blockTo } = data;
+        let msg = '';
+        let data1 = {};
 
-    //     const { blockTo, status } = data;
-    //     let msg = '';
-    //     let data1 = {};
+        if (blockTo === blockBy) {
+          msg = "Cannot block yourself";
+          socket.emit("blockUser", { success_message: { msg } });
+          return;
+        }
 
-    //     if (blockTo === blockBy) {
-    //       msg = "Cannot block yourself";
-    //       socket.emit("blocked_users", { success_message: { msg } });
-    //       return;
-    //     }
+        const userToBlock = await users.findByPk(blockTo);
 
-    //     const userToBlock = await users.findByPk(blockTo);
+        if (!userToBlock) {
 
-    //     if (!userToBlock) {
+          msg = "User to be blocked does not exist";
+          socket.emit("blockUser", { success_message: { msg } });
+          return;
+        }
 
-    //       msg = "User to be blocked does not exist";
-    //       socket.emit("blocked_users", { success_message: { msg } });
-    //       return;
-    //     }
+        const existingBlock = await block_users.findOne({ where: { blockTo, blockBy } });
+        let isBlocked = false;
 
-    //     const existingBlock = await block_users.findOne({ where: { blockTo, blockBy } });
+        if (existingBlock) {
+          await block_users.destroy({ where: { blockTo, blockBy } });
+          msg = "User unblocked successfully";
+          data1 = { blockByMe: 0, blockByOther: 0 };
+          isBlocked = false;
+        } else {
+          await block_users.create({ blockTo, blockBy });
+          msg = "User blocked successfully";
+          data1 = { blockByMe: 1, blockByOther: 0 };
+          isBlocked = true;
+        }
 
-    //     if (status == 1) {  // Block user
-    //       if (existingBlock) {
-    //         msg = "User is already blocked";
-    //         data1 = { blockByMe: 1, blockByOther: 0 };
-    //       } else {
-    //         await block_users.create({ blockTo, blockBy });
-    //         msg = "User blocked successfully";
-    //         data1 = { blockByMe: 1, blockByOther: 0 };
-    //       }
-    //     } else if (status == 0) {  // Unblock user
-    //       if (existingBlock) {
-    //         await block_users.destroy({ where: { blockTo, blockBy } });
-    //         msg = "User unblocked successfully";
-    //         data1 = { blockByMe: 0, blockByOther: 0 };
-    //       } else {
-    //         msg = "User is not blocked";
-    //         data1 = { blockByMe: 0, blockByOther: 0 };
-    //       }
-    //     } else {
-    //       msg = "Invalid status value";
-    //       socket.emit("blocked_users", { success_message: { msg } });
-    //       return;
-    //     }
-
-    //     const socketUser = await users.findOne({ where: { id: blockTo }, raw: true });
+        const socketUser = await users.findOne({ where: { id: blockTo }, raw: true });
 
 
-    //     if (socketUser) {
-    //       const notificationData = status == 1 ? { blockByMe: 0, blockByOther: 1 } : { blockByMe: 0, blockByOther: 0 };
+        if (socketUser) {
+          const notificationData = isBlocked ? { blockByMe: 0, blockByOther: 1 } : { blockByMe: 0, blockByOther: 0 };
 
-    //       io.to(socketUser.socketId).emit('blocked_users', { success_message: { msg, data1: notificationData } });
-    //     }
+          io.to(socketUser.socketId).emit('blockUser', { success_message: { msg, data1: notificationData } });
+        }
 
-    //     // Notify the blocking/unblocking user
-    //     socket.emit("blocked_users", { success_message: { msg, data1 } });
+        // Notify the blocking/unblocking user
+        socket.emit("blockUser", { success_message: { msg, data1 } });
 
-    //   } catch (error) {
-    //     console.error(error);
-    //     socket.emit('blocked_users_error', { error: error.message || "An error occurred while processing the request." });
-    //   }
-    // });
-    // socket.on('clear_chat', async (get_data) => {
-    //   try {
-    //     const isValidToken = await middleware.authenticateToken(get_data.token);
+      } catch (error) {
+        console.error(error);
+        socket.emit('blockUser', { error: error.message || "An error occurred while processing the request." });
+      }
+    });
+    socket.on('clearChat', async (get_data) => {
+      try {
+        const isValidToken = await middleware.authenticateToken(get_data.token);
 
-    //     if (!isValidToken.success) {
-    //       socket.emit("clear_chat", {
-    //         code: 401,
-    //         message: "Session Expired"
-    //       });
-    //       return;
-    //     }
+        if (!isValidToken.success) {
+          socket.emit("clearChat", {
+            code: 401,
+            message: "Session Expired"
+          });
+          return;
+        }
 
-    //     const user_id = isValidToken.user.id;
+        const user_id = isValidToken.user.id;
 
-    //     /* ------------------ FIND ROOM ------------------ */
-    //     const room = await rooms.findOne({
-    //       where: {
-    //         id: get_data.roomId
-    //         // [Op.or]: [
-    //         //   {
-    //         //     senderId: user_id,
-    //         //     receiverId: get_data.receiverId,
-    //         //     bookingId: get_data.bookingId
-    //         //   },
-    //         //   {
-    //         //     senderId: get_data.receiverId,
-    //         //     receiverId: user_id,
-    //         //     bookingId: get_data.bookingId
-    //         //   }
-    //         // ]
-    //       }
-    //     });
+        /* ------------------ FIND ROOM ------------------ */
+        const room = await rooms.findOne({
+          where: {
+            id: get_data.roomId
 
-    //     if (!room) {
-    //       socket.emit('clear_chat', {
-    //         code: 404,
-    //         message: "Chat room not found"
-    //       });
-    //       return;
-    //     }
+          }
+        });
 
-    //     /* ------------------ GET ONLY NON-DELETED MESSAGES ------------------ */
-    //     const chatIds = await chats.findAll({
-    //       where: {
-    //         roomId: room.id,
-    //         [Op.and]: [
-    //           Sequelize.literal(`
-    //             NOT EXISTS (
-    //               SELECT 1 
-    //               FROM deleted_chats 
-    //               WHERE deleted_chats.chatId = chats.id
-    //               AND deleted_chats.deletedBy = ${user_id}
-    //             )
-    //           `)
-    //         ]
-    //       },
-    //       attributes: ['id'],
-    //       raw: true
-    //     });
+        if (!room) {
+          socket.emit('clearChat', {
+            code: 404,
+            message: "Chat room not found"
+          });
+          return;
+        }
 
-    //     if (!chatIds.length) {
-    //       socket.emit('clear_chat', {
-    //         code: 200,
-    //         message: "Chat already cleared"
-    //       });
-    //       return;
-    //     }
+        /* ------------------ GET ONLY NON-DELETED MESSAGES ------------------ */
+        const chatIds = await chats.findAll({
+          where: {
+            roomId: room.id,
+            [Op.and]: [
+              Sequelize.literal(`
+                NOT EXISTS (
+                  SELECT 1 
+                  FROM deleted_chats 
+                  WHERE deleted_chats.chatId = chats.id
+                  AND deleted_chats.deletedBy = ${user_id}
+                )
+              `)
+            ]
+          },
+          attributes: ['id'],
+          raw: true
+        });
 
-    //     /* ------------------ PREPARE BULK DELETE ------------------ */
-    //     const deleteData = chatIds.map(item => ({
-    //       chatId: item.id,
-    //       deletedBy: user_id
-    //     }));
+        if (!chatIds.length) {
+          socket.emit('clearChat', {
+            code: 200,
+            message: "Chat already cleared"
+          });
+          return;
+        }
 
-    //     /* ------------------ INSERT ------------------ */
-    //     await deleted_chats.bulkCreate(deleteData);
+        /* ------------------ PREPARE BULK DELETE ------------------ */
+        const deleteData = chatIds.map(item => ({
+          chatId: item.id,
+          deletedBy: user_id
+        }));
 
-    //     /* ------------------ RESPONSE ------------------ */
-    //     socket.emit('clear_chat', {
-    //       code: 200,
-    //       message: "Chat cleared successfully"
-    //     });
+        /* ------------------ INSERT ------------------ */
+        await deleted_chats.bulkCreate(deleteData);
 
-    //   } catch (error) {
-    //     console.error(error);
-    //     socket.emit('clear_chat', {
-    //       code: 500,
-    //       message: "Something went wrong"
-    //     });
-    //   }
-    // });
+        /* ------------------ RESPONSE ------------------ */
+        socket.emit('clearChat', {
+          code: 200,
+          message: "Chat cleared successfully"
+        });
 
-
-    // socket.on('message_alert', async (data) => {
-    //   try {
-    //     let socketUser = await users.findOne({ where: { id: data.receiverId } });
-
-    //     const successMessage = {
-    //       success_message: "message sent successfully",
-    //     };
-
-    //     if (socketUser) {
-    //       io.to(socketUser.socketId).emit('message_alert', successMessage);
-    //     }
-    //   } catch (error) {
-    //     console.error(error);
-    //     throw error;
-    //   }
-    // });
+      } catch (error) {
+        console.error(error);
+        socket.emit('clearChat', {
+          code: 500,
+          message: "Something went wrong"
+        });
+      }
+    });
 
 
   });
