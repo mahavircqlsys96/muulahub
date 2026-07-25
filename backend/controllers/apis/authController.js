@@ -150,7 +150,7 @@ module.exports = {
         userName: "required",
         countryCode: "required",
         phone: "required",
-        dateOfBirth: "required",
+        // dateOfBirth: "required", remove
       });
 
       const errors = await helper.checkValidation(v);
@@ -1412,8 +1412,9 @@ module.exports = {
   },
   categoryList: async (req, res) => {
     try {
+
       const categories = await services_categories.findAll({
-        where: { status: 1 },
+        where: { status: 1, approvalStatus: 'approved' },
         order: [['categoryName', 'ASC']]
       });
       return helper.success(res, 'Categories fetched', categories);

@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('services_categories', {
     id: {
       autoIncrement: true,
@@ -19,6 +19,19 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.TINYINT,
       allowNull: true,
       defaultValue: 1
+    },
+    userId: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    approvalStatus: {
+      type: DataTypes.ENUM("approved", "pending", "disapproved"),
+      allowNull: true,
+      defaultValue: 'pending'
     }
   }, {
     sequelize,

@@ -12,12 +12,29 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
       const search = req.query.search || '';
+      const status = req.query.status;
+      const type = req.query.type || 'system';
 
       let whereClause = {};
       if (search) whereClause.categoryName = { [Op.like]: `%${search}%` };
+      if (status !== undefined) whereClause.status = status;
+      if (type === 'custom') {
+        whereClause.userId = { [Op.ne]: null };
+
+      } else {
+        whereClause.userId = null;
+      }
 
       const { count, rows } = await services_categories.findAndCountAll({
         where: whereClause,
+        include: [
+          {
+            model: db.users,
+            as: 'user',
+            attributes: ['id', 'name', 'email'],
+            required: false
+          }
+        ],
         order: [['createdAt', 'DESC']],
         limit,
         offset
@@ -51,7 +68,8 @@ module.exports = {
       const category = await services_categories.create({
         categoryName: req.body.categoryName,
         image,
-        status: 1
+        status: 1,
+        approvalStatus: "approved"
       });
 
       return helper.success(res, 'Category created successfully', category);
@@ -70,9 +88,17 @@ module.exports = {
       const updateData = {};
       if (req.body.categoryName) updateData.categoryName = req.body.categoryName;
       if (req.body.status !== undefined) updateData.status = req.body.status;
-
+      let newImage = category.image;
       if (req.files && req.files.image) {
-        updateData.image = await helper.fileUpload(req.files.image, 'categories');
+        newImage = await helper.fileUpload(req.files.image, 'categories');
+        updateData.image = newImage;
+      }
+
+      if (req.body.approvalStatus) {
+        if (req.body.approvalStatus === 'approved' && !newImage) {
+          return helper.failed(res, 'An image is required to approve this custom category.');
+        }
+        updateData.approvalStatus = req.body.approvalStatus;
       }
 
       await category.update(updateData);

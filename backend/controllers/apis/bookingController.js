@@ -30,7 +30,7 @@ const sendBookingNotification = async (userId, senderId, title, message, referen
 
 module.exports = {
 
-  createBooking: async (req, res) => {
+  createBookingOld: async (req, res) => {
     try {
       const v = new Validator(req.body, {
         providerId: 'required',
@@ -71,6 +71,186 @@ module.exports = {
       return helper.success(res, 'Booking created successfully', booking);
     } catch (error) {
       console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+  createBooking: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        providerId: 'required',
+        bookingDate: 'required',
+        bookingTime: 'required',
+        categoryId: 'required',
+        // location: 'required',
+        // latitude: 'required',
+        // longitude: 'required',
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude } = req.body;
+      const userId = req.auth.id;
+
+      const category = await services_categories.findOne({ where: { id: categoryId } });
+      if (!category) return helper.failed(res, 'Category not found or not available');
+
+      const bookingNumber = 'BK' + Date.now() + Math.floor(Math.random() * 1000);
+
+      const booking = await bookings.create({
+        bookingNumber,
+        userId,
+        providerId: providerId,
+        serviceId: categoryId,
+        bookingDate,
+        bookingTime,
+        paymentStatus: 'pending',
+        bookingStatus: 'pending',
+        location, latitude, longitude
+      });
+
+      await sendBookingNotification(
+        providerId,
+        userId,
+        'New Booking Request',
+        `You have a new booking from ${req.auth.name}`,
+        booking.id
+      );
+
+      return helper.success(res, 'Booking created successfully', booking);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+  acceptRejectRequest: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        bookingId: 'required',
+        status: 'required|in:accepted,reject'
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { bookingId, status } = req.body;
+      const userId = req.auth.id;
+
+      const booking = await bookings.findOne({ where: { id: bookingId, providerId: userId } });
+      if (!booking) return helper.failed(res, 'Booking not found or not authorized');
+
+      await booking.update({ bookingStatus: status });
+
+      await sendBookingNotification(
+        booking.userId,
+        userId,
+        'Booking ' + status,
+        `Your booking #${booking.bookingNumber} has been ` + status,
+        booking.id
+      );
+
+      return helper.success(res, 'Booking ' + status + ' successfully', booking);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  providerCounterOffer: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        bookingId: 'required',
+        bookingDate: 'required',
+        bookingTime: 'required',
+        amount: 'required',
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { bookingId, bookingDate, bookingTime, amount } = req.body;
+      const providerId = req.auth.id;
+
+      const booking = await bookings.findOne({ where: { id: bookingId, providerId: providerId } });
+      if (!booking) return helper.failed(res, 'Booking not found or not authorized');
+
+      if (booking.bookingStatus !== 'pending') {
+        return helper.failed(res, 'Can only counter offer on pending bookings');
+      }
+
+      if (booking.counterDate) {
+        return helper.failed(res, 'Counter offer already sent');
+      }
+
+      await booking.update({
+        counterStatus: 'pending',
+        counterDate: bookingDate,
+        counterTime: bookingTime,
+        counterPrice: amount
+      });
+
+      await sendBookingNotification(
+        booking.userId,
+        providerId,
+        'Booking Counter Offer',
+        `Your booking #${booking.bookingNumber} received a counter offer of $${amount} for ${bookingDate} at ${bookingTime}`,
+        booking.id
+      );
+
+      return helper.success(res, 'Counter offer sent successfully', booking);
+    } catch (error) {
+      console.log("providerCounterOffer error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  userRespondToCounterOffer: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        bookingId: 'required',
+        status: 'required|in:accepted,reject'
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { bookingId, status } = req.body;
+      const userId = req.auth.id;
+
+      const booking = await bookings.findOne({ where: { id: bookingId, userId: userId } });
+      if (!booking) return helper.failed(res, 'Booking not found or not authorized');
+
+      if (!booking.counterDate) {
+        return helper.failed(res, 'No counter offer available to respond to');
+      }
+
+      if (booking.counterStatus !== 'pending') {
+        return helper.failed(res, 'Counter offer has already been responded to');
+      }
+
+      const finalStatus = status === 'reject' ? 'cancelled' : 'accepted';
+      const counterStatusFinal = status === 'reject' ? 'rejected' : 'accepted';
+
+      const updateData = {
+        bookingStatus: finalStatus,
+        counterStatus: counterStatusFinal
+      };
+
+      if (status === 'accepted') {
+        updateData.bookingDate = booking.counterDate;
+        updateData.bookingTime = booking.counterTime;
+        updateData.amount = booking.counterPrice;
+      }
+
+      await booking.update(updateData);
+
+      await sendBookingNotification(
+        booking.providerId,
+        userId,
+        'Counter Offer ' + finalStatus,
+        `Your counter offer for booking #${booking.bookingNumber} was ${finalStatus}`,
+        booking.id
+      );
+
+      return helper.success(res, `Counter offer ${finalStatus} successfully`, booking);
+    } catch (error) {
+      console.log("userRespondToCounterOffer error:", error);
       return helper.error(res, 'Something went wrong');
     }
   },
@@ -252,7 +432,7 @@ module.exports = {
 
         // optional: refine with status
         whereClause.bookingStatus = {
-          [Op.in]: ['accepted', 'in_progress']
+          [Op.in]: ['pending', 'accepted', 'in_progress']
         };
       }
 

@@ -92,7 +92,7 @@ module.exports = {
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl"],
+            attributes: ["id", "mediaUrl", "type"],
             required: false,
           }
         ],
@@ -330,7 +330,7 @@ module.exports = {
       return helper.error(res, 'Something went wrong');
     }
   },
-  
+
 
 
 };

@@ -15,18 +15,7 @@ module.exports = function (sequelize, DataTypes) {
         key: 'id'
       }
     },
-    categoryId: {
-      type: DataTypes.BIGINT,
-      allowNull: true,
-      references: {
-        model: 'services_categories',
-        key: 'id'
-      }
-    },
-    postType: {
-      type: DataTypes.ENUM('video', 'photo', 'text'),
-      allowNull: false
-    },
+
     caption: {
       type: DataTypes.TEXT,
       allowNull: true
@@ -35,18 +24,39 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.TEXT,
       allowNull: true
     },
-    media: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
+
     status: {
       type: DataTypes.ENUM('active', 'reported', 'deleted'),
       allowNull: true,
       defaultValue: "active"
     },
     type: {
-      type: DataTypes.ENUM("publish", "scheduled"),
+      type: DataTypes.ENUM("publish", "scheduled", "draft"),
       defaultValue: "publish"
+    },
+    location: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    latitude: {
+      type: DataTypes.DECIMAL(10, 8),
+      allowNull: true
+    },
+    longitude: {
+      type: DataTypes.DECIMAL(11, 8),
+      allowNull: true
+    },
+    allowComments: {
+      type: DataTypes.ENUM('on', 'off'),
+      defaultValue: 'on'
+    },
+    allowShares: {
+      type: DataTypes.ENUM('on', 'off'),
+      defaultValue: 'on'
+    },
+    saveToProfile: {
+      type: DataTypes.ENUM('on', 'off'),
+      defaultValue: 'off'
     },
 
     date: {

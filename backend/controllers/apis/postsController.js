@@ -7,7 +7,7 @@ const { users, posts, post_likes, post_comments, comment_likes, services_categor
 
 module.exports = {
 
-  createPost: async (req, res) => {
+  createPostOld: async (req, res) => {
     try {
       const v = new Validator(req.body, {
         postType: "required|in:video,photo,text",
@@ -92,6 +92,116 @@ module.exports = {
       return helper.error(res, "Something went wrong");
     }
   },
+  createPost: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        caption: "required|string",
+        type: "required|in:publish,scheduled,draft",
+        allowComments: "required|in:on,off",
+        allowShares: "required|in:on,off",
+        saveToProfile: "required|in:on,off",
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      console.log(req.body, "Request Body");
+
+      const {
+        caption,
+        video,
+        images,
+        type,
+        location,
+        latitude,
+        longitude,
+        allowComments,
+        allowShares,
+        saveToProfile,
+      } = req.body;
+
+      // Create Post
+      const post = await posts.create({
+        userId: req.auth.id,
+        caption,
+        type,
+        location: location || null,
+        allowComments: allowComments ?? "on",
+        allowShares: allowShares ?? "on",
+        saveToProfile: saveToProfile ?? "off",
+        latitude,
+        longitude,
+      });
+
+      const mediaRecords = [];
+
+      // Add Video
+      if (video) {
+        mediaRecords.push({
+          postId: post.id,
+          mediaUrl: video,
+          type: "video",
+        });
+      }
+
+      // Add Images
+      if (images) {
+        let imageArray = images;
+
+        // Parse if images is a JSON string
+        if (typeof images === "string") {
+          try {
+            imageArray = JSON.parse(images);
+          } catch (err) {
+            return helper.failed(res, "Invalid images format");
+          }
+        }
+
+        // If single image is sent
+        if (!Array.isArray(imageArray)) {
+          imageArray = [imageArray];
+        }
+
+        imageArray.forEach((img) => {
+          mediaRecords.push({
+            postId: post.id,
+            mediaUrl: img,
+            type: "image",
+          });
+        });
+      }
+
+      // Insert all media
+      if (mediaRecords.length > 0) {
+        await post_media.bulkCreate(mediaRecords);
+      }
+
+      // Fetch created post with media
+      const postWithMedia = await posts.findOne({
+        where: { id: post.id },
+        include: [
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type"],
+          },
+        ],
+      });
+
+      return helper.success(
+        res,
+        type === "publish"
+          ? "Post published successfully"
+          : type === "draft"
+            ? "Draft saved successfully"
+            : "Post scheduled successfully",
+        postWithMedia
+      );
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, "Something went wrong");
+    }
+  },
   getPosts: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -164,16 +274,11 @@ module.exports = {
               ],
             ],
           },
-          {
-            model: services_categories,
-            as: "category",
-            attributes: ["id", "categoryName"],
-            required: false,
-          },
+
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl"],
+            attributes: ["id", "mediaUrl", "type"],
             required: false,
           }
         ],
@@ -278,16 +383,11 @@ module.exports = {
               "profileImageProvider",
             ],
           },
-          {
-            model: services_categories,
-            as: "category",
-            attributes: ["id", "categoryName"],
-            required: false,
-          },
+
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl"],
+            attributes: ["id", "mediaUrl", "type"],
             required: false,
           },
         ],

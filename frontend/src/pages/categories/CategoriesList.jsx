@@ -37,6 +37,7 @@ const CategoriesList = () => {
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('system'); // system | custom
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(null);
   const [modal, setModal] = useState(false);
@@ -49,14 +50,18 @@ const CategoriesList = () => {
   const [previewTitle, setPreviewTitle] = useState('');
   const fileInputRef = useRef(null);
 
+  const [approveModal, setApproveModal] = useState(null);
+  const [approveImage, setApproveImage] = useState(null);
+  const approveFileInputRef = useRef(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { payload } = await dispatch(get_categories({ page, limit: 10, search }));
+      const { payload } = await dispatch(get_categories({ page, limit: 10, search, type: activeTab }));
       if (payload) setData(payload);
     } catch { toast.error('Failed to load categories'); }
     finally { setLoading(false); }
-  }, [dispatch, page, search]);
+  }, [dispatch, page, search, activeTab]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -148,6 +153,34 @@ const CategoriesList = () => {
     }
   };
 
+  const handleApprovalStatusChange = (cat, status) => {
+    if (status === 'approved' && !cat.image) {
+      setApproveModal(cat);
+      setApproveImage(null);
+    } else {
+      handleApprovalStatus(cat.id, status);
+    }
+  };
+
+  const handleApprovalStatus = async (id, status, file = null) => {
+    setStatusLoading(id);
+    try {
+      const fd = new FormData();
+      fd.append('approvalStatus', status);
+      if (file) fd.append('image', file);
+
+      await apiInstance.put(`/categories/${id}`, fd);
+      toast.success(`Category marked as ${status}`);
+      setApproveModal(null);
+      setApproveImage(null);
+      fetchData(); // Refresh list to get new image
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update approval status');
+    } finally {
+      setStatusLoading(null);
+    }
+  };
+
   const modalSurfaceStyle = {
     background: '#fff',
     color: '#111827',
@@ -173,15 +206,33 @@ const CategoriesList = () => {
       />
 
       <TableCard>
+        <div style={{ padding: '0 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '24px' }}>
+          {['system', 'custom'].map((tab) => (
+            <div
+              key={tab}
+              onClick={() => { setActiveTab(tab); setPage(1); }}
+              style={{
+                padding: '16px 0',
+                cursor: 'pointer',
+                fontWeight: activeTab === tab ? '600' : '500',
+                color: activeTab === tab ? '#2563eb' : '#6b7280',
+                borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent',
+                textTransform: 'capitalize'
+              }}
+            >
+              {tab} Categories
+            </div>
+          ))}
+        </div>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
           <SearchBar value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search categories..." />
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <TableHead columns={['#', 'Image', 'Category Name', 'Status', 'Created', 'Actions']} />
+            <TableHead columns={activeTab === 'custom' ? ['#', 'Image', 'Description', 'Category Name', 'Status', 'Created', 'Actions'] : ['#', 'Image', 'Category Name', 'Status', 'Created', 'Actions']} />
             <tbody>
-              {loading && <LoadingRow cols={6} />}
-              {!loading && !data.list?.length && <EmptyRow cols={6} message="No categories found" />}
+              {loading && <LoadingRow cols={activeTab === 'custom' ? 7 : 6} />}
+              {!loading && !data.list?.length && <EmptyRow cols={activeTab === 'custom' ? 7 : 6} message="No categories found" />}
               {!loading && data.list?.map((cat, i) => (
                 <tr key={cat.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '14px 16px', color: '#9ca3af', fontSize: '13px' }}>{(page - 1) * 10 + i + 1}</td>
@@ -202,28 +253,73 @@ const CategoriesList = () => {
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '14px 16px', fontWeight: '600', color: '#111827', fontSize: '14px' }}>{cat.categoryName}</td>
-                  <td style={{ padding: '14px 16px' }}>
-                    {statusLoading === cat.id ? (
-                      <div
-                        className="spinner-border spinner-border-sm text-primary"
-                        role="status"
+                  {activeTab === 'custom' && (
+                    <td style={{ padding: '14px 16px' }}>
+                      <textarea
+                        readOnly
+                        value={cat.description || 'No description provided'}
+                        style={{ width: '150px', height: '50px', padding: '8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', resize: 'none', background: '#f9fafb', color: '#6b7280' }}
                       />
-                    ) : (
-                      <div
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => handleToggle(cat.id, cat.status)}
-                      >
-                        <StatusBadge
-                          status={cat.status ? 'active' : 'inactive'}
-                        />
+                    </td>
+                  )}
+                  <td style={{ padding: '14px 16px', fontWeight: '600', color: '#111827', fontSize: '14px' }}>
+                    {cat.categoryName}
+                    {activeTab === 'custom' && cat.user && (
+                      <div style={{ fontSize: '12px', fontWeight: 'normal', color: '#6b7280', marginTop: '4px' }}>
+                        Added by: {cat.user.name || cat.user.email}
                       </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '14px 16px' }}>
+                    {activeTab === 'custom' ? (
+                      statusLoading === cat.id ? (
+                        <div className="spinner-border spinner-border-sm text-primary" role="status" />
+                      ) : (
+                        <select
+                          value={cat.approvalStatus || 'pending'}
+                          disabled={cat.approvalStatus === 'approved' || cat.approvalStatus === 'disapproved'}
+                          onChange={(e) => handleApprovalStatusChange(cat, e.target.value)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '13px',
+                            background: cat.approvalStatus === 'approved' ? '#d1fae5' : cat.approvalStatus === 'disapproved' ? '#fee2e2' : '#fff',
+                            color: cat.approvalStatus === 'approved' ? '#065f46' : cat.approvalStatus === 'disapproved' ? '#991b1b' : '#374151',
+                            fontWeight: '600',
+                            cursor: (cat.approvalStatus === 'approved' || cat.approvalStatus === 'disapproved') ? 'not-allowed' : 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="disapproved">Disapproved</option>
+                        </select>
+                      )
+                    ) : (
+                      statusLoading === cat.id ? (
+                        <div
+                          className="spinner-border spinner-border-sm text-primary"
+                          role="status"
+                        />
+                      ) : (
+                        <div
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => handleToggle(cat.id, cat.status)}
+                        >
+                          <StatusBadge
+                            status={cat.status ? 'active' : 'inactive'}
+                          />
+                        </div>
+                      )
                     )}
                   </td>
                   <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(cat.createdAt)}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      <ActionBtn icon="edit" color="#f97316" title="Edit" onClick={() => openModal(cat)} />
+                      {activeTab !== 'custom' && (
+                        <ActionBtn icon="edit" color="#f97316" title="Edit" onClick={() => openModal(cat)} />
+                      )}
                       <ActionBtn icon="delete" color="#ef4444" title="Delete" onClick={() => handleDelete(cat.id)} />
                     </div>
                   </td>
@@ -282,6 +378,50 @@ const CategoriesList = () => {
           </div>
         </div>
       )}
+
+      {approveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={modalSurfaceStyle}>
+            <h6 style={{ margin: '0 0 8px', fontWeight: '700', color: '#111827', fontSize: '18px' }}>
+              Approve "{approveModal.categoryName}"
+            </h6>
+            <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#6b7280' }}>
+              You must upload an image to approve this custom category.
+            </p>
+
+            <div style={{ marginBottom: '20px' }}>
+              <input ref={approveFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) setApproveImage(file);
+              }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => approveFileInputRef.current?.click()}
+                  style={{ ...btnBlueOutline, padding: '9px 16px' }}
+                >
+                  <i className="material-icons" style={{ fontSize: '18px' }}>image</i>
+                  Choose image
+                </button>
+                {approveImage && (
+                  <img src={URL.createObjectURL(approveImage)} alt="Preview" style={{ width: '56px', height: '56px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => { setApproveModal(null); setApproveImage(null); }} style={{ padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: '10px', background: '#fff', cursor: 'pointer', fontSize: '14px', color: '#374151', fontWeight: '500' }}>Cancel</button>
+              <button type="button" onClick={() => {
+                if (!approveImage) return toast.error('Please select an image first.');
+                handleApprovalStatus(approveModal.id, 'approved', approveImage);
+              }} disabled={statusLoading === approveModal.id} style={{ ...btnBlue, opacity: (statusLoading === approveModal.id) ? 0.7 : 1 }}>
+                {statusLoading === approveModal.id ? 'Approving...' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ImageModal
         src={previewImage}
         alt={previewTitle}

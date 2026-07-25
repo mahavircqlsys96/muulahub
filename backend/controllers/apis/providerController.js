@@ -326,6 +326,40 @@ module.exports = {
     }
   },
 
+  addProviderCategory: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        categoryName: 'required',
+        // description: 'required',
+      });
+      const matched = await v.check();
+      if (!matched) {
+        return helper.failed(res, v.errors);
+      }
 
+      const { categoryName, description } = req.body;
+      const userId = req.auth.id;
+
+      const newCategory = await services_categories.create({
+        categoryName,
+        description: description || "",
+        approvalStatus: 'pending',
+        userId: userId,
+        status: 0,
+      });
+
+      if (newCategory) {
+        await db.provider_categories.create({
+          providerId: userId,
+          categoryId: newCategory.id
+        });
+      }
+
+      return helper.success(res, "Category added successfully. Waiting for admin approval.", newCategory);
+    } catch (error) {
+      console.log("addProviderCategory error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
 
 };

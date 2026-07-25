@@ -49,6 +49,19 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0.00
     },
+    counterDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true
+    },
+    counterTime: {
+      type: DataTypes.TIME,
+      allowNull: true
+    },
+    counterPrice: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0.00
+    },
     paymentStatus: {
       type: DataTypes.ENUM('pending', 'paid', 'failed'),
       allowNull: true,
@@ -58,6 +71,23 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.ENUM('pending', 'accepted', 'completed', 'cancelled', 'reject'),
       allowNull: true,
       defaultValue: "pending"
+    },
+    counterStatus: {
+      type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
+      allowNull: true,
+      defaultValue: "pending"
+    },
+    location: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    latitude: {
+      type: DataTypes.DECIMAL(10, 8),
+      allowNull: true
+    },
+    longitude: {
+      type: DataTypes.DECIMAL(11, 8),
+      allowNull: true
     }
   }, {
     sequelize,

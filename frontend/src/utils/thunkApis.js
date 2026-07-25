@@ -91,8 +91,10 @@ export const get_reports = createAsyncThunk("fetch/get_reports", async ({ page, 
   return response?.data?.body;
 });
 
-export const get_categories = createAsyncThunk("fetch/get_categories", async ({ page, limit, search }) => {
-  const response = await apiInstance.get(`/categories?page=${page}&limit=${limit}&search=${search || ""}`);
+export const get_categories = createAsyncThunk("fetch/get_categories", async ({ page, limit, search, type }) => {
+  let url = `/categories?page=${page}&limit=${limit}&search=${search || ""}`;
+  if (type) url += `&type=${type}`;
+  const response = await apiInstance.get(url);
   return response?.data?.body;
 });
 

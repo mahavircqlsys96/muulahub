@@ -57,6 +57,7 @@ module.exports = (io) => {
   router.get('/getProviderProfile', providerController.getProviderProfile);
   router.get('/getProvidersList', providerController.getProvidersList);
   router.get('/providerDetail/:id', providerController.providerDetail);
+  router.post('/addProviderCategory', providerController.addProviderCategory);
 
   // Posts
   router.post('/createPost', postsController.createPost);
@@ -72,6 +73,9 @@ module.exports = (io) => {
 
   // Bookings
   router.post('/createBooking', bookingController.createBooking);
+  router.post('/acceptRejectRequest', bookingController.acceptRejectRequest);
+  router.post('/providerCounterOffer', bookingController.providerCounterOffer);
+  router.post('/userRespondToCounterOffer', bookingController.userRespondToCounterOffer);
   router.post('/payBooking', bookingController.payBooking);
   router.get('/getUserBookings', bookingController.getUserBookings);
   router.get('/getProviderBookings', bookingController.getProviderBookings);

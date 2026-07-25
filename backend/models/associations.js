@@ -26,10 +26,16 @@ module.exports = (db) => {
     services_categories.hasMany(services, { foreignKey: 'categoryId', as: 'services' });
   }
 
-  // Posts <-> Categories
-  if (posts && services_categories) {
-    posts.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+  // Users <-> Categories
+  if (users && services_categories) {
+    services_categories.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(services_categories, { foreignKey: 'userId', as: 'categories' });
   }
+
+  // Posts <-> Categories
+  // if (posts && services_categories) {
+  //   posts.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+  // }
 
   // Bookings
   if (bookings && users) {

@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('post_media', {
     id: {
       autoIncrement: true,
@@ -17,7 +17,11 @@ module.exports = function(sequelize, DataTypes) {
     },
     mediaUrl: {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true
+    },
+    type: {
+      type: DataTypes.ENUM('video', 'photo'),
+      allowNull: true
     }
   }, {
     sequelize,
