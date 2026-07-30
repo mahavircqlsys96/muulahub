@@ -15,6 +15,10 @@ module.exports = function (sequelize, DataTypes) {
         key: 'id'
       }
     },
+    categoryId: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
 
     caption: {
       type: DataTypes.TEXT,

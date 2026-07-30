@@ -326,9 +326,10 @@ module.exports = {
 
       if (Array.isArray(categoryIds) && categoryIds.length > 0) {
         await user_categories.bulkCreate(
-          categoryIds.map((categoryId) => ({
+          categoryIds.map((categoryId, index) => ({
             userId: req.auth.id,
             categoryId,
+            isPrimary: index === 0 ? 1 : 0
           }))
         );
       }
@@ -419,9 +420,10 @@ module.exports = {
 
       if (Array.isArray(categoryIds) && categoryIds.length > 0) {
         await provider_categories.bulkCreate(
-          categoryIds.map((categoryId) => ({
+          categoryIds.map((categoryId, index) => ({
             providerId: req.auth.id,
             categoryId,
+            isPrimary: index === 0 ? 1 : 0
           }))
         );
       }
@@ -683,32 +685,54 @@ module.exports = {
       ========================= */
       if (Array.isArray(categoryIds)) {
 
+        const stringCategoryIds = categoryIds.map(id => id.toString());
+
         if (req.auth.currentMode === "user") {
+          const existingCategories = await user_categories.findAll({ where: { userId } });
+          const existingPrimary = existingCategories.find(c => c.isPrimary === 1);
+
+          let primaryCategoryId = stringCategoryIds[0];
+          if (existingPrimary && stringCategoryIds.includes(existingPrimary.categoryId.toString())) {
+            primaryCategoryId = existingPrimary.categoryId.toString();
+          } else {
+            primaryCategoryId = stringCategoryIds[Math.floor(Math.random() * stringCategoryIds.length)];
+          }
 
           await user_categories.destroy({
             where: { userId }
           });
 
-          if (categoryIds.length > 0) {
+          if (stringCategoryIds.length > 0) {
             await user_categories.bulkCreate(
-              categoryIds.map(categoryId => ({
+              stringCategoryIds.map((categoryId) => ({
                 userId,
-                categoryId
+                categoryId,
+                isPrimary: categoryId.toString() === primaryCategoryId ? 1 : 0
               }))
             );
           }
 
         } else if (req.auth.currentMode === "provider") {
+          const existingCategories = await provider_categories.findAll({ where: { providerId: userId } });
+          const existingPrimary = existingCategories.find(c => c.isPrimary === 1);
+
+          let primaryCategoryId = stringCategoryIds[0];
+          if (existingPrimary && stringCategoryIds.includes(existingPrimary.categoryId.toString())) {
+            primaryCategoryId = existingPrimary.categoryId.toString();
+          } else {
+            primaryCategoryId = stringCategoryIds[Math.floor(Math.random() * stringCategoryIds.length)];
+          }
 
           await provider_categories.destroy({
             where: { providerId: userId }
           });
 
-          if (categoryIds.length > 0) {
+          if (stringCategoryIds.length > 0) {
             await provider_categories.bulkCreate(
-              categoryIds.map(categoryId => ({
+              stringCategoryIds.map((categoryId) => ({
                 providerId: userId,
-                categoryId
+                categoryId,
+                isPrimary: categoryId.toString() === primaryCategoryId ? 1 : 0
               }))
             );
           }
@@ -764,6 +788,105 @@ module.exports = {
     } catch (error) {
       console.error("EDIT PROFILE ERROR:", error);
       return helper.error(res, error);
+    }
+  },
+  makeCategoryPrimary: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        categoryId: "required"
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const userId = req.auth.id;
+      const { categoryId } = req.body;
+
+      if (req.auth.currentMode === "user") {
+        await user_categories.update({ isPrimary: 0 }, { where: { userId } });
+        const updated = await user_categories.update({ isPrimary: 1 }, { where: { userId, categoryId } });
+        if (updated[0] === 0) {
+          return helper.failed(res, "Category not found in your selected categories");
+        }
+      } else {
+        await provider_categories.update({ isPrimary: 0 }, { where: { providerId: userId } });
+        const updated = await provider_categories.update({ isPrimary: 1 }, { where: { providerId: userId, categoryId } });
+        if (updated[0] === 0) {
+          return helper.failed(res, "Category not found in your selected categories");
+        }
+      }
+      return helper.success(res, "Primary category updated successfully");
+    } catch (err) {
+      console.log(err);
+      return helper.error(res, err);
+    }
+  },
+  updateCategories: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        categoryIds: "required"
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const userId = req.auth.id;
+      let { categoryIds } = req.body;
+
+      if (typeof categoryIds === "string") {
+        categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+      }
+
+      if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+        return helper.failed(res, "Invalid categoryIds format or empty list");
+      }
+
+      categoryIds = categoryIds.map(id => id.toString());
+
+      if (req.auth.currentMode === "user") {
+        const existingCategories = await user_categories.findAll({ where: { userId } });
+        const existingPrimary = existingCategories.find(c => c.isPrimary === 1);
+
+        let primaryCategoryId = categoryIds[0];
+        if (existingPrimary && categoryIds.includes(existingPrimary.categoryId.toString())) {
+          primaryCategoryId = existingPrimary.categoryId.toString();
+        } else {
+          primaryCategoryId = categoryIds[Math.floor(Math.random() * categoryIds.length)];
+        }
+
+        await user_categories.destroy({ where: { userId } });
+        await user_categories.bulkCreate(
+          categoryIds.map((categoryId) => ({
+            userId,
+            categoryId,
+            isPrimary: categoryId.toString() === primaryCategoryId ? 1 : 0
+          }))
+        );
+      } else {
+        const existingCategories = await provider_categories.findAll({ where: { providerId: userId } });
+        const existingPrimary = existingCategories.find(c => c.isPrimary === 1);
+
+        let primaryCategoryId = categoryIds[0];
+        if (existingPrimary && categoryIds.includes(existingPrimary.categoryId.toString())) {
+          primaryCategoryId = existingPrimary.categoryId.toString();
+        } else {
+          primaryCategoryId = categoryIds[Math.floor(Math.random() * categoryIds.length)];
+        }
+
+        await provider_categories.destroy({ where: { providerId: userId } });
+        await provider_categories.bulkCreate(
+          categoryIds.map((categoryId) => ({
+            providerId: userId,
+            categoryId,
+            isPrimary: categoryId.toString() === primaryCategoryId ? 1 : 0
+          }))
+        );
+      }
+
+      return helper.success(res, "Categories updated successfully");
+    } catch (err) {
+      console.log(err);
+      return helper.error(res, err);
     }
   },
   changePassword: async (req, res) => {
@@ -828,7 +951,7 @@ module.exports = {
       if (user.currentMode === "provider") {
         categoryData = await provider_categories.findAll({
           where: { userId: user.id },
-          attributes: ["id", "categoryId"],
+          attributes: ["id", "categoryId", "isPrimary"],
           include: [
             {
               model: services_categories,
@@ -841,7 +964,7 @@ module.exports = {
       } else {
         categoryData = await user_categories.findAll({
           where: { userId: user.id },
-          attributes: ["id", "categoryId"],
+          attributes: ["id", "categoryId", "isPrimary"],
           include: [
             {
               model: services_categories,
@@ -1412,9 +1535,37 @@ module.exports = {
   },
   categoryList: async (req, res) => {
     try {
+      let userId = null;
+      if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+        const token = req.headers.authorization.split(" ")[1];
+        try {
+          const payload = jwt.verify(token, envfile.crypto_key);
+          userId = payload?.data?.id;
+        } catch (e) { }
+      }
+
+      let whereCondition;
+      if (userId) {
+        whereCondition = {
+          [Op.or]: [
+            {
+              status: 1,
+              approvalStatus: 'approved'
+            },
+            {
+              userId: userId
+            }
+          ]
+        };
+      } else {
+        whereCondition = {
+          status: 1,
+          approvalStatus: 'approved'
+        };
+      }
 
       const categories = await services_categories.findAll({
-        where: { status: 1, approvalStatus: 'approved' },
+        where: whereCondition,
         order: [['categoryName', 'ASC']]
       });
       return helper.success(res, 'Categories fetched', categories);

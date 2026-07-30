@@ -28,6 +28,7 @@ module.exports = (io) => {
   router.post('/socialLogin', authController.socialLogin);
   router.get('/categoryList', authController.categoryList);
   // ─── JWT Auth ───
+  router.get('/home', userController.home);
   router.use(authenticateJWT);
 
   // Auth
@@ -46,7 +47,8 @@ module.exports = (io) => {
   // User
   router.get('/getProfile', authController.getProfile);
   router.put('/editProfile', authController.editProfile);
-  router.get('/home', userController.home);
+  router.post('/makeCategoryPrimary', authController.makeCategoryPrimary);
+  router.post('/updateCategories', authController.updateCategories);
 
   router.post('/followUser', userController.followUser);
   router.get('/getFollowers', userController.getFollowers);

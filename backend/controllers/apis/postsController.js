@@ -96,6 +96,7 @@ module.exports = {
     try {
       const v = new Validator(req.body, {
         caption: "required|string",
+        categoryId: "required",
         type: "required|in:publish,scheduled,draft",
         allowComments: "required|in:on,off",
         allowShares: "required|in:on,off",
@@ -109,6 +110,8 @@ module.exports = {
 
       const {
         caption,
+        categoryId,
+        hashtags,
         video,
         images,
         type,
@@ -124,6 +127,8 @@ module.exports = {
       const post = await posts.create({
         userId: req.auth.id,
         caption,
+        categoryId,
+        hashtags: hashtags || null,
         type,
         location: location || null,
         allowComments: allowComments ?? "on",

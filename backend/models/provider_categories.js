@@ -22,6 +22,11 @@ module.exports = function(sequelize, DataTypes) {
         model: 'services_categories',
         key: 'id'
       }
+    },
+    isPrimary: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0
     }
   }, {
     sequelize,

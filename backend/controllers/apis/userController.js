@@ -14,10 +14,15 @@ module.exports = {
       const offset = (page - 1) * limit;
 
       const searchKey = req.query.searchKey || "";
+      const categoryId = req.query.categoryId;
 
       let whereCondition = {
         status: 'active',
       };
+
+      if (categoryId) {
+        whereCondition.categoryId = categoryId;
+      }
 
       // ✅ Add search filter
       if (searchKey.trim()) {
@@ -77,6 +82,7 @@ module.exports = {
           {
             model: users,
             as: 'user',
+            where: { isProvider: 1 },
             attributes: [
               'id', 'name', 'profileImage',
               [

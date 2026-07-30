@@ -18,6 +18,11 @@ module.exports = function (sequelize, DataTypes) {
     categoryId: {
       type: DataTypes.BIGINT,
       allowNull: false,
+    },
+    isPrimary: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0
     }
   }, {
     sequelize,
