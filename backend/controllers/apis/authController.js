@@ -283,7 +283,16 @@ module.exports = {
 
       // Convert string to array
       if (typeof categoryIds === "string") {
-        categoryIds = JSON.parse(categoryIds);
+        try {
+          let parsed = JSON.parse(categoryIds);
+          if (Array.isArray(parsed)) {
+            categoryIds = parsed;
+          } else {
+            categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+        } catch (e) {
+          categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+        }
       }
       const user = await users.findOne({
         where: {
@@ -380,15 +389,23 @@ module.exports = {
 
       // Convert string to array
       if (typeof categoryIds === "string") {
-        // categoryIds = JSON.parse(categoryIds);
-        categoryIds = categoryIds;
-
+        try {
+          let parsed = JSON.parse(categoryIds);
+          if (Array.isArray(parsed)) {
+            categoryIds = parsed;
+          } else {
+            categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+        } catch (e) {
+          categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+        }
       }
       if (typeof portfolio === "string") {
-
-        // portfolio = JSON.parse(portfolio);
-        portfolio = portfolio;
-
+        try {
+          portfolio = JSON.parse(portfolio);
+        } catch (e) {
+          portfolio = [];
+        }
       }
 
       const user = await users.findOne({
@@ -618,14 +635,20 @@ module.exports = {
       if (categoryIds) {
         try {
           if (typeof categoryIds === "string") {
-            categoryIds = JSON.parse(categoryIds);
-          }
-
-          if (!Array.isArray(categoryIds)) {
-            return helper.failed(res, "categoryIds must be an array");
+            let parsed = JSON.parse(categoryIds);
+            if (Array.isArray(parsed)) {
+              categoryIds = parsed;
+            } else {
+              categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+            }
           }
         } catch (err) {
-          return helper.failed(res, "Invalid categoryIds format");
+          if (typeof categoryIds === "string") {
+            categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+        }
+        if (!Array.isArray(categoryIds)) {
+          return helper.failed(res, "categoryIds must be an array");
         }
       }
 
@@ -834,7 +857,16 @@ module.exports = {
       let { categoryIds } = req.body;
 
       if (typeof categoryIds === "string") {
-        categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+        try {
+          let parsed = JSON.parse(categoryIds);
+          if (Array.isArray(parsed)) {
+            categoryIds = parsed;
+          } else {
+            categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+        } catch (e) {
+          categoryIds = categoryIds.split(',').map(id => id.trim()).filter(id => id);
+        }
       }
 
       if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
