@@ -33,8 +33,8 @@ const ProviderDetail = () => {
       const res = await apiInstance.get(`/providers/${id}`);
       const provData = res.data?.body;
       setProvider(provData);
-      if (provData?.providerCategories) {
-        setSelectedCategoryIds(provData.providerCategories.map(pc => pc.categoryId));
+      if (provData?.userCategories) {
+        setSelectedCategoryIds(provData.userCategories.map(pc => pc.categoryId));
       }
     } catch { toast.error('Failed to load provider'); }
     finally { setLoading(false); }

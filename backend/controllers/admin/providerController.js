@@ -2,7 +2,7 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
-const { users, services, provider_verifications, bookings, payments, notifications, provider_categories, services_categories, portfolio_images } = db;
+const { users, services, provider_verifications, bookings, payments, notifications, user_categories, services_categories, portfolio_images } = db;
 
 module.exports = {
 
@@ -67,8 +67,8 @@ module.exports = {
         attributes: { exclude: ['password', 'resetToken', 'resetTokenExpiry'] },
         include: [
           {
-            model: provider_categories,
-            as: 'providerCategories',
+            model: user_categories,
+            as: 'userCategories',
             include: [{ model: services_categories, as: 'category' }]
           },
           {
@@ -226,16 +226,16 @@ module.exports = {
       }
 
       // Delete existing categories
-      await provider_categories.destroy({ where: { providerId: id }, transaction: t });
+      await user_categories.destroy({ where: { userId: id }, transaction: t });
 
       // Insert new categories
       const categoriesData = categoryIds.map(categoryId => ({
-        providerId: id,
+        userId: id,
         categoryId
       }));
 
       if (categoriesData.length > 0) {
-        await provider_categories.bulkCreate(categoriesData, { transaction: t });
+        await user_categories.bulkCreate(categoriesData, { transaction: t });
       }
 
       await t.commit();

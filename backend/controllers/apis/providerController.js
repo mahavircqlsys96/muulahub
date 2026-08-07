@@ -194,8 +194,8 @@ module.exports = {
 
       if (categoryIds) {
         include.push({
-          model: db.provider_categories,
-          as: "providerCategories",
+          model: db.user_categories,
+          as: "userCategories",
           required: true,
           where: {
             categoryId: {
@@ -207,8 +207,8 @@ module.exports = {
         });
       } else {
         include.push({
-          model: db.provider_categories,
-          as: "providerCategories",
+          model: db.user_categories,
+          as: "userCategories",
           required: false
         });
       }
@@ -297,8 +297,8 @@ module.exports = {
         },
         include: [
           {
-            model: db.provider_categories,
-            as: "providerCategories",
+            model: db.user_categories,
+            as: "userCategories",
             required: false,
             include: [
               {
@@ -355,8 +355,8 @@ module.exports = {
       });
 
       if (newCategory) {
-        await db.provider_categories.create({
-          providerId: userId,
+        await db.user_categories.create({
+          userId: userId,
           categoryId: newCategory.id
         });
       }

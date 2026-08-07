@@ -3,9 +3,9 @@ module.exports = (db) => {
     users, services, services_categories, bookings, payments,
     posts, post_likes, post_comments, followers, notifications,
     provider_verifications, withdrawal_requests, reports,
-    provider_categories, disputes, wallet_transactions,
+    disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
-    comment_likes
+    comment_likes, user_categories
   } = db;
 
   // Users <-> Services (provider)
@@ -128,14 +128,14 @@ module.exports = (db) => {
     reports.belongsTo(users, { foreignKey: 'reportBy', as: 'reporter' });
   }
 
-  // Provider Categories
-  if (provider_categories && users) {
-    provider_categories.belongsTo(users, { foreignKey: 'providerId', as: 'provider' });
-    users.hasMany(provider_categories, { foreignKey: 'providerId', as: 'providerCategories' });
+  // User Categories
+  if (user_categories && users) {
+    user_categories.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(user_categories, { foreignKey: 'userId', as: 'userCategories' });
   }
-  if (provider_categories && services_categories) {
-    provider_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
-    services_categories.hasMany(provider_categories, { foreignKey: 'categoryId', as: 'providers' });
+  if (user_categories && services_categories) {
+    user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+    services_categories.hasMany(user_categories, { foreignKey: 'categoryId', as: 'users' });
   }
 
   // Disputes
