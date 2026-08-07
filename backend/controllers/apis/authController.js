@@ -970,7 +970,8 @@ module.exports = {
           "about",
           "hourlyPrice",
           "currency",
-          "referralCode"
+          "referralCode",
+          "isProvider"
         ]
       });
 
@@ -1287,6 +1288,39 @@ module.exports = {
       return helper.error(res, error);
     }
   },
+  isProviderOnOff: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        isProvider: "required|in:0,1",
+      });
+
+      let errorsResponse = await helper.checkValidation(v);
+      if (errorsResponse) return helper.failed(res, errorsResponse);
+
+      const update = await users.update({
+        isProvider: req.body.isProvider,
+        currentMode: req.body.isProvider == 1 ? 'provider' : 'user',
+      }, {
+        where: {
+          id: req.auth.id,
+        },
+        raw: true,
+      });
+      let updateduser = await users.findOne({
+        where: {
+          id: req.auth.id,
+        },
+        raw: true,
+        nest: true,
+      });
+      updateduser.password = undefined;
+      updateduser.otp = undefined;
+      return helper.success(res, "Provider status updated successfully", updateduser);
+    }
+    catch (error) {
+      return helper.error(res, error);
+    }
+  },
 
   getCms: async (req, res) => {
     try {
@@ -1577,24 +1611,28 @@ module.exports = {
       }
 
       let whereCondition;
-      if (userId) {
-        whereCondition = {
-          [Op.or]: [
-            {
-              status: 1,
-              approvalStatus: 'approved'
-            },
-            {
-              userId: userId
-            }
-          ]
-        };
-      } else {
-        whereCondition = {
-          status: 1,
-          approvalStatus: 'approved'
-        };
-      }
+      // if (userId) {
+      //   whereCondition = {
+      //     [Op.or]: [
+      //       {
+      //         status: 1,
+      //         approvalStatus: 'approved'
+      //       },
+      //       {
+      //         userId: userId
+      //       }
+      //     ]
+      //   };
+      // } else {
+      //   whereCondition = {
+      //     status: 1,
+      //     approvalStatus: 'approved'
+      //   };
+      // }
+      whereCondition = {
+        status: 1,
+        approvalStatus: 'approved'
+      };
 
       const categories = await services_categories.findAll({
         where: whereCondition,

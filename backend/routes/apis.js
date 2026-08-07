@@ -34,6 +34,7 @@ module.exports = (io) => {
   // Auth
   router.post('/logout', authController.logout);
   router.patch('/notificationOnOff', authController.notificationOnOff);
+  router.put('/isProviderOnOff', authController.isProviderOnOff);
   router.post('/completeProfile', authController.completeProfile);
   router.post('/completeProfileProvider', authController.completeProfileProvider);
   router.post('/verifyOtp', authController.verifyOtp);
