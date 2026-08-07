@@ -354,12 +354,7 @@ module.exports = {
         image
       });
 
-      if (newCategory) {
-        await db.user_categories.create({
-          userId: userId,
-          categoryId: newCategory.id
-        });
-      }
+      // Category is created as pending. User will select it from the list after it is approved by the admin.
 
       return helper.success(res, "Category added successfully. Waiting for admin approval.", newCategory);
     } catch (error) {
