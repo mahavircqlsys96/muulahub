@@ -983,7 +983,7 @@ module.exports = {
 
       if (user.currentMode === "provider") {
         categoryData = await provider_categories.findAll({
-          where: { userId: user.id },
+          where: { providerId: user.id },
           attributes: ["id", "categoryId", "isPrimary"],
           include: [
             {
