@@ -11,41 +11,41 @@ const menuSections = [
   {
     label: "MANAGEMENT",
     items: [
-      { to: "/usersList",   label: "Users",           icon: "people",                 activePaths: ["/usersView"] },
-      { to: "/providers",   label: "Providers",        icon: "verified_user",          activePaths: ["/providers/"] },
-      { to: "/categories",  label: "Service Categories",icon: "category" },
-      { to: "/bookings",    label: "Bookings",          icon: "event_available",       activePaths: ["/bookings/"] },
-      { to: "/disputes",    label: "Disputes",          icon: "gavel" },
-      { to: "/payments",    label: "Payments",          icon: "payments" },
-      { to: "/withdrawals", label: "Withdrawals",       icon: "account_balance_wallet" },
-      { to: "/wallets",     label: "Wallets",           icon: "account_balance" },
-      { to: "/locations",   label: "Locations",         icon: "public" },
+      { to: "/usersList", label: "Users", icon: "people", activePaths: ["/usersView"] },
+      // { to: "/providers",   label: "Providers",        icon: "verified_user",          activePaths: ["/providers/"] },
+      { to: "/categories", label: "Service Categories", icon: "category" },
+      { to: "/bookings", label: "Bookings", icon: "event_available", activePaths: ["/bookings/"] },
+      { to: "/disputes", label: "Disputes", icon: "gavel" },
+      { to: "/payments", label: "Payments", icon: "payments" },
+      { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet" },
+      { to: "/wallets", label: "Wallets", icon: "account_balance" },
+      { to: "/locations", label: "Locations", icon: "public" },
       { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
     ]
   },
   {
     label: "CONTENT",
     items: [
-      { to: "/posts",         label: "Posts",         icon: "photo_library" },
-      { to: "/reports",       label: "Reports",       icon: "flag" },
+      { to: "/posts", label: "Posts", icon: "photo_library" },
+      { to: "/reports", label: "Reports", icon: "flag" },
       { to: "/notifications", label: "Notifications", icon: "notifications" },
-      { to: "/contactUs",     label: "Support",       icon: "support_agent", activePaths: ["/viewContactUs"] },
+      { to: "/contactUs", label: "Support", icon: "support_agent", activePaths: ["/viewContactUs"] },
     ]
   },
   {
     label: "CMS PAGES",
     items: [
-      { to: "/about-us",      label: "About Us",            icon: "info" },
-      { to: "/privacy",       label: "Privacy Policy",      icon: "privacy_tip" },
-      { to: "/terms",         label: "Terms & Conditions",  icon: "gavel" },
-      { to: "/faqs",          label: "FAQs",                icon: "help_outline" },
+      { to: "/about-us", label: "About Us", icon: "info" },
+      { to: "/privacy", label: "Privacy Policy", icon: "privacy_tip" },
+      { to: "/terms", label: "Terms & Conditions", icon: "gavel" },
+      { to: "/faqs", label: "FAQs", icon: "help_outline" },
       { to: "/community-guidelines", label: "Community Guidelines", icon: "rule" }
     ]
   },
   {
     label: "MARKETING",
     items: [
-      { to: "/promo-codes",   label: "Promo Codes",   icon: "local_offer" },
+      { to: "/promo-codes", label: "Promo Codes", icon: "local_offer" },
     ]
   },
 ];

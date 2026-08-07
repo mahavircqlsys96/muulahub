@@ -15,8 +15,7 @@ module.exports = {
             const search = req.query.search || '';
             const offset = (page - 1) * limit;
             let role = req.query.role || 'user';
-            if (role === 'individual') role = 'user';
-            if (role === 'individuals') role = 'user';
+
             let whereClause = { role, deletedAt: null };
 
             if (search) {
@@ -192,7 +191,7 @@ module.exports = {
             if (!user_exists) {
                 return helper.failed(res, "Account not found")
             }
-            
+
             const newStatus = status || (user_exists.status === 'active' ? 'inactive' : 'active');
             await user_exists.update({ status: newStatus });
             return helper.success(res, "User status updated successfully")
