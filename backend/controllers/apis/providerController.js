@@ -340,12 +340,18 @@ module.exports = {
       const { categoryName, description } = req.body;
       const userId = req.auth.id;
 
+      let image = null;
+      if (req.files && req.files.image) {
+        image = await helper.fileUpload(req.files.image, 'categories');
+      }
+
       const newCategory = await services_categories.create({
         categoryName,
         description: description || "",
         approvalStatus: 'pending',
         userId: userId,
         status: 0,
+        image
       });
 
       if (newCategory) {

@@ -99,6 +99,9 @@ module.exports = {
           return helper.failed(res, 'An image is required to approve this custom category.');
         }
         updateData.approvalStatus = req.body.approvalStatus;
+        if (req.body.approvalStatus === 'approved') {
+          updateData.status = 1;
+        }
       }
 
       await category.update(updateData);
