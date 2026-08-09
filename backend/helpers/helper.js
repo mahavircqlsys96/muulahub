@@ -156,10 +156,10 @@ module.exports = {
       await new Promise((resolve) => {
         ffmpeg(filePath)
           .screenshots({
-            timestamps: ["00:00:01"],
+            timestamps: [0.1], // Safest to avoid short-video errors, fallback to 0 if needed
             filename: thumbnailName,
             folder: thumbnailDir,
-            size: "640x360",
+            // Removed size: "640x360" to prevent Parsed_scale_0 errors
           })
           .on("end", resolve)
           .on("error", (err) => {
