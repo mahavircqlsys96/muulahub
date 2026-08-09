@@ -147,34 +147,41 @@ module.exports = {
 
     // If video, generate thumbnail
     if (videoExtensions.includes(extension)) {
-      const thumbnailName =
-        path.basename(filename, extension) + ".jpg";
-
+      const thumbnailName = path.basename(filename, extension) + ".jpg";
       const thumbnailDir = uploadDir;
-      let isThumbnailGenerated = true;
+      const thumbnailPath = path.join(thumbnailDir, thumbnailName);
+      let isThumbnailGenerated = false;
 
-      await new Promise((resolve) => {
-        ffmpeg(filePath)
-          .seekInput(0.1) // Fast seek to 0.1 seconds
-          .frames(1) // Capture 1 frame
-          .output(path.join(thumbnailDir, thumbnailName))
-          .on("end", resolve)
-          .on("error", (err) => {
-            console.error("Thumbnail generation error:", err.message);
-            isThumbnailGenerated = false;
-            resolve(); // Gracefully resolve to continue upload process
-          })
-          .run();
-      });
+      try {
+        const { exec } = require('child_process');
+        await new Promise((resolve) => {
+          // Direct execution of ffmpeg binary bypassing fluent-ffmpeg filters
+          const cmd = `"${ffmpegPath}" -y -i "${filePath}" -ss 00:00:00.100 -vframes 1 "${thumbnailPath}"`;
+          exec(cmd, (error) => {
+            if (error) {
+              console.error("FFmpeg exec error:", error.message);
+            } else {
+              isThumbnailGenerated = true;
+            }
+            resolve();
+          });
+        });
+      } catch (err) {
+        console.error("Thumbnail generation error:", err);
+      }
 
-      const thumbnailUrl = isThumbnailGenerated 
-        ? `/images/${folder}/${thumbnailName}` 
-        : null;
-
-      return {
-        file: fileUrl,
-        thumbnail: thumbnailUrl,
-      };
+      const fs = require('fs');
+      if (isThumbnailGenerated && fs.existsSync(thumbnailPath)) {
+        return {
+          file: fileUrl,
+          thumbnail: `/images/${folder}/${thumbnailName}`,
+        };
+      } else {
+        return {
+          file: fileUrl,
+          thumbnail: null,
+        };
+      }
     }
 
     // Image / other file
