@@ -7,7 +7,6 @@
     "start": "nodemon ./muulahub.js"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.6",
@@ -20,7 +19,6 @@
     "express-fileupload": "^1.5.2",
     "file-extension": "^4.0.5",
     "firebase-admin": "^13.6.0",
-    "fluent-ffmpeg": "^2.1.3",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
     "jsonwebtoken": "^9.0.2",

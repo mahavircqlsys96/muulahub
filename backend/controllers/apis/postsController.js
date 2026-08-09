@@ -112,9 +112,6 @@ module.exports = {
         caption,
         categoryId,
         hashtags,
-        video,
-        thumbnail,
-        images,
         type,
         location,
         latitude,
@@ -122,8 +119,21 @@ module.exports = {
         allowComments,
         allowShares,
         saveToProfile,
-
+        images,
       } = req.body;
+
+      let videoUrl = req.body.video;
+      let thumbnailUrl = req.body.thumbnail;
+
+      // Check for file uploads
+      if (req.files) {
+        if (req.files.video) {
+          videoUrl = await helper.fileUpload(req.files.video, "posts");
+        }
+        if (req.files.thumbnail) {
+          thumbnailUrl = await helper.fileUpload(req.files.thumbnail, "posts");
+        }
+      }
 
       // Create Post
       const post = await posts.create({
@@ -143,12 +153,12 @@ module.exports = {
       const mediaRecords = [];
 
       // Add Video
-      if (video) {
+      if (videoUrl) {
         mediaRecords.push({
           postId: post.id,
-          mediaUrl: video,
+          mediaUrl: videoUrl,
           type: "video",
-          thumbnail: thumbnail || null,
+          thumbnail: thumbnailUrl || null,
         });
       }
 

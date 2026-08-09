@@ -1196,57 +1196,27 @@ module.exports = {
       return helper.error(res, error);
     }
   },
+
   fileUpload: async (req, res) => {
     try {
-      const folder = "users";
+      let folder = "users";
+      let fileData = null;
 
-      if (!req.files || !req.files.file) {
+      if (req.files && req.files.file) {
+        fileData = await helper.fileUpload(req.files.file, folder);
+      } else {
         return helper.failed(res, "No file uploaded");
       }
 
-      const fileData = await helper.fileUpload(
-        req.files.file,
-        folder
-      );
-
-      return helper.success(
-        res,
-        "File uploaded successfully",
-        {
-          file: fileData.file,
-          thumbnail: fileData.thumbnail,
-        }
-      );
+      return helper.success(res, "File uploaded successfully", {
+        file: fileData,
+      });
     } catch (error) {
-      console.log("File Upload Error:", error);
+      console.log(error);
 
-      return helper.error(
-        res,
-        "Error occurred during file upload"
-      );
+      return helper.error(res, "Error occurred during file upload");
     }
   },
-  // fileUpload: async (req, res) => {
-  //   try {
-  //     let folder = "users";
-  //     let fileData = null;
-
-  //     if (req.files && req.files.file) {
-  //       fileData = await helper.fileUpload(req.files.file, folder);
-  //     } else {
-  //       return helper.failed(res, "No file uploaded");
-  //     }
-
-  //     return helper.success(res, "File uploaded successfully", {
-  //       file: fileData,
-  //     });
-  //   } catch (error) {
-  //     console.log(error);
-
-  //     return helper.error(res, "Error occurred during file upload");
-  //   }
-  // },
-  ////////
   notificationOnOff: async (req, res) => {
     try {
       const v = new Validator(req.body, {

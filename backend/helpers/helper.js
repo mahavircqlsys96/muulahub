@@ -14,11 +14,7 @@ const client = twilio(accountSid, authToken);
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
 let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = require("@ffmpeg-installer/ffmpeg").path;
-
-ffmpeg.setFfmpegPath(ffmpegPath);
-// + 1 227 257 3061
+// Removed ffmpeg
 module.exports = {
   sendPushNotification: async (notificationData) => {
     try {
@@ -97,114 +93,22 @@ module.exports = {
     }
   },
 
+
   fileUpload: async (file, folder) => {
-    if (!file) {
-      return null;
-    }
-
-    const uploadDir = path.join(
-      process.cwd(),
-      "public",
-      "images",
-      folder
-    );
-
-    // Create folder if not exists
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, {
-        recursive: true,
-      });
-    }
-
-    const extension = path.extname(file.name).toLowerCase();
-    const filename = uuid() + extension;
-
-    const filePath = path.join(uploadDir, filename);
-
-    // Upload file
-    await new Promise((resolve, reject) => {
-      file.mv(filePath, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
+    if (file) {
+      var extension = path.extname(file.name);
+      var filename = uuid() + extension;
+      file.mv(
+        process.cwd() + `/public/images/${folder}/` + filename,
+        function (err) {
+          if (err) return err;
         }
-      });
-    });
-
-    const fileUrl = `/images/${folder}/${filename}`;
-
-    // Video extensions
-    const videoExtensions = [
-      ".mp4",
-      ".mov",
-      ".avi",
-      ".mkv",
-      ".webm",
-      ".m4v",
-      ".flv",
-    ];
-
-    // If video, generate thumbnail
-    if (videoExtensions.includes(extension)) {
-      const thumbnailName = path.basename(filename, extension) + ".jpg";
-      const thumbnailDir = uploadDir;
-      const thumbnailPath = path.join(thumbnailDir, thumbnailName);
-      let isThumbnailGenerated = false;
-
-      try {
-        const { exec } = require('child_process');
-        await new Promise((resolve) => {
-          // Direct execution of ffmpeg binary bypassing fluent-ffmpeg filters
-          const cmd = `"${ffmpegPath}" -y -i "${filePath}" -ss 00:00:00.100 -vframes 1 "${thumbnailPath}"`;
-          exec(cmd, (error) => {
-            if (error) {
-              console.error("FFmpeg exec error:", error.message);
-            } else {
-              isThumbnailGenerated = true;
-            }
-            resolve();
-          });
-        });
-      } catch (err) {
-        console.error("Thumbnail generation error:", err);
-      }
-
-      const fs = require('fs');
-      if (isThumbnailGenerated && fs.existsSync(thumbnailPath)) {
-        return {
-          file: fileUrl,
-          thumbnail: `/images/${folder}/${thumbnailName}`,
-        };
-      } else {
-        return {
-          file: fileUrl,
-          thumbnail: null,
-        };
-      }
+      );
     }
 
-    // Image / other file
-    return {
-      file: fileUrl,
-      thumbnail: null,
-    };
+    let fullpath = `/images/${folder}/` + filename
+    return fullpath;
   },
-  // fileUpload: async (file, folder) => {
-  //   if (file) {
-  //     var extension = path.extname(file.name);
-  //     var filename = uuid() + extension;
-  //     file.mv(
-  //       process.cwd() + `/public/images/${folder}/` + filename,
-  //       function (err) {
-  //         if (err) return err;
-  //       }
-  //     );
-  //   }
-
-  //   let fullpath = `/images/${folder}/` + filename
-  //   return fullpath;
-  // },
   success: function (res, message, body = {}, code = 200) {
     return res.status(code).json({
       success: true,
