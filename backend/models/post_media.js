@@ -22,6 +22,11 @@ module.exports = function (sequelize, DataTypes) {
     type: {
       type: DataTypes.ENUM('video', 'photo'),
       allowNull: true
+    },
+    thumbnail: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'only for videos'
     }
   }, {
     sequelize,

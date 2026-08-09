@@ -118,6 +118,22 @@ module.exports = {
         deviceType: deviceType
       });
 
+      let categoryData = [];
+
+      categoryData = await user_categories.findAll({
+        where: { userId: user.id },
+        attributes: ["id", "categoryId", "isPrimary"],
+        include: [
+          {
+            model: services_categories,
+            as: "categories",
+            attributes: ["id", "categoryName", "image"]
+          }
+        ]
+      });
+
+      const obj = user.toJSON();
+      obj.categories = categoryData;
       const token = jwt.sign(
         {
           data: {
@@ -130,7 +146,7 @@ module.exports = {
       );
 
       return helper.success(res, "Login successful", {
-        ...user.toJSON(),
+        ...obj,
         token
       });
 
@@ -348,22 +364,42 @@ module.exports = {
           "id",
           "name",
           "email",
-          "bio",
+          "userName",
+          "countryCode",
+          "phone",
           "profileImage",
-          "isProfileComplete",
-          "currency"
+          "profileImageProvider",
+          "isNotification",
+          "providerStatus",
+          "currentMode",
+          "status",
+          "bio",
+          "about",
+          "hourlyPrice",
+          "currency",
+          "referralCode",
+          "isProvider"
         ]
       });
 
-      // const userCategories = await user_categories.findAll({
-      //   where: { userId: req.auth.id },
-      //   attributes: ["categoryId"]
-      // });
+      let categoryData = await user_categories.findAll({
+        where: { userId: req.auth.id },
+        attributes: ["id", "categoryId", "isPrimary"],
+        include: [
+          {
+            model: services_categories,
+            as: "categories",
+            attributes: ["id", "categoryName", "image"]
+          }
+        ]
+      });
+
+      const obj = updatedUser.toJSON();
+      obj.categories = categoryData;
 
       return helper.success(
         res,
-        "Profile completed successfully", updatedUser
-
+        "Profile completed successfully", obj
       );
     } catch (error) {
       console.log(error);
@@ -472,15 +508,24 @@ module.exports = {
         ]
       });
 
-      // const userCategories = await user_categories.findAll({
-      //   where: { userId: req.auth.id },
-      //   attributes: ["categoryId"]
-      // });
+      let categoryData = await user_categories.findAll({
+        where: { userId: req.auth.id },
+        attributes: ["id", "categoryId", "isPrimary"],
+        include: [
+          {
+            model: services_categories,
+            as: "categories",
+            attributes: ["id", "categoryName", "image"]
+          }
+        ]
+      });
+
+      const obj = updatedUser.toJSON();
+      obj.categories = categoryData;
 
       return helper.success(
         res,
-        "Profile completed successfully", updatedUser
-
+        "Profile completed successfully", obj
       );
     } catch (error) {
       console.log(error);
@@ -887,6 +932,7 @@ module.exports = {
           "id",
           "name",
           "email",
+          "userName",
           "countryCode",
           "phone",
           "profileImage",
@@ -1150,27 +1196,56 @@ module.exports = {
       return helper.error(res, error);
     }
   },
-
   fileUpload: async (req, res) => {
     try {
-      let folder = "users";
-      let fileData = null;
+      const folder = "users";
 
-      if (req.files && req.files.file) {
-        fileData = await helper.fileUpload(req.files.file, folder);
-      } else {
+      if (!req.files || !req.files.file) {
         return helper.failed(res, "No file uploaded");
       }
 
-      return helper.success(res, "File uploaded successfully", {
-        file: fileData,
-      });
-    } catch (error) {
-      console.log(error);
+      const fileData = await helper.fileUpload(
+        req.files.file,
+        folder
+      );
 
-      return helper.error(res, "Error occurred during file upload");
+      return helper.success(
+        res,
+        "File uploaded successfully",
+        {
+          file: fileData.file,
+          thumbnail: fileData.thumbnail,
+        }
+      );
+    } catch (error) {
+      console.log("File Upload Error:", error);
+
+      return helper.error(
+        res,
+        "Error occurred during file upload"
+      );
     }
   },
+  // fileUpload: async (req, res) => {
+  //   try {
+  //     let folder = "users";
+  //     let fileData = null;
+
+  //     if (req.files && req.files.file) {
+  //       fileData = await helper.fileUpload(req.files.file, folder);
+  //     } else {
+  //       return helper.failed(res, "No file uploaded");
+  //     }
+
+  //     return helper.success(res, "File uploaded successfully", {
+  //       file: fileData,
+  //     });
+  //   } catch (error) {
+  //     console.log(error);
+
+  //     return helper.error(res, "Error occurred during file upload");
+  //   }
+  // },
   ////////
   notificationOnOff: async (req, res) => {
     try {

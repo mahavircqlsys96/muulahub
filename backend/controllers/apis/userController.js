@@ -18,6 +18,7 @@ module.exports = {
 
       let whereCondition = {
         status: 'active',
+        type: 'publish',
       };
 
       if (categoryId) {

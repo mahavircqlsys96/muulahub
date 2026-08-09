@@ -73,6 +73,8 @@ module.exports = (io) => {
   router.get('/getCommentReplies', postsController.getCommentReplies);
   router.post('/likeComment', postsController.likeComment);
   router.post('/reportPost', postsController.reportPost);
+  router.get('/getDraftPosts', postsController.getDraftPosts);
+  router.post('/publishOrDeclinePost', postsController.publishOrDeclinePost);
 
   // Bookings
   router.post('/createBooking', bookingController.createBooking);

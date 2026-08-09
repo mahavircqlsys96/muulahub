@@ -14,6 +14,10 @@ const client = twilio(accountSid, authToken);
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
 let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const ffmpeg = require("fluent-ffmpeg");
+const ffmpegPath = require("@ffmpeg-installer/ffmpeg").path;
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 // + 1 227 257 3061
 module.exports = {
   sendPushNotification: async (notificationData) => {
@@ -94,20 +98,102 @@ module.exports = {
   },
 
   fileUpload: async (file, folder) => {
-    if (file) {
-      var extension = path.extname(file.name);
-      var filename = uuid() + extension;
-      file.mv(
-        process.cwd() + `/public/images/${folder}/` + filename,
-        function (err) {
-          if (err) return err;
-        }
-      );
+    if (!file) {
+      return null;
     }
 
-    let fullpath = `/images/${folder}/` + filename
-    return fullpath;
+    const uploadDir = path.join(
+      process.cwd(),
+      "public",
+      "images",
+      folder
+    );
+
+    // Create folder if not exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, {
+        recursive: true,
+      });
+    }
+
+    const extension = path.extname(file.name).toLowerCase();
+    const filename = uuid() + extension;
+
+    const filePath = path.join(uploadDir, filename);
+
+    // Upload file
+    await new Promise((resolve, reject) => {
+      file.mv(filePath, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const fileUrl = `/images/${folder}/${filename}`;
+
+    // Video extensions
+    const videoExtensions = [
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".m4v",
+      ".flv",
+    ];
+
+    // If video, generate thumbnail
+    if (videoExtensions.includes(extension)) {
+      const thumbnailName =
+        path.basename(filename, extension) + ".jpg";
+
+      const thumbnailDir = uploadDir;
+
+      await new Promise((resolve, reject) => {
+        ffmpeg(filePath)
+          .screenshots({
+            timestamps: ["00:00:01"],
+            filename: thumbnailName,
+            folder: thumbnailDir,
+            size: "640x360",
+          })
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      const thumbnailUrl =
+        `/images/${folder}/${thumbnailName}`;
+
+      return {
+        file: fileUrl,
+        thumbnail: thumbnailUrl,
+      };
+    }
+
+    // Image / other file
+    return {
+      file: fileUrl,
+      thumbnail: null,
+    };
   },
+  // fileUpload: async (file, folder) => {
+  //   if (file) {
+  //     var extension = path.extname(file.name);
+  //     var filename = uuid() + extension;
+  //     file.mv(
+  //       process.cwd() + `/public/images/${folder}/` + filename,
+  //       function (err) {
+  //         if (err) return err;
+  //       }
+  //     );
+  //   }
+
+  //   let fullpath = `/images/${folder}/` + filename
+  //   return fullpath;
+  // },
   success: function (res, message, body = {}, code = 200) {
     return res.status(code).json({
       success: true,

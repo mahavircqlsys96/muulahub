@@ -113,6 +113,7 @@ module.exports = {
         categoryId,
         hashtags,
         video,
+        thumbnail,
         images,
         type,
         location,
@@ -121,6 +122,7 @@ module.exports = {
         allowComments,
         allowShares,
         saveToProfile,
+
       } = req.body;
 
       // Create Post
@@ -146,6 +148,7 @@ module.exports = {
           postId: post.id,
           mediaUrl: video,
           type: "video",
+          thumbnail: thumbnail || null,
         });
       }
 
@@ -188,7 +191,7 @@ module.exports = {
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl", "type"],
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
           },
         ],
       });
@@ -283,7 +286,7 @@ module.exports = {
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl", "type"],
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
             required: false,
           }
         ],
@@ -392,7 +395,7 @@ module.exports = {
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl", "type"],
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
             required: false,
           },
         ],
@@ -682,6 +685,88 @@ module.exports = {
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  getDraftPosts: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+
+      const { count, rows } = await posts.findAndCountAll({
+        where: {
+          userId: req.auth.id,
+          status: "active",
+          type: "draft",
+        },
+        include: [
+          {
+            model: users,
+            as: "user",
+            attributes: ["id", "name", "profileImage", "profileImageProvider"],
+          },
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          }
+        ],
+        order: [["createdAt", "DESC"]],
+        limit,
+        offset,
+        distinct: true,
+      });
+
+      return helper.success(res, "Draft posts fetched successfully", {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit),
+        data: rows,
+      });
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, "Something went wrong");
+    }
+  },
+
+  publishOrDeclinePost: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        postId: "required",
+        action: "required|in:publish,decline"
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { postId, action } = req.body;
+
+      const post = await posts.findOne({
+        where: {
+          id: postId,
+          userId: req.auth.id,
+          type: "draft",
+          status: "active"
+        }
+      });
+
+      if (!post) {
+        return helper.failed(res, "Draft post not found or unauthorized");
+      }
+
+      if (action === "publish") {
+        await post.update({ type: "publish" });
+        return helper.success(res, "Draft post published successfully");
+      } else if (action === "decline") {
+        await post.update({ status: "deleted" });
+        return helper.success(res, "Draft post declined successfully");
+      }
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, "Something went wrong");
     }
   }
 };
