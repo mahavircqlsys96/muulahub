@@ -155,18 +155,16 @@ module.exports = {
 
       await new Promise((resolve) => {
         ffmpeg(filePath)
-          .screenshots({
-            timestamps: [0.1], // Safest to avoid short-video errors, fallback to 0 if needed
-            filename: thumbnailName,
-            folder: thumbnailDir,
-            // Removed size: "640x360" to prevent Parsed_scale_0 errors
-          })
+          .seekInput(0.1) // Fast seek to 0.1 seconds
+          .frames(1) // Capture 1 frame
+          .output(path.join(thumbnailDir, thumbnailName))
           .on("end", resolve)
           .on("error", (err) => {
             console.error("Thumbnail generation error:", err.message);
             isThumbnailGenerated = false;
             resolve(); // Gracefully resolve to continue upload process
-          });
+          })
+          .run();
       });
 
       const thumbnailUrl = isThumbnailGenerated 
