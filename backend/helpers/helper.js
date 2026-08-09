@@ -151,8 +151,9 @@ module.exports = {
         path.basename(filename, extension) + ".jpg";
 
       const thumbnailDir = uploadDir;
+      let isThumbnailGenerated = true;
 
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve) => {
         ffmpeg(filePath)
           .screenshots({
             timestamps: ["00:00:01"],
@@ -161,11 +162,16 @@ module.exports = {
             size: "640x360",
           })
           .on("end", resolve)
-          .on("error", reject);
+          .on("error", (err) => {
+            console.error("Thumbnail generation error:", err.message);
+            isThumbnailGenerated = false;
+            resolve(); // Gracefully resolve to continue upload process
+          });
       });
 
-      const thumbnailUrl =
-        `/images/${folder}/${thumbnailName}`;
+      const thumbnailUrl = isThumbnailGenerated 
+        ? `/images/${folder}/${thumbnailName}` 
+        : null;
 
       return {
         file: fileUrl,
