@@ -3,7 +3,7 @@ const { Validator } = require('node-input-validator');
 const { Op } = require('sequelize');
 const db = require('../../models');
 const sequelize = require("sequelize");
-const { users, posts, post_likes, post_comments, comment_likes, services_categories, notifications, reports, post_media } = db;
+const { users, posts, post_likes, post_comments, comment_likes, services_categories, notifications, reports, post_media, bookmarks } = db;
 
 module.exports = {
 
@@ -265,8 +265,13 @@ module.exports = {
             ],
 
             [
-              db.sequelize.literal(`0`),
-              "isBookmark",
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isBookmarked",
             ],
 
 
@@ -369,15 +374,15 @@ module.exports = {
               "isLiked",
             ],
 
-            // [
-            //   sequelize.literal(`(
-            //   SELECT COUNT(*)
-            //   FROM bookmarks
-            //   WHERE bookmarks.postId = posts.id
-            //   AND bookmarks.userId = ${req.auth.id}
-            // )`),
-            //   "isBookmark",
-            // ],
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isBookmarked",
+            ],
 
             [
               sequelize.literal(`(
@@ -426,6 +431,119 @@ module.exports = {
     }
   },
 
+  getPostDetailWithComments: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const post = await posts.findOne({
+        where: {
+          id,
+          status: "active",
+        },
+
+        attributes: {
+          include: [
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+            )`),
+              "likesCount",
+            ],
+
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_comments
+              WHERE post_comments.postId = posts.id
+            )`),
+              "commentsCount",
+            ],
+
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isLiked",
+            ],
+
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isBookmarked",
+            ],
+
+            [
+              sequelize.literal(`(
+              SELECT IFNULL(ROUND(AVG(r.rating),1),0)
+              FROM rating r
+              WHERE r.providerId = posts.userId
+            )`),
+              "providerAvgRating",
+            ],
+          ],
+        },
+
+        include: [
+          {
+            model: users,
+            as: "user",
+            attributes: [
+              "id",
+              "name",
+              "profileImage",
+
+            ],
+          },
+
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          },
+
+          {
+            model: post_comments,
+            as: "comments",
+            required: false,
+            include: [
+              {
+                model: users,
+                as: "commenter",
+                attributes: ["id", "name", "profileImage", "profileImageProvider"],
+              }
+            ]
+          }
+        ],
+        order: [
+          [{ model: post_comments, as: 'comments' }, 'createdAt', 'DESC']
+        ]
+      });
+
+      if (!post) {
+        return helper.failed(res, "Post not found");
+      }
+
+      return helper.success(
+        res,
+        "Post fetched successfully",
+        post
+      );
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, "Something went wrong");
+    }
+  },
+
   deletePost: async (req, res) => {
     try {
       const { id } = req.params;
@@ -433,6 +551,89 @@ module.exports = {
       if (!post) return helper.failed(res, 'Post not found or unauthorized');
       await post.update({ status: 'deleted' });
       return helper.success(res, 'Post deleted successfully');
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  bookmarkPost: async (req, res) => {
+    try {
+      const { postId } = req.body;
+      const userId = req.auth.id;
+
+      const v = new Validator(req.body, {
+        postId: "required",
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const post = await posts.findOne({ where: { id: postId, status: 'active' } });
+      if (!post) {
+        return helper.failed(res, 'Post not found');
+      }
+
+      const existingBookmark = await bookmarks.findOne({
+        where: { userId, postId }
+      });
+
+      if (existingBookmark) {
+        await existingBookmark.destroy();
+        return helper.success(res, 'Post removed from bookmarks', { isBookmarked: 0 });
+      }
+
+      await bookmarks.create({ userId, postId });
+      return helper.success(res, 'Post added to bookmarks', { isBookmarked: 1 });
+
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  getBookmarkedPosts: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = (page - 1) * limit;
+      const userId = req.auth.id;
+
+      const { count, rows } = await bookmarks.findAndCountAll({
+        where: { userId },
+        include: [
+          {
+            model: posts,
+            as: 'post',
+            where: { status: 'active' },
+            include: [
+              {
+                model: users,
+                as: 'user',
+                attributes: ['id', 'name', 'profileImage', 'profileImageProvider'],
+              },
+              {
+                model: post_media,
+                as: 'postMedia',
+                attributes: ['id', 'mediaUrl', 'type', 'thumbnail'],
+                required: false,
+              }
+            ]
+          }
+        ],
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset
+      });
+
+      return helper.success(res, 'Bookmarked posts fetched', {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit),
+        data: rows
+      });
+
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');

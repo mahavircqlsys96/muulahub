@@ -1597,14 +1597,8 @@ module.exports = {
         where: whereCondition,
         order: [['categoryName', 'ASC']]
       });
-      const categoriesWithImage = categories.map(cat => {
-        let catData = cat.toJSON();
-        if (catData.image && !catData.image.startsWith('http')) {
-          catData.image = process.env.BASE_URL + "/uploads/categories/" + catData.image;
-        }
-        return catData;
-      });
-      return helper.success(res, 'Categories fetched', categoriesWithImage);
+
+      return helper.success(res, 'Categories fetched', categories);
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');

@@ -3,7 +3,7 @@ const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op, fn, col } = require('sequelize');
 const db = require('../../models');
-const { users, bookings, payments, notifications, services_categories, rating } = db;
+const { users, bookings, payments, notifications, services_categories, rating, booking_images } = db;
 const { v4: uuidv4 } = require('uuid');
 const stripe = require('stripe')(envfile.stripe_secret_key);
 
@@ -88,9 +88,32 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude } = req.body;
+      let { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail } = req.body;
       const userId = req.auth.id;
 
+      if (typeof images === "string") {
+        try {
+          let parsed = JSON.parse(images);
+          if (Array.isArray(parsed)) {
+            images = parsed;
+          }
+        } catch (e) {
+          // Keep as is or split by comma if appropriate, but assuming JSON
+        }
+      }
+
+      let videoUrl = req.body.video;
+      let thumbnailUrl = req.body.thumbnail;
+
+      // Check for file uploads
+      if (req.files) {
+        if (req.files.video) {
+          videoUrl = await helper.fileUpload(req.files.video, "posts");
+        }
+        if (req.files.thumbnail) {
+          thumbnailUrl = await helper.fileUpload(req.files.thumbnail, "posts");
+        }
+      }
       const category = await services_categories.findOne({ where: { id: categoryId } });
       if (!category) return helper.failed(res, 'Category not found or not available');
 
@@ -105,8 +128,17 @@ module.exports = {
         bookingTime,
         paymentStatus: 'pending',
         bookingStatus: 'pending',
-        location, latitude, longitude
+        location, latitude, longitude,
+        video: videoUrl, thumbnail: thumbnailUrl
       });
+
+      if (images && Array.isArray(images) && images.length > 0) {
+        const imageRecords = images.map(img => ({
+          bookingId: booking.id,
+          image: img
+        }));
+        await booking_images.bulkCreate(imageRecords);
+      }
 
       await sendBookingNotification(
         providerId,
@@ -369,6 +401,11 @@ module.exports = {
             model: users,
             as: 'provider',
             attributes: ['id', 'name', 'profileImage']
+          },
+          {
+            model: booking_images,
+            as: 'bookingImages',
+            attributes: ['id', 'image']
           }
         ],
         order: [['bookingDate', 'ASC']],
@@ -467,6 +504,11 @@ module.exports = {
             model: users,
             as: 'user',
             attributes: ['id', 'name', 'profileImage', 'phone']
+          },
+          {
+            model: booking_images,
+            as: 'bookingImages',
+            attributes: ['id', 'image']
           }
         ],
         order: [['bookingDate', 'ASC']],
@@ -502,7 +544,8 @@ module.exports = {
         include: [
           { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'] },
           { model: users, as: 'user', attributes: ['id', 'name', 'profileImage', 'phone', 'email'] },
-          { model: users, as: 'provider', attributes: ['id', 'name', 'profileImage', 'phone'] }
+          { model: users, as: 'provider', attributes: ['id', 'name', 'profileImage', 'phone'] },
+          { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'] }
         ]
       });
 

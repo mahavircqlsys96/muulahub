@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 const authenticateHeader = require('../middleware/authMiddleware').authenticateHeader;
 const authenticateJWT = require('../middleware/authMiddleware').authenticateJWT;
+const optionalAuthenticateJWT = require('../middleware/authMiddleware').optionalAuthenticateJWT;
 
 const authController = require('../controllers/apis/authController');
 const userController = require('../controllers/apis/userController');
@@ -27,8 +28,10 @@ module.exports = (io) => {
   router.post('/forgotPassword', authController.forgotPassword);
   router.post('/socialLogin', authController.socialLogin);
   router.get('/categoryList', authController.categoryList);
+  // ─── Optional JWT Auth ───
+  router.get('/home', optionalAuthenticateJWT, userController.home);
+  
   // ─── JWT Auth ───
-  router.get('/home', userController.home);
   router.use(authenticateJWT);
 
   // Auth
@@ -66,7 +69,10 @@ module.exports = (io) => {
   router.post('/createPost', postsController.createPost);
   router.get('/getPosts', postsController.getPosts);
   router.get('/getPostDetail/:id', postsController.getPostDetail);
+  router.get('/getPostDetailWithComments/:id', postsController.getPostDetailWithComments);
   router.delete('/deletePost/:id', postsController.deletePost);
+  router.post('/bookmarkPost', postsController.bookmarkPost);
+  router.get('/getBookmarkedPosts', postsController.getBookmarkedPosts);
   router.post('/likePost', postsController.likePost);
   router.post('/addComment', postsController.addComment);
   router.get('/getComments', postsController.getComments);

@@ -20,9 +20,6 @@ module.exports = {
   },
   authenticateJWT: async (req, res, next) => {
     try {
-
-
-
       const authHeader = req.headers.authorization;
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -90,6 +87,52 @@ module.exports = {
         msg: "Internal Server Error",
         body: {},
       });
+    }
+  },
+
+  optionalAuthenticateJWT: async (req, res, next) => {
+    try {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        req.auth = null;
+        return next();
+      }
+
+      const token = authHeader.split(" ")[1];
+
+      let payload;
+      try {
+        payload = jwt.verify(token, ENV.crypto_key);
+      } catch (err) {
+        req.auth = null;
+        return next();
+      }
+
+      const userId = payload?.data?.id;
+      const loginTime = payload?.data?.loginTime;
+
+      if (!userId || !loginTime) {
+        req.auth = null;
+        return next();
+      }
+
+      const user = await db.users.findOne({
+        where: {
+          id: userId,
+          loginTime: loginTime,
+          status: "active"
+        },
+        raw: true
+      });
+
+      req.auth = user || null;
+      next();
+
+    } catch (error) {
+      console.log(error);
+      req.auth = null;
+      next();
     }
   },
 

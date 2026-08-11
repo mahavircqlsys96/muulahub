@@ -5,7 +5,7 @@ module.exports = (db) => {
     provider_verifications, withdrawal_requests, reports,
     disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
-    comment_likes, user_categories
+    comment_likes, user_categories, bookmarks, booking_images
   } = db;
 
   // Users <-> Services (provider)
@@ -33,9 +33,19 @@ module.exports = (db) => {
   }
 
   // Posts <-> Categories
-  // if (posts && services_categories) {
-  //   posts.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
-  // }
+  if (posts && services_categories) {
+    posts.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+  }
+
+  // Bookmarks
+  if (bookmarks && users) {
+    bookmarks.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(bookmarks, { foreignKey: 'userId', as: 'bookmarks' });
+  }
+  if (bookmarks && posts) {
+    bookmarks.belongsTo(posts, { foreignKey: 'postId', as: 'post' });
+    posts.hasMany(bookmarks, { foreignKey: 'postId', as: 'bookmarks' });
+  }
 
   // Bookings
   if (bookings && users) {
@@ -48,6 +58,12 @@ module.exports = (db) => {
   if (bookings && services) {
     bookings.belongsTo(services, { foreignKey: 'serviceId', as: 'service' });
     services.hasMany(bookings, { foreignKey: 'serviceId', as: 'bookings' });
+  }
+
+  // Booking Images
+  if (booking_images && bookings) {
+    bookings.hasMany(booking_images, { foreignKey: 'bookingId', as: 'bookingImages' });
+    booking_images.belongsTo(bookings, { foreignKey: 'bookingId', as: 'booking' });
   }
 
   // Payments

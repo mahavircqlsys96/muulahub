@@ -10,7 +10,7 @@ module.exports = {
   home: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const limit = parseInt(req.query.limit) || 1000;
       const offset = (page - 1) * limit;
 
       const searchKey = req.query.searchKey || "";
@@ -20,6 +20,10 @@ module.exports = {
         status: 'active',
         type: 'publish',
       };
+
+      if (req.auth) {
+        whereCondition.userId = { [Op.ne]: req.auth.id };
+      }
 
       if (categoryId) {
         whereCondition.categoryId = categoryId;
@@ -74,9 +78,15 @@ module.exports = {
               "isLiked",
             ],
             [
-              db.sequelize.literal(`0`),
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
               "isBookmarked",
-            ]
+            ],
+
           ]
         },
         include: [
@@ -93,13 +103,27 @@ module.exports = {
                 WHERE rating.providerId = user.id
               )`),
                 "providerAvgRating"
-              ]
+              ],
+              [
+                db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = user.id
+            )`),
+                "totalReview",
+              ],
             ]
           },
           {
             model: post_media,
             as: "postMedia",
             attributes: ["id", "mediaUrl", "type"],
+            required: false,
+          },
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ["id", "categoryName", "image"],
             required: false,
           }
         ],

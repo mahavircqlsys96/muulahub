@@ -88,6 +88,14 @@ module.exports = function (sequelize, DataTypes) {
     longitude: {
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true
+    },
+    video: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    thumbnail: {
+      type: DataTypes.STRING(255),
+      allowNull: true
     }
   }, {
     sequelize,
