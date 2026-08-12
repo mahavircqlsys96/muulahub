@@ -996,7 +996,7 @@ module.exports = {
 
       const userPosts = await posts.findAll({
         where: { userId: user.id, status: 'active', type: 'publish' },
-        attributes: ['id'],
+        // attributes: ['id',],
         include: [
           {
             model: post_media,

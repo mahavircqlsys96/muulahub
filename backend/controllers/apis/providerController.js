@@ -19,7 +19,7 @@ module.exports = {
       const provider = await users.findOne({
         where: {
           id: providerId,
-          isProvider: 1,
+          // isProvider: 1,
         },
 
         attributes: {
