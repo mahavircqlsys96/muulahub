@@ -118,7 +118,6 @@ module.exports = {
           }
         ]
       });
-
       const userPosts = await posts.findAll({
         where: { userId: provider.id, status: 'active', type: 'publish' },
         // attributes: ['id'],
