@@ -275,6 +275,7 @@ module.exports = {
             ],
 
 
+
           ],
         },
 
@@ -302,6 +303,12 @@ module.exports = {
             model: post_media,
             as: "postMedia",
             attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          },
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ["id", "categoryName", "image"],
             required: false,
           }
         ],
@@ -449,7 +456,7 @@ module.exports = {
               FROM post_likes
               WHERE post_likes.postId = posts.id
             )`),
-              "likesCount",
+              "likeCount",
             ],
 
             [
@@ -458,7 +465,7 @@ module.exports = {
               FROM post_comments
               WHERE post_comments.postId = posts.id
             )`),
-              "commentsCount",
+              "commentCount",
             ],
 
             [
@@ -481,14 +488,6 @@ module.exports = {
               "isBookmarked",
             ],
 
-            [
-              sequelize.literal(`(
-              SELECT IFNULL(ROUND(AVG(r.rating),1),0)
-              FROM rating r
-              WHERE r.providerId = posts.userId
-            )`),
-              "providerAvgRating",
-            ],
           ],
         },
 
@@ -500,7 +499,22 @@ module.exports = {
               "id",
               "name",
               "profileImage",
-
+              [
+                sequelize.literal(`(
+                SELECT IFNULL(ROUND(AVG(rating),1),0)
+                FROM rating
+                WHERE rating.providerId = user.id
+              )`),
+                "providerAvgRating"
+              ],
+              [
+                sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = user.id
+            )`),
+                "totalReview",
+              ],
             ],
           },
 
@@ -512,9 +526,37 @@ module.exports = {
           },
 
           {
+            model: services_categories,
+            as: 'category',
+            attributes: ["id", "categoryName", "image"],
+            required: false,
+          },
+
+          {
             model: post_comments,
             as: "comments",
             required: false,
+            attributes: {
+              include: [
+                [
+                  sequelize.literal(`(
+                    SELECT COUNT(*)
+                    FROM comment_likes
+                    WHERE comment_likes.commentId = comments.id
+                  )`),
+                  "likeCount"
+                ],
+                [
+                  sequelize.literal(`(
+                    SELECT COUNT(*)
+                    FROM comment_likes
+                    WHERE comment_likes.commentId = comments.id
+                    AND comment_likes.userId = ${req.auth ? req.auth.id : 0}
+                  )`),
+                  "isLiked"
+                ]
+              ]
+            },
             include: [
               {
                 model: users,
@@ -599,26 +641,91 @@ module.exports = {
       const offset = (page - 1) * limit;
       const userId = req.auth.id;
 
-      const { count, rows } = await bookmarks.findAndCountAll({
-        where: { userId },
+      let findPosts = await posts.findAll({
+        where: {
+          status: 'active',
+          type: 'publish',
+        },
+        attributes: {
+          include: [
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+            )`),
+              "likeCount",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_comments
+              WHERE post_comments.postId = posts.id
+            )`),
+              "commentCount",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isLiked",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isBookmarked",
+            ],
+          ]
+        },
         include: [
           {
-            model: posts,
-            as: 'post',
-            where: { status: 'active' },
-            include: [
-              {
-                model: users,
-                as: 'user',
-                attributes: ['id', 'name', 'profileImage', 'profileImageProvider'],
-              },
-              {
-                model: post_media,
-                as: 'postMedia',
-                attributes: ['id', 'mediaUrl', 'type', 'thumbnail'],
-                required: false,
-              }
+            model: bookmarks,
+            as: 'bookmarks',
+            where: { userId },
+            required: true,
+            attributes: []
+          },
+          {
+            model: users,
+            as: 'user',
+            attributes: [
+              'id', 'name', 'profileImage', 'profileImageProvider',
+              [
+                db.sequelize.literal(`(
+                SELECT IFNULL(ROUND(AVG(rating),1),0)
+                FROM rating
+                WHERE rating.providerId = user.id
+              )`),
+                "providerAvgRating"
+              ],
+              [
+                db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = user.id
+            )`),
+                "totalReview",
+              ],
             ]
+          },
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          },
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ["id", "categoryName", "image"],
+            required: false,
           }
         ],
         order: [['createdAt', 'DESC']],
@@ -627,11 +734,12 @@ module.exports = {
       });
 
       return helper.success(res, 'Bookmarked posts fetched', {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit),
-        data: rows
+        posts: findPosts,
+        pagination: {
+          page,
+          limit,
+          hasNextPage: findPosts.length === limit
+        }
       });
 
     } catch (error) {

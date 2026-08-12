@@ -30,6 +30,7 @@ module.exports = (io) => {
   router.get('/categoryList', authController.categoryList);
   // ─── Optional JWT Auth ───
   router.get('/home', optionalAuthenticateJWT, userController.home);
+  router.get('/filterPosts', optionalAuthenticateJWT, userController.filterPosts);
   
   // ─── JWT Auth ───
   router.use(authenticateJWT);

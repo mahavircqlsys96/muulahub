@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const db = require('../../models');
 const sequelize = require("sequelize");
 
-const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images } = db;
+const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images, user_categories, posts, post_media } = db;
 
 users.hasMany(portfolio_images, { foreignKey: 'providerId', as: 'portfolioImages' });
 // portfolio_images.belongsTo(users, { foreignKey: 'providerId', as: 'provider' });
@@ -45,7 +45,7 @@ module.exports = {
               FROM followers
               WHERE followers.followingId = users.id
             )`),
-              "followersCount",
+              "followerCount",
             ],
 
             [
@@ -57,6 +57,15 @@ module.exports = {
               "followingCount",
             ],
 
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM followers
+              WHERE followers.followingId = users.id
+              AND followers.followerId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isFollow",
+            ],
             [
               sequelize.literal(`(
               SELECT COUNT(*)
@@ -98,10 +107,40 @@ module.exports = {
         return helper.failed(res, "Provider not found");
       }
 
+      let categoryData = await user_categories.findAll({
+        where: { userId: provider.id },
+        attributes: ["id", "categoryId", "isPrimary"],
+        include: [
+          {
+            model: services_categories,
+            as: "categories",
+            attributes: ["id", "categoryName", "image"]
+          }
+        ]
+      });
+
+      const userPosts = await posts.findAll({
+        where: { userId: provider.id, status: 'active', type: 'publish' },
+        attributes: ['id'],
+        include: [
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
+      const obj = provider.toJSON();
+      obj.categories = categoryData;
+      obj.posts = userPosts;
+
       return helper.success(
         res,
         "Provider profile fetched successfully",
-        provider
+        obj
       );
     } catch (error) {
       console.log(error);

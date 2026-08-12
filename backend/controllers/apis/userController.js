@@ -148,6 +148,157 @@ module.exports = {
     }
   },
 
+  filterPosts: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = (page - 1) * limit;
+
+      const category_id = req.query.category_id;
+      const distance = req.query.distance; // radius in km
+      const rating = req.query.rating;
+      const latitude = req.query.latitude;
+      const longitude = req.query.longitude;
+
+      let whereCondition = {
+        status: 'active',
+        type: 'publish',
+      };
+
+      if (req.auth) {
+        whereCondition.userId = { [Op.ne]: req.auth.id };
+      }
+
+      if (category_id) {
+        whereCondition.categoryId = category_id;
+      }
+
+      let distanceQuery = null;
+      let havingCondition = [];
+
+      if (latitude && longitude && distance) {
+        distanceQuery = `
+        (
+          6371 * acos(
+            cos(radians(${latitude}))
+            * cos(radians(posts.latitude))
+            * cos(radians(posts.longitude) - radians(${longitude}))
+            + sin(radians(${latitude}))
+            * sin(radians(posts.latitude))
+          )
+        )
+      `;
+        havingCondition.push(`distance <= ${distance}`);
+      }
+
+      if (rating) {
+        havingCondition.push(`\`user.providerAvgRating\` >= ${rating}`);
+      }
+
+      let findPosts = await posts.findAll({
+        where: whereCondition,
+        attributes: {
+          include: [
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+            )`),
+              "likeCount",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_comments
+              WHERE post_comments.postId = posts.id
+            )`),
+              "commentCount",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isLiked",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM bookmarks
+              WHERE bookmarks.postId = posts.id
+              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isBookmarked",
+            ],
+            ...(distanceQuery ? [
+              [db.sequelize.literal(distanceQuery), "distance"]
+            ] : []),
+          ]
+        },
+        include: [
+          {
+            model: users,
+            as: 'user',
+            where: { isProvider: 1 },
+            attributes: [
+              'id', 'name', 'profileImage',
+              [
+                db.sequelize.literal(`(
+                SELECT IFNULL(ROUND(AVG(rating),1),0)
+                FROM rating
+                WHERE rating.providerId = user.id
+              )`),
+                "providerAvgRating"
+              ],
+              [
+                db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = user.id
+            )`),
+                "totalReview",
+              ],
+            ]
+          },
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type"],
+            required: false,
+          },
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ["id", "categoryName", "image"],
+            required: false,
+          }
+        ],
+        having: havingCondition.length > 0 ? db.sequelize.literal(havingCondition.join(' AND ')) : undefined,
+        order: distanceQuery 
+            ? [[db.sequelize.literal("distance"), "ASC"]] 
+            : [['createdAt', 'DESC']],
+        limit,
+        offset
+      });
+
+      return helper.success(res, 'Filtered posts fetched', {
+        posts: findPosts,
+        pagination: {
+          page,
+          limit,
+          hasNextPage: findPosts.length === limit
+        }
+      });
+
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
   followUser: async (req, res) => {
     try {
       const v = new Validator(req.body, {

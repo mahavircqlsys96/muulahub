@@ -11,7 +11,7 @@ const Op = sequelize.Op;
 let jwt = require("jsonwebtoken");
 const { req } = require("express");
 const stripe = require("stripe")(envfile.stripe_secret_key);
-const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images } = require("../../models");
+const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media } = require("../../models");
 
 user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'categories' });
 
@@ -946,7 +946,33 @@ module.exports = {
           "hourlyPrice",
           "currency",
           "referralCode",
-          "isProvider"
+          "isProvider",
+          [
+            sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM posts
+              WHERE posts.userId = users.id
+              AND posts.status = 'active'
+              AND posts.type = 'publish'
+            )`),
+            "postCount"
+          ],
+          [
+            sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM followers
+              WHERE followers.followingId = users.id
+            )`),
+            "followerCount"
+          ],
+          [
+            sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM followers
+              WHERE followers.followerId = users.id
+            )`),
+            "followingCount"
+          ]
         ]
       });
 
@@ -968,8 +994,23 @@ module.exports = {
         ]
       });
 
+      const userPosts = await posts.findAll({
+        where: { userId: user.id, status: 'active', type: 'publish' },
+        attributes: ['id'],
+        include: [
+          {
+            model: post_media,
+            as: "postMedia",
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
+            required: false,
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
       const obj = user.toJSON();
       obj.categories = categoryData;
+      obj.posts = userPosts;
 
       return helper.success(
         res,
