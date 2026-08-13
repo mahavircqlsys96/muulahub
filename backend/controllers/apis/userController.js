@@ -117,7 +117,7 @@ module.exports = {
           {
             model: post_media,
             as: "postMedia",
-            attributes: ["id", "mediaUrl", "type"],
+            attributes: ["id", "mediaUrl", "type", "thumbnail"],
             required: false,
           },
           {
@@ -277,9 +277,9 @@ module.exports = {
           }
         ],
         having: havingCondition.length > 0 ? db.sequelize.literal(havingCondition.join(' AND ')) : undefined,
-        order: distanceQuery 
-            ? [[db.sequelize.literal("distance"), "ASC"]] 
-            : [['createdAt', 'DESC']],
+        order: distanceQuery
+          ? [[db.sequelize.literal("distance"), "ASC"]]
+          : [['createdAt', 'DESC']],
         limit,
         offset
       });

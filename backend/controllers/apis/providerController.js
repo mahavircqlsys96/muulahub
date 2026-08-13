@@ -30,13 +30,16 @@ module.exports = {
             "fcmToken",
           ],
           include: [
+
             [
               sequelize.literal(`(
-              SELECT COUNT(*)
-              FROM posts
-              WHERE posts.userId = users.id
-            )`),
-              "postCount",
+                          SELECT COUNT(*)
+                          FROM posts
+                          WHERE posts.userId = users.id
+                          AND posts.status = 'active'
+                          AND posts.type = 'publish'
+                        )`),
+              "postCount"
             ],
 
             [

@@ -171,7 +171,12 @@ module.exports = {
           try {
             imageArray = JSON.parse(images);
           } catch (err) {
-            return helper.failed(res, "Invalid images format");
+            if (images.startsWith("[") && images.endsWith("]")) {
+              const content = images.slice(1, -1).trim();
+              imageArray = content ? content.split(",").map((s) => s.trim()) : [];
+            } else {
+              imageArray = [images];
+            }
           }
         }
 
