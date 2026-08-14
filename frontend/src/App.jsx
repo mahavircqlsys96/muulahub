@@ -3,7 +3,13 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import PrivateRoute from "./utils/PrivateRoute";
 import ScrollToTop from "./utils/ScrollToTop";
 import Layout from "./components/Layout";
+import PublicLayout from "./components/PublicLayout";
 
+const Home = lazy(() => import("./pages/public/Home"));
+const PublicAboutUs = lazy(() => import("./pages/public/AboutUs"));
+const PublicTerms = lazy(() => import("./pages/public/Terms"));
+const PublicPrivacy = lazy(() => import("./pages/public/Privacy"));
+const PublicContactUs = lazy(() => import("./pages/public/ContactUs"));
 const Login = lazy(() => import("./pages/admin/Login"));
 const ForgotPassword = lazy(() => import("./pages/admin/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword"));
@@ -71,11 +77,11 @@ const App = () => {
             <Route path="/profile" element={<PrivateRoute element={<Profile />} />} />
             <Route path="/changepassword" element={<PrivateRoute element={<ChangePassword />} />} />
 
-            <Route path="/privacy" element={<PrivateRoute element={<Privacy />} />} />
-            <Route path="/about-us" element={<PrivateRoute element={<AboutUs />} />} />
-            <Route path="/terms" element={<PrivateRoute element={<Terms />} />} />
-            <Route path="/faqs" element={<PrivateRoute element={<FAQs />} />} />
-            <Route path="/community-guidelines" element={<PrivateRoute element={<CommunityGuidelines />} />} />
+            <Route path="/cms/privacy" element={<PrivateRoute element={<Privacy />} />} />
+            <Route path="/cms/about-us" element={<PrivateRoute element={<AboutUs />} />} />
+            <Route path="/cms/terms" element={<PrivateRoute element={<Terms />} />} />
+            <Route path="/cms/faqs" element={<PrivateRoute element={<FAQs />} />} />
+            <Route path="/cms/community-guidelines" element={<PrivateRoute element={<CommunityGuidelines />} />} />
             <Route path="/locations" element={<PrivateRoute element={<LocationManagement />} />} />
 
             <Route path="/usersList" element={<PrivateRoute element={<UsersList />} />} />
@@ -110,6 +116,13 @@ const App = () => {
             <Route path="/wallets" element={<PrivateRoute element={<WalletsList />} />} />
             <Route path="/promo-codes" element={<PrivateRoute element={<PromoCodes />} />} />
             <Route path="/fraud-monitoring" element={<PrivateRoute element={<FraudMonitoring />} />} />
+          </Route>
+          <Route element={<PublicLayout />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/about" element={<PublicAboutUs />} />
+            <Route path="/terms" element={<PublicTerms />} />
+            <Route path="/privacy" element={<PublicPrivacy />} />
+            <Route path="/contact" element={<PublicContactUs />} />
           </Route>
         </Routes>
       </Suspense>

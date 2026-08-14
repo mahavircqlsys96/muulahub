@@ -1,0 +1,212 @@
+/* Custom styles for the public landing pages */
+
+.public-navbar .nav-link {
+    font-size: 13px;
+    margin: 0 10px;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+}
+
+.public-navbar .nav-link.active-link {
+    color: #f91942 !important;
+}
+
+.public-navbar .nav-link:hover {
+    color: #f91942 !important;
+}
+
+.hover-opacity-100:hover {
+    opacity: 1 !important;
+}
+
+.public-layout {
+    font-family: 'Inter', sans-serif;
+}
+
+.hero-section {
+    position: relative;
+    overflow: hidden;
+    background: #fcfcfc;
+    padding: 80px 0;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    line-height: 1.2;
+}
+
+.hero-title span {
+    color: #f91942;
+}
+
+.hero-subtitle {
+    font-size: 1rem;
+    color: #666;
+    margin-top: 20px;
+    margin-bottom: 40px;
+}
+
+.app-store-btn {
+    height: 50px;
+    margin-right: 15px;
+}
+
+.hero-image-container {
+    position: relative;
+    text-align: center;
+    margin-top: 60px;
+}
+
+.hero-image-container img {
+    max-width: 100%;
+    height: auto;
+}
+
+.section-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #222;
+    margin-bottom: 20px;
+}
+
+.section-subtitle {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 40px;
+}
+
+.feature-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+    height: 100%;
+    transition: transform 0.3s;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: #f8f9fa;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    color: #f91942;
+    font-size: 1.5rem;
+}
+
+.testimonial-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+    margin-bottom: 30px;
+}
+
+.testimonial-text {
+    font-size: 0.95rem;
+    color: #555;
+    line-height: 1.6;
+    font-style: italic;
+    margin-top: 15px;
+    margin-bottom: 25px;
+}
+
+.testimonial-author img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 15px;
+}
+
+.testimonial-author-info h6 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.testimonial-author-info p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.faq-accordion .accordion-item {
+    border: none;
+    background: transparent;
+    margin-bottom: 15px;
+}
+
+.faq-accordion .accordion-button {
+    background: #fff;
+    border-radius: 10px !important;
+    padding: 20px;
+    font-weight: 600;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+    color: #333;
+}
+
+.faq-accordion .accordion-button:not(.collapsed) {
+    color: #f91942;
+    background: #fff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+}
+
+.faq-accordion .accordion-button:focus {
+    border-color: rgba(249,25,66,0.3);
+    box-shadow: 0 0 0 0.25rem rgba(249,25,66,0.1);
+}
+
+.faq-accordion .accordion-body {
+    background: #fff;
+    margin-top: 2px;
+    border-radius: 0 0 10px 10px;
+    padding: 20px;
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.contact-info-card {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 25px;
+}
+
+.contact-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(249,25,66,0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f91942;
+    font-size: 1.3rem;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.form-control-custom {
+    background-color: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+}
+
+.form-control-custom:focus {
+    background-color: #fff;
+    border-color: #f91942;
+    box-shadow: 0 0 0 0.25rem rgba(249,25,66,0.1);
+}

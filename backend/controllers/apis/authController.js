@@ -1339,6 +1339,25 @@ module.exports = {
       return helper.error(res, error.message);
     }
   },
+  publicContactUs: async (req, res) => {
+    const v = new Validator(req.body, {
+      name: "required",
+      email: "required|email",
+      phone: "required",
+      message: "required",
+    });
+
+    let errorsResponse = await helper.checkValidation(v);
+    if (errorsResponse) return helper.failed(res, errorsResponse);
+
+    const supportData = await contact_support.create({
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone,
+      message: req.body.message,
+    });
+    return helper.success(res, "Support request received", supportData);
+  },
   contactUs: async (req, res) => {
     const v = new Validator(req.body, {
       name: "required",

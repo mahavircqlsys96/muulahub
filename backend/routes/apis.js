@@ -20,6 +20,7 @@ module.exports = (io) => {
   router.get('/getCms', authController.getCms);
   router.get('/resetPasswordPage', authController.resetPasswordPage);
   router.post('/resetPassword', authController.resetPassword);
+  router.post('/publicContactUs', authController.publicContactUs);
 
   // ─── Header Auth ───
   router.use(authenticateHeader);

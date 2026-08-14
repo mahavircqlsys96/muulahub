@@ -35,11 +35,11 @@ const menuSections = [
   {
     label: "CMS PAGES",
     items: [
-      { to: "/about-us", label: "About Us", icon: "info" },
-      { to: "/privacy", label: "Privacy Policy", icon: "privacy_tip" },
-      { to: "/terms", label: "Terms & Conditions", icon: "gavel" },
-      { to: "/faqs", label: "FAQs", icon: "help_outline" },
-      { to: "/community-guidelines", label: "Community Guidelines", icon: "rule" }
+      { to: "/cms/about-us", label: "About Us", icon: "info" },
+      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip" },
+      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel" },
+      { to: "/cms/faqs", label: "FAQs", icon: "help_outline" },
+      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule" }
     ]
   },
   {
