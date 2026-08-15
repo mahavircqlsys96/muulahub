@@ -96,6 +96,10 @@ module.exports = function (sequelize, DataTypes) {
     thumbnail: {
       type: DataTypes.STRING(255),
       allowNull: true
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     sequelize,

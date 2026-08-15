@@ -88,7 +88,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail } = req.body;
+      let { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail, notes } = req.body;
       const userId = req.auth.id;
 
       if (typeof images === "string") {
@@ -129,6 +129,7 @@ module.exports = {
         paymentStatus: 'pending',
         bookingStatus: 'pending',
         location, latitude, longitude,
+        notes,
         video: videoUrl, thumbnail: thumbnailUrl
       });
 
@@ -389,7 +390,7 @@ module.exports = {
         };
       }
 
-      const { count, rows } = await bookings.findAndCountAll({
+      let findBookings = await bookings.findAll({
         where: whereClause,
         include: [
           {
@@ -410,16 +411,65 @@ module.exports = {
         ],
         order: [['bookingDate', 'ASC']],
         limit,
-        offset,
-        distinct: true
+        offset
       });
 
       return helper.success(res, 'Bookings fetched', {
-        total: count,
-        page,
+        data: findBookings,
+        pagination: {
+          page,
+          limit,
+          hasNextPage: findBookings.length === limit
+        }
+      });
+
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+  getUserPendingBookings: async (req, res) => {
+    try {
+      const { Op } = db.Sequelize;
+
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+
+      let findBookings = await bookings.findAll({
+        where: {
+          userId: req.auth.id,
+          bookingStatus: 'pending'
+        },
+        include: [
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ['id', 'categoryName', 'image']
+          },
+          {
+            model: users,
+            as: 'provider',
+            attributes: ['id', 'name', 'profileImage']
+          },
+          {
+            model: booking_images,
+            as: 'bookingImages',
+            attributes: ['id', 'image']
+          }
+        ],
+        order: [['bookingDate', 'ASC']],
         limit,
-        totalPages: Math.ceil(count / limit),
-        data: rows
+        offset
+      });
+
+      return helper.success(res, 'Bookings fetched', {
+        data: findBookings,
+        pagination: {
+          page,
+          limit,
+          hasNextPage: findBookings.length === limit
+        }
       });
 
     } catch (error) {

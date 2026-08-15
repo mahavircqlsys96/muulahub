@@ -374,15 +374,29 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 20;
       const offset = (page - 1) * limit;
 
-      const { count, rows } = await followers.findAndCountAll({
+      const searchKey = req.query.searchKey || "";
+
+      let followerWhere = null;
+      if (searchKey.trim()) {
+        followerWhere = {
+          [Op.or]: [
+            { name: { [Op.like]: `%${searchKey}%` } },
+            { userName: { [Op.like]: `%${searchKey}%` } }
+          ]
+        };
+      }
+
+      let findFollowers = await followers.findAll({
         where: { followingId: userId },
         include: [
           {
             model: users,
             as: 'follower',
+            ...(followerWhere && { where: followerWhere }),
             attributes: [
               'id',
               'name',
+              'userName',
               'profileImage',
               [
                 db.sequelize.literal(`(
@@ -401,10 +415,13 @@ module.exports = {
       });
 
       return helper.success(res, 'Followers fetched', {
-        total: count,
-        page,
-        limit,
-        data: rows
+        data: findFollowers,
+        pagination: {
+          page,
+          limit,
+          searchKey,
+          hasNextPage: findFollowers.length === limit
+        }
       });
 
     } catch (error) {
@@ -419,15 +436,29 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 20;
       const offset = (page - 1) * limit;
 
-      const { count, rows } = await followers.findAndCountAll({
+      const searchKey = req.query.searchKey || "";
+
+      let followingWhere = null;
+      if (searchKey.trim()) {
+        followingWhere = {
+          [Op.or]: [
+            { name: { [Op.like]: `%${searchKey}%` } },
+            { userName: { [Op.like]: `%${searchKey}%` } }
+          ]
+        };
+      }
+
+      let findFollowing = await followers.findAll({
         where: { followerId: userId },
         include: [
           {
             model: users,
             as: 'following',
+            ...(followingWhere && { where: followingWhere }),
             attributes: [
               'id',
               'name',
+              'userName',
               'profileImage',
               [
                 db.sequelize.literal(`(
@@ -446,10 +477,13 @@ module.exports = {
       });
 
       return helper.success(res, 'Following fetched', {
-        total: count,
-        page,
-        limit,
-        data: rows
+        data: findFollowing,
+        pagination: {
+          page,
+          limit,
+          searchKey,
+          hasNextPage: findFollowing.length === limit
+        }
       });
 
     } catch (error) {

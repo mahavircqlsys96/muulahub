@@ -1018,12 +1018,34 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
 
-      const { count, rows } = await posts.findAndCountAll({
-        where: {
-          userId: req.auth.id,
-          status: "active",
-          type: "draft",
-        },
+      const searchKey = req.query.searchKey || "";
+
+      let whereCondition = {
+        userId: req.auth.id,
+        status: "active",
+        type: "draft",
+      };
+
+      if (searchKey.trim()) {
+        whereCondition = {
+          ...whereCondition,
+          [Op.or]: [
+            {
+              caption: {
+                [Op.like]: `%${searchKey}%`
+              }
+            },
+            {
+              hashtags: {
+                [Op.like]: `%${searchKey}%`
+              }
+            }
+          ]
+        };
+      }
+
+      let findPosts = await posts.findAll({
+        where: whereCondition,
         include: [
           {
             model: users,
@@ -1039,16 +1061,17 @@ module.exports = {
         ],
         order: [["createdAt", "DESC"]],
         limit,
-        offset,
-        distinct: true,
+        offset
       });
 
       return helper.success(res, "Draft posts fetched successfully", {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit),
-        data: rows,
+        posts: findPosts,
+        pagination: {
+          page,
+          limit,
+          searchKey,
+          hasNextPage: findPosts.length === limit
+        }
       });
     } catch (error) {
       console.log(error);

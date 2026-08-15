@@ -65,7 +65,10 @@ module.exports = (db) => {
     bookings.hasMany(booking_images, { foreignKey: 'bookingId', as: 'bookingImages' });
     booking_images.belongsTo(bookings, { foreignKey: 'bookingId', as: 'booking' });
   }
-
+  if (bookings && services_categories) {
+    bookings.belongsTo(services_categories, { foreignKey: 'serviceId', as: 'category' });
+    services_categories.hasMany(bookings, { foreignKey: 'serviceId', as: 'bookings' });
+  }
   // Payments
   if (payments && bookings) {
     payments.belongsTo(bookings, { foreignKey: 'bookingId', as: 'booking' });

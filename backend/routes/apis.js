@@ -91,6 +91,7 @@ module.exports = (io) => {
   router.post('/userRespondToCounterOffer', bookingController.userRespondToCounterOffer);
   router.post('/payBooking', bookingController.payBooking);
   router.get('/getUserBookings', bookingController.getUserBookings);
+  router.get('/getUserPendingBookings', bookingController.getUserPendingBookings);
   router.get('/getProviderBookings', bookingController.getProviderBookings);
   router.get('/getBookingDetail/:id', bookingController.getBookingDetail);
   router.put('/updateBookingStatus', bookingController.updateBookingStatus);
