@@ -30,6 +30,8 @@ const BookingsListPage = () => {
   const statusColors = {
     pending: { bg: '#fef9c3', color: '#ca8a04' },
     accepted: { bg: '#dbeafe', color: '#1d4ed8' },
+    upcoming: { bg: '#e0e7ff', color: '#4338ca' },
+    ongoing: { bg: '#fef3c7', color: '#d97706' },
     completed: { bg: '#dcfce7', color: '#16a34a' },
     cancelled: { bg: '#fee2e2', color: '#dc2626' },
   };
@@ -47,8 +49,8 @@ const BookingsListPage = () => {
 
       {/* Status summary */}
       <div className="row mb-3">
-        {['pending', 'accepted', 'completed', 'cancelled'].map(s => (
-          <div key={s} className="col-6 col-md-3 mb-2">
+        {['pending', 'accepted', 'upcoming', 'ongoing', 'completed', 'cancelled'].map(s => (
+          <div key={s} className="col-4 col-md-2 mb-2">
             <button
               onClick={() => { setStatus(status === s ? '' : s); setPage(1); }}
               style={{
@@ -81,6 +83,8 @@ const BookingsListPage = () => {
             options={[
               { value: 'pending', label: 'Pending' },
               { value: 'accepted', label: 'Accepted' },
+              { value: 'upcoming', label: 'Upcoming' },
+              { value: 'ongoing', label: 'Ongoing' },
               { value: 'completed', label: 'Completed' },
               { value: 'cancelled', label: 'Cancelled' }
             ]}

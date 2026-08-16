@@ -32,7 +32,7 @@ module.exports = (io) => {
   // ─── Optional JWT Auth ───
   router.get('/home', optionalAuthenticateJWT, userController.home);
   router.get('/filterPosts', optionalAuthenticateJWT, userController.filterPosts);
-  
+
   // ─── JWT Auth ───
   router.use(authenticateJWT);
 
@@ -86,15 +86,16 @@ module.exports = (io) => {
 
   // Bookings
   router.post('/createBooking', bookingController.createBooking);
-  router.post('/acceptRejectRequest', bookingController.acceptRejectRequest);
-  router.post('/providerCounterOffer', bookingController.providerCounterOffer);
-  router.post('/userRespondToCounterOffer', bookingController.userRespondToCounterOffer);
+  router.post('/acceptRejectRequestProvider', bookingController.acceptRejectRequestProvider);
+  router.post('/acceptRejectRequestUser', bookingController.acceptRejectRequestUser);
   router.post('/payBooking', bookingController.payBooking);
   router.get('/getUserBookings', bookingController.getUserBookings);
   router.get('/getUserPendingBookings', bookingController.getUserPendingBookings);
+  router.get('/getProviderPendingBookings', bookingController.getProviderPendingBookings);
   router.get('/getProviderBookings', bookingController.getProviderBookings);
   router.get('/getBookingDetail/:id', bookingController.getBookingDetail);
-  router.put('/updateBookingStatus', bookingController.updateBookingStatus);
+  router.post('/startWork', bookingController.startWork);
+  router.post('/completeWork', bookingController.completeWork);
   router.post('/giveRating', bookingController.giveRating);
   router.get('/providerRatingList', bookingController.providerRatingList);
 

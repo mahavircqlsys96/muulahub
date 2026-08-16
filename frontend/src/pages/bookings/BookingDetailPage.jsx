@@ -132,7 +132,7 @@ const BookingDetailPage = () => {
             <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
               <h6 style={{ fontWeight: '700', marginBottom: '12px' }}>Update Status</h6>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {['accepted', 'completed', 'cancelled'].map(s => (
+                {['accepted', 'upcoming', 'ongoing', 'completed', 'cancelled'].map(s => (
                   <button
                     key={s}
                     disabled={updating || booking.bookingStatus === s}
