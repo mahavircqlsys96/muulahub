@@ -79,8 +79,20 @@ module.exports = {
             ],
 
             [
-              sequelize.literal(`0`),
+              sequelize.literal(`(
+              SELECT IFNULL(ROUND(AVG(rating),1),0)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
               "avgRating",
+            ],
+            [
+              sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
+              "ratingCount",
             ],
           ],
         },
@@ -331,6 +343,14 @@ module.exports = {
               WHERE rating.providerId = users.id
             )`),
               "avgRating",
+            ],
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
+              "ratingCount",
             ],
 
 

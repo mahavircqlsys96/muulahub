@@ -972,6 +972,22 @@ module.exports = {
               WHERE followers.followerId = users.id
             )`),
             "followingCount"
+          ],
+          [
+            sequelize.literal(`(
+              SELECT IFNULL(ROUND(AVG(rating),1),0)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
+            "avgRating"
+          ],
+          [
+            sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
+            "ratingCount"
           ]
         ]
       });
