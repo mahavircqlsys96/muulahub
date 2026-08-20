@@ -47,6 +47,7 @@ const PaymentsList = lazy(() => import("./pages/payments/PaymentsList"));
 const WithdrawalsList = lazy(() => import("./pages/withdrawals/WithdrawalsList"));
 
 const PostsList = lazy(() => import("./pages/posts/PostsList"));
+const PostView = lazy(() => import("./pages/posts/PostView"));
 
 const ReportsList = lazy(() => import("./pages/reports/ReportsList"));
 
@@ -107,6 +108,7 @@ const App = () => {
             <Route path="/withdrawals" element={<PrivateRoute element={<WithdrawalsList />} />} />
 
             <Route path="/posts" element={<PrivateRoute element={<PostsList />} />} />
+            <Route path="/posts/:id" element={<PrivateRoute element={<PostView />} />} />
 
             <Route path="/reports" element={<PrivateRoute element={<ReportsList />} />} />
 

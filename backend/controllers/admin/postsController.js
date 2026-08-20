@@ -28,7 +28,7 @@ module.exports = {
         where: whereClause,
         include: [
           { model: users, as: 'user', attributes: ['id', 'name', 'email', 'profileImage'] },
-          { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl'] }
+          { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl', 'thumbnail', 'type'] }
         ],
         order: [['createdAt', 'DESC']],
         limit,
@@ -61,7 +61,7 @@ module.exports = {
 
       const data = rows.map(p => {
         let postData = p.toJSON();
-        postData.media = postData.postMedia ? postData.postMedia.map(m => m.mediaUrl) : [];
+        postData.media = postData.postMedia ? postData.postMedia.map(m => ({ id: m.id, url: m.mediaUrl, thumbnail: m.thumbnail, type: m.type })) : [];
         delete postData.postMedia;
         return {
           ...postData,
@@ -122,7 +122,7 @@ module.exports = {
         where: { id },
         include: [
           { model: users, as: 'user', attributes: ['id', 'name', 'email', 'profileImage'] },
-          { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl'] }
+          { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl', 'thumbnail', 'type'] }
         ]
       });
 
@@ -141,7 +141,7 @@ module.exports = {
       });
 
       let postData = post.toJSON();
-      postData.media = postData.postMedia ? postData.postMedia.map(m => m.mediaUrl) : [];
+      postData.media = postData.postMedia ? postData.postMedia.map(m => ({ id: m.id, url: m.mediaUrl, thumbnail: m.thumbnail, type: m.type })) : [];
       delete postData.postMedia;
 
       return helper.success(res, 'Post detail fetched', {

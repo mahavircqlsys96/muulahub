@@ -3,6 +3,7 @@ var uuid = require("uuid").v4;
 const nodemailer = require("nodemailer");
 const ENV = process.env
 const admin = require("firebase-admin");
+const AWS = require("aws-sdk");
 
 const twilio = require("twilio");
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -96,18 +97,32 @@ module.exports = {
 
   fileUpload: async (file, folder) => {
     if (file) {
-      var extension = path.extname(file.name);
-      var filename = uuid() + extension;
-      file.mv(
-        process.cwd() + `/public/images/${folder}/` + filename,
-        function (err) {
-          if (err) return err;
-        }
-      );
-    }
+      const extension = path.extname(file.name);
+      const filename = uuid() + extension;
+      
+      const s3 = new AWS.S3({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION
+      });
 
-    let fullpath = `/images/${folder}/` + filename
-    return fullpath;
+      const params = {
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
+        Key: `${folder}/${filename}`,
+        Body: file.data,
+        ContentType: file.mimetype,
+        ACL: 'public-read'
+      };
+
+      try {
+        const data = await s3.upload(params).promise();
+        return data.Location;
+      } catch (err) {
+        console.error("S3 Upload Error:", err);
+        throw err;
+      }
+    }
+    return null;
   },
   success: function (res, message, body = {}, code = 200) {
     return res.status(code).json({

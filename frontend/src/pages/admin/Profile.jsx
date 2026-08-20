@@ -158,10 +158,10 @@ const Profile = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [fetchingError, setFetchingError] = useState(null);
-  const [settings, setSettings] = useState({ 
-    admin_commission: "", 
-    govt_tax: "", 
-    contact_email: "", 
+  const [settings, setSettings] = useState({
+    admin_commission: "",
+    govt_tax: "",
+    contact_email: "",
     contact_phone: "",
     withdrawal_fees: "",
     country_fees: "",
@@ -189,7 +189,7 @@ const Profile = () => {
   useEffect(() => {
     if (user) {
       setData(user);
-      setImagePreview(user?.profile_picture ? `${imageBaseUrl}/${user.profile_picture}` : "/user.png");
+      setImagePreview(user?.profile_picture ? `${user.profile_picture}` : "/user.png");
     }
   }, [user]);
 

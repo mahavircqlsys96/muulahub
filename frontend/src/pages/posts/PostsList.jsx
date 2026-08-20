@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import { get_posts } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
@@ -11,6 +12,7 @@ import { imageBaseUrl } from '../../services/api';
 
 const PostsList = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -91,14 +93,16 @@ const PostsList = () => {
                     <div style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.caption || '—'}
                     </div>
-                    {p.media && p.postType === 'photo' && (
+                    {p.media && p.media.length > 0 && (
                       <img
-                        src={`${imageBaseUrl}${p.media}`}
+                        src={p.media[0].type === 'video' ? (p.media[0].thumbnail?.startsWith('http') ? p.media[0].thumbnail : `${imageBaseUrl}${p.media[0].thumbnail}`) : (p.media[0].url?.startsWith('http') ? p.media[0].url : `${imageBaseUrl}${p.media[0].url}`)}
                         alt=""
                         style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', marginTop: '4px', cursor: 'zoom-in' }}
                         onClick={() => {
-                          setPreviewImage(`${imageBaseUrl}${p.media}`);
-                          setPreviewTitle(p.caption || 'Photo');
+                          if (p.media[0].type !== 'video') {
+                            setPreviewImage(p.media[0].url?.startsWith('http') ? p.media[0].url : `${imageBaseUrl}${p.media[0].url}`);
+                            setPreviewTitle(p.caption || 'Media');
+                          }
                         }}
                       />
                     )}
@@ -114,6 +118,7 @@ const PostsList = () => {
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(p.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
+                      <ActionBtn icon="visibility" color="#6366f1" title="View Details" onClick={() => navigate(`/posts/${p.id}`)} />
                       {p.status !== 'active' && (
                         <ActionBtn icon="check_circle" color="#10b981" title="Activate" onClick={() => updateStatus(p.id, 'active')} />
                       )}
