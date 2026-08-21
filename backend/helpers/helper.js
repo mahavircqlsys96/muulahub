@@ -35,7 +35,7 @@ module.exports = {
         token: token,
         // ✅ REQUIRED for popup when app is killed
         notification: {
-          title: title || "ParkEZ",
+          title: title || "Muulahub",
           body: String(body),
         },
 
@@ -54,7 +54,7 @@ module.exports = {
 
         // ✅ DATA PAYLOAD (for click handling)
         data: {
-          title: title || "ParkEZ",
+          title: title || "Muulahub",
           body: String(body),
           message: String(body),
           type: String(type || ''),
@@ -99,7 +99,7 @@ module.exports = {
     if (file) {
       const extension = path.extname(file.name);
       const filename = uuid() + extension;
-      
+
       const s3 = new AWS.S3({
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

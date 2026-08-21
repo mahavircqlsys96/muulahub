@@ -5,7 +5,8 @@ module.exports = (db) => {
     provider_verifications, withdrawal_requests, reports,
     disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
-    comment_likes, user_categories, bookmarks, booking_images
+    comment_likes, user_categories, bookmarks, booking_images,
+    mux_videos
   } = db;
 
   // Users <-> Services (provider)
@@ -193,5 +194,11 @@ module.exports = (db) => {
   if (rating && bookings) {
     rating.belongsTo(bookings, { foreignKey: 'bookingId', as: 'booking' });
     bookings.hasOne(rating, { foreignKey: 'bookingId', as: 'rating' });
+  }
+
+  // Mux Videos
+  if (mux_videos && users) {
+    mux_videos.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(mux_videos, { foreignKey: 'userId', as: 'muxVideos' });
   }
 };

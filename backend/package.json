@@ -7,6 +7,7 @@
     "start": "nodemon ./muulahub.js"
   },
   "dependencies": {
+    "@mux/mux-node": "^15.0.0",
     "aws-sdk": "^2.1693.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "~1.4.4",

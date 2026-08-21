@@ -11,6 +11,7 @@ const postsController = require('../controllers/apis/postsController');
 const bookingController = require('../controllers/apis/bookingController');
 const walletController = require('../controllers/apis/walletController');
 const withdrawalController = require('../controllers/apis/withdrawalController');
+const muxController = require('../controllers/apis/muxController');
 
 module.exports = (io) => {
 
@@ -21,6 +22,7 @@ module.exports = (io) => {
   router.get('/resetPasswordPage', authController.resetPasswordPage);
   router.post('/resetPassword', authController.resetPassword);
   router.post('/publicContactUs', authController.publicContactUs);
+  router.post('/muxWebhook', muxController.webhook);
 
   // ─── Header Auth ───
   router.use(authenticateHeader);
@@ -108,6 +110,10 @@ module.exports = (io) => {
   router.post('/request_withdrawal', withdrawalController.request_withdrawal);
   router.get('/withdrawal_history', withdrawalController.get_withdrawal_history);
   router.get('/withdrawal_detail/:id', withdrawalController.get_withdrawal_detail);
+
+  // Mux
+  router.post('/createMuxUpload', muxController.createUpload);
+  router.get('/getVideoDetails/:id', muxController.getVideoDetails);
 
   return router;
 };
