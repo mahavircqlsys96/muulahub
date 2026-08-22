@@ -128,7 +128,43 @@ module.exports = {
       // Check for file uploads
       if (req.files) {
         if (req.files.video) {
-          videoUrl = await helper.fileUpload(req.files.video, "posts");
+          try {
+            const mux = require('../../config/mux');
+            const axios = require('axios');
+            
+            // 1. Create a Mux Direct Upload
+            const upload = await mux.video.uploads.create({
+              new_asset_settings: { playback_policies: ['public'] },
+              cors_origin: '*',
+            });
+            
+            // 2. Upload the video file buffer to Mux
+            await axios.put(upload.url, req.files.video.data, {
+              headers: { 'Content-Type': req.files.video.mimetype }
+            });
+            
+            // 3. Wait for Mux to process and generate playback ID
+            let playbackId = null;
+            for (let i = 0; i < 30; i++) {
+               const up = await mux.video.uploads.retrieve(upload.id);
+               if (up.asset_id) {
+                   const asset = await mux.video.assets.retrieve(up.asset_id);
+                   if (asset.playback_ids && asset.playback_ids.length > 0) {
+                      playbackId = asset.playback_ids[0].id;
+                      break;
+                   }
+               }
+               // Wait 2 seconds before checking again
+               await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            
+            if (playbackId) {
+               videoUrl = `https://stream.mux.com/${playbackId}.m3u8`;
+               thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
+            }
+          } catch (muxError) {
+            console.error("Mux upload failed in createPost:", muxError);
+          }
         }
         if (req.files.thumbnail) {
           thumbnailUrl = await helper.fileUpload(req.files.thumbnail, "posts");

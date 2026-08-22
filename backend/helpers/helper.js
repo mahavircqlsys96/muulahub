@@ -124,6 +124,47 @@ module.exports = {
     }
     return null;
   },
+
+  uploadMuxVideo: async (file) => {
+    if (!file) return null;
+    try {
+      const mux = require('../config/mux');
+      const axios = require('axios');
+      
+      const upload = await mux.video.uploads.create({
+        new_asset_settings: { playback_policies: ['public'] },
+        cors_origin: '*',
+      });
+      
+      await axios.put(upload.url, file.data, {
+        headers: { 'Content-Type': file.mimetype }
+      });
+      
+      let playbackId = null;
+      for (let i = 0; i < 30; i++) {
+         const up = await mux.video.uploads.retrieve(upload.id);
+         if (up.asset_id) {
+             const asset = await mux.video.assets.retrieve(up.asset_id);
+             if (asset.playback_ids && asset.playback_ids.length > 0) {
+                playbackId = asset.playback_ids[0].id;
+                break;
+             }
+         }
+         await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      if (playbackId) {
+         return {
+            videoUrl: `https://stream.mux.com/${playbackId}.m3u8`,
+            thumbnailUrl: `https://image.mux.com/${playbackId}/thumbnail.jpg`
+         };
+      }
+      return null;
+    } catch(err) {
+      console.log("Mux upload error", err);
+      return null;
+    }
+  },
   success: function (res, message, body = {}, code = 200) {
     return res.status(code).json({
       success: true,
