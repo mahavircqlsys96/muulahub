@@ -164,7 +164,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { bookingId, status, amount, bookingDate, bookingTime, date, time } = req.body;
+      const { bookingId, status, amount, bookingDate, bookingTime, date, time, notes } = req.body;
       const userId = req.auth.id;
 
       const finalDate = date || bookingDate;
@@ -180,6 +180,11 @@ module.exports = {
       const finalStatus = status === 'reject' ? 'cancelled' : status;
 
       const updateData = { bookingStatus: finalStatus };
+      
+      if (notes) {
+        updateData.notes = notes;
+      }
+      
       let isCounterOffer = false;
 
       if (finalStatus === 'accepted' && (amount || finalDate || finalTime)) {
@@ -380,6 +385,11 @@ module.exports = {
           },
           {
             model: users,
+            as: 'user',
+            attributes: ['id', 'name', 'profileImage', 'phone']
+          },
+          {
+            model: users,
             as: 'provider',
             attributes: ['id', 'name', 'profileImage']
           },
@@ -420,13 +430,19 @@ module.exports = {
         where: {
           userId: req.auth.id,
           // bookingStatus: 'pending',
-          counterStatus: 'pending'
+          counterStatus: 'pending',
+          bookingStatus: { [Op.notIn]: ['cancelled', 'reject'] }
         },
         include: [
           {
             model: services_categories,
             as: 'category',
             attributes: ['id', 'categoryName', 'image']
+          },
+          {
+            model: users,
+            as: 'user',
+            attributes: ['id', 'name', 'profileImage', 'phone']
           },
           {
             model: users,
@@ -476,6 +492,11 @@ module.exports = {
             model: services_categories,
             as: 'category',
             attributes: ['id', 'categoryName', 'image']
+          },
+          {
+            model: users,
+            as: 'user',
+            attributes: ['id', 'name', 'profileImage', 'phone']
           },
           {
             model: users,
@@ -565,6 +586,11 @@ module.exports = {
             model: users,
             as: 'user',
             attributes: ['id', 'name', 'profileImage', 'phone']
+          },
+          {
+            model: users,
+            as: 'provider',
+            attributes: ['id', 'name', 'profileImage']
           },
           {
             model: booking_images,
