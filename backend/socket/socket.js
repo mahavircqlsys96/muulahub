@@ -118,13 +118,19 @@ module.exports = function (io) {
 
         const senderId = isValidToken.user.id;
 
+        let roomWhere = {
+          [Op.or]: [
+            { senderId: senderId, receiverId: get_data.receiverId },
+            { senderId: get_data.receiverId, receiverId: senderId }
+          ]
+        };
+
+        if (get_data.bookingId) {
+          roomWhere.bookingId = get_data.bookingId;
+        }
+
         const findConstant = await rooms.findOne({
-          where: {
-            [Op.or]: [
-              { senderId: senderId, receiverId: get_data.receiverId },
-              { senderId: get_data.receiverId, receiverId: senderId }
-            ]
-          },
+          where: roomWhere,
           raw: true
         });
 
@@ -138,6 +144,7 @@ module.exports = function (io) {
             receiverId: get_data.receiverId,
             message: get_data.message,
             messageType: get_data.messageType,
+            bookingId: get_data.bookingId || null,
           });
 
           await rooms.update(
@@ -149,7 +156,8 @@ module.exports = function (io) {
 
           const createConstant = await rooms.create({
             senderId: senderId,
-            receiverId: get_data.receiverId
+            receiverId: get_data.receiverId,
+            bookingId: get_data.bookingId || null,
           });
 
 
@@ -159,6 +167,7 @@ module.exports = function (io) {
             roomId: createConstant.id,
             message: get_data.message,
             messageType: get_data.messageType,
+            bookingId: get_data.bookingId || null,
           });
 
           await rooms.update(
@@ -375,6 +384,10 @@ module.exports = function (io) {
           ]
         };
 
+        if (get_data.bookingId) {
+          whereCondition[Op.and].push({ bookingId: get_data.bookingId });
+        }
+
         /* ------------------ COUNT (for pagination) ------------------ */
         const totalMessages = await chats.count({
           where: whereCondition
@@ -450,14 +463,19 @@ module.exports = function (io) {
 
         const senderId = isValidToken.user.id;
 
+        let updateWhere = {
+          senderId: data.receiverId,
+          receiverId: senderId,
+        };
+
+        if (data.bookingId) {
+          updateWhere.bookingId = data.bookingId;
+        }
+
         let update_read_status = await chats.update({
           isRead: 1
         }, {
-          where: {
-            senderId: data.receiverId,
-            receiverId: senderId,
-
-          }
+          where: updateWhere
         })
 
         success_message = {

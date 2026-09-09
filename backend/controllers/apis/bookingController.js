@@ -251,9 +251,10 @@ module.exports = {
       };
 
       if (status === 'accepted') {
+        updateData.paymentStatus = 'paid';
         updateData.bookingDate = booking.counterDate || booking.bookingDate;
         updateData.bookingTime = booking.counterTime || booking.bookingTime;
-        // updateData.amount = booking.counterPrice || booking.amount;
+        updateData.amount = booking.counterPrice || booking.amount;
       }
 
       await booking.update(updateData);
@@ -351,32 +352,23 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
 
-      const { status, type } = req.query;
+      const { type } = req.query;
 
       let whereClause = {
         userId: req.auth.id,
-        // bookingStatus: 'accepted',
-        counterStatus: 'accepted'
       };
 
-      // if (status) {
-      //   whereClause.bookingStatus = status;
-      // }
-
-      // const today = new Date();
-      // today.setHours(0, 0, 0, 0);
-
-      // if (type == 1) {
-      //   whereClause.bookingDate = {
-      //     [Op.gte]: today
-      //   };
-      // }
-
-      // if (type == 2) {
-      //   whereClause.bookingDate = {
-      //     [Op.lt]: today
-      //   };
-      // }
+      if (type == 1) {
+        whereClause.bookingStatus = { [Op.in]: ['accepted', 'upcoming'] };
+      } else if (type == 2) {
+        whereClause.bookingStatus = 'ongoing';
+      } else if (type == 3) {
+        whereClause.bookingStatus = 'completed';
+      } else if (type == 4) {
+        whereClause.bookingStatus = { [Op.in]: ['cancelled', 'reject'] };
+      } else {
+        whereClause.bookingStatus = { [Op.notIn]: ['pending'] };
+      }
 
       let findBookings = await bookings.findAll({
         where: whereClause,
@@ -530,55 +522,33 @@ module.exports = {
 
       let whereClause = {
         providerId: req.auth.id,
-        bookingStatus: 'accepted',
-        counterStatus: 'accepted',
-        paymentStatus: 'paid',
       };
 
       // =========================
       // TYPE FILTER LOGIC
       // =========================
 
-      // // 1 = UPCOMING (future bookings)
-      // if (type == 1) {
-      //   whereClause.bookingDate = {
-      //     [Op.gt]: now
-      //   };
-      // }
+      // 1 = UPCOMING
+      if (type == 1) {
+        whereClause.bookingStatus = { [Op.in]: ['accepted', 'upcoming'] };
+      }
 
-      // // 2 = ONGOING (today or currently active)
-      // if (type == 2) {
-      //   const startOfDay = new Date();
-      //   startOfDay.setHours(0, 0, 0, 0);
+      // 2 = ONGOING
+      if (type == 2) {
+        whereClause.bookingStatus = 'ongoing';
+      }
 
-      //   const endOfDay = new Date();
-      //   endOfDay.setHours(23, 59, 59, 999);
+      // 3 = PAST
+      if (type == 3) {
+        whereClause.bookingStatus = 'completed';
+      }
 
-      //   whereClause.bookingDate = {
-      //     [Op.between]: [startOfDay, endOfDay]
-      //   };
-
-      //   // optional: refine with status
-      //   whereClause.bookingStatus = {
-      //     [Op.in]: ['pending', 'accepted', 'in_progress']
-      //   };
-      // }
-
-      // // 3 = PAST (completed/cancelled or past date)
-      // if (type == 3) {
-      //   whereClause[Op.or] = [
-      //     {
-      //       bookingDate: {
-      //         [Op.lt]: now
-      //       }
-      //     },
-      //     {
-      //       bookingStatus: {
-      //         [Op.in]: ['completed', 'cancelled', 'rejected']
-      //       }
-      //     }
-      //   ];
-      // }
+      // 4 = CANCELLED
+      if (type == 4) {
+        whereClause.bookingStatus = {
+          [Op.in]: ['cancelled', 'reject']
+        };
+      }
 
       // =========================
       // QUERY

@@ -31,6 +31,14 @@ module.exports = function (sequelize, DataTypes) {
         key: 'id'
       }
     },
+    bookingId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'bookings',
+        key: 'id'
+      }
+    },
     message: {
       type: DataTypes.TEXT,
       allowNull: true
