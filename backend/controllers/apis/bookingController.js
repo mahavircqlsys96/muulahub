@@ -164,13 +164,19 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { bookingId, status, amount, bookingDate, bookingTime, date, time, notes } = req.body;
+      const { bookingId, status, amount, bookingDate, bookingTime, date, time, notes, providerNotes } = req.body;
       const userId = req.auth.id;
 
       const finalDate = date || bookingDate;
       const finalTime = time || bookingTime;
 
-      const booking = await bookings.findOne({ where: { id: bookingId, providerId: userId } });
+      const booking = await bookings.findOne({
+        where: {
+          id: bookingId,
+
+          // providerId: userId
+        }
+      });
       if (!booking) return helper.failed(res, 'Booking not found or not authorized');
 
       if (booking.bookingStatus !== 'pending') {
@@ -180,11 +186,15 @@ module.exports = {
       const finalStatus = status === 'reject' ? 'cancelled' : status;
 
       const updateData = { bookingStatus: finalStatus };
-      
+
       if (notes) {
         updateData.notes = notes;
       }
-      
+
+      if (providerNotes) {
+        updateData.providerNotes = providerNotes;
+      }
+
       let isCounterOffer = false;
 
       if (finalStatus === 'accepted' && (amount || finalDate || finalTime)) {
@@ -192,7 +202,7 @@ module.exports = {
           return helper.failed(res, 'Counter offer already sent');
         }
         isCounterOffer = true;
-        updateData.bookingStatus = 'accepted'; // keep it pending
+        updateData.bookingStatus = 'pending'; // keep it pending
         updateData.counterStatus = 'pending';
         if (finalDate) updateData.counterDate = finalDate;
         if (finalTime) updateData.counterTime = finalTime;
@@ -391,7 +401,17 @@ module.exports = {
           {
             model: users,
             as: 'provider',
-            attributes: ['id', 'name', 'profileImage']
+            attributes: [
+              'id', 'name', 'profileImage',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating),1),0)
+                  FROM rating
+                  WHERE rating.providerId = provider.id
+                )`),
+                "avgRating"
+              ]
+            ]
           },
           {
             model: booking_images,
@@ -429,9 +449,7 @@ module.exports = {
       let findBookings = await bookings.findAll({
         where: {
           userId: req.auth.id,
-          // bookingStatus: 'pending',
-          counterStatus: 'pending',
-          bookingStatus: { [Op.notIn]: ['cancelled', 'reject'] }
+          bookingStatus: 'pending'
         },
         include: [
           {
@@ -447,7 +465,17 @@ module.exports = {
           {
             model: users,
             as: 'provider',
-            attributes: ['id', 'name', 'profileImage']
+            attributes: [
+              'id', 'name', 'profileImage',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating),1),0)
+                  FROM rating
+                  WHERE rating.providerId = provider.id
+                )`),
+                "avgRating"
+              ]
+            ]
           },
           {
             model: booking_images,
@@ -482,11 +510,14 @@ module.exports = {
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
 
+      let whereClause = {
+        providerId: req.auth.id,
+        bookingStatus: 'pending'
+      };
+
       let findBookings = await bookings.findAll({
-        where: {
-          providerId: req.auth.id,
-          bookingStatus: 'pending'
-        },
+        where: whereClause,
+
         include: [
           {
             model: services_categories,
@@ -501,7 +532,17 @@ module.exports = {
           {
             model: users,
             as: 'provider',
-            attributes: ['id', 'name', 'profileImage']
+            attributes: [
+              'id', 'name', 'profileImage',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating),1),0)
+                  FROM rating
+                  WHERE rating.providerId = provider.id
+                )`),
+                "avgRating"
+              ]
+            ]
           },
           {
             model: booking_images,
@@ -552,11 +593,16 @@ module.exports = {
       // 1 = UPCOMING
       if (type == 1) {
         whereClause.bookingStatus = { [Op.in]: ['accepted', 'upcoming'] };
+        whereClause[Op.or] = [
+          { counterDate: null },
+          { counterStatus: 'accepted' }
+        ];
       }
 
       // 2 = ONGOING
       if (type == 2) {
         whereClause.bookingStatus = 'ongoing';
+
       }
 
       // 3 = PAST
@@ -590,7 +636,17 @@ module.exports = {
           {
             model: users,
             as: 'provider',
-            attributes: ['id', 'name', 'profileImage']
+            attributes: [
+              'id', 'name', 'profileImage',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating),1),0)
+                  FROM rating
+                  WHERE rating.providerId = provider.id
+                )`),
+                "avgRating"
+              ]
+            ]
           },
           {
             model: booking_images,

@@ -549,4 +549,53 @@ module.exports = {
 
 
 
+  updateLocation: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        latitude: 'required',
+        longitude: 'required',
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { latitude, longitude } = req.body;
+      const userId = req.auth.id;
+
+      await users.update(
+        { latitude, longitude },
+        { where: { id: userId } }
+      );
+
+      let find = await users.findByPk(userId, {
+        attributes: ['id', 'latitude', 'longitude']
+      });
+
+      return helper.success(res, 'Location updated successfully', { location: find });
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+  getLocation: async (req, res) => {
+    try {
+      const userId = req.query.userId || req.auth.id;
+
+      const user = await users.findOne({
+        where: { id: userId },
+        attributes: ['id', 'latitude', 'longitude']
+      });
+
+      if (!user) {
+        return helper.failed(res, 'User not found');
+      }
+
+      return helper.success(res, 'Location fetched successfully', {
+        user
+      });
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
 };

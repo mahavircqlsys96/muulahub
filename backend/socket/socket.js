@@ -295,13 +295,14 @@ module.exports = function (io) {
         const receiverUserIdLiteral = `CASE WHEN rooms.receiverId = ${senderId} THEN rooms.senderId ELSE rooms.receiverId END`;
         const receiverName = [Sequelize.literal(`(SELECT name FROM users WHERE users.id = ${receiverUserIdLiteral})`), 'receiverName'];
         const imgquery = [Sequelize.literal(`(SELECT profileImage FROM users WHERE users.id = ${receiverUserIdLiteral})`), 'receiverImage'];
-        const unread_msg = [Sequelize.literal(`(SELECT COUNT(*) FROM chats WHERE chats.receiverId = ${receiverUserIdLiteral} AND chats.isRead = '0')`), 'unread_msg'];
-        const lastMsgTime = [Sequelize.literal(`(SELECT createdAt FROM chats WHERE chats.receiverId = ${receiverUserIdLiteral} ORDER BY id DESC  LIMIT 1)`), 'createdAt_time'];
+        const unread_msg = [Sequelize.literal(`(SELECT COUNT(*) FROM chats WHERE chats.roomId = rooms.id AND chats.receiverId = ${senderId} AND chats.isRead = '0')`), 'unread_msg'];
+        const lastMsgTime = [Sequelize.literal(`(SELECT createdAt FROM chats WHERE chats.roomId = rooms.id ORDER BY id DESC LIMIT 1)`), 'createdAt_time'];
+        const categoryName = [Sequelize.literal(`(SELECT categoryName FROM services_categories WHERE id = (SELECT serviceId FROM bookings WHERE id = rooms.bookingId))`), 'categoryName'];
 
         /* ------------------ MAIN QUERY ------------------ */
         const { count, rows } = await rooms.findAndCountAll({
           attributes: {
-            include: [lastMsgTime, unread_msg, lastMsgId, receiverName, imgquery]
+            include: [lastMsgTime, unread_msg, lastMsgId, receiverName, imgquery, categoryName]
           },
           where: {
             [Op.or]: [{ senderId: senderId }, { receiverId: senderId }

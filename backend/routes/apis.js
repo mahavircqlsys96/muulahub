@@ -62,6 +62,8 @@ module.exports = (io) => {
   router.get('/getFollowers', userController.getFollowers);
   router.get('/getFollowing', userController.getFollowing);
   router.get('/walletDetails', userController.walletDetails);
+  router.put('/updateLocation', userController.updateLocation);
+  router.get('/getLocation', userController.getLocation);
   // Provider
 
   router.get('/getProviderProfile', providerController.getProviderProfile);
