@@ -375,6 +375,15 @@ module.exports = {
 
       if (type == 1) {
         whereClause.bookingStatus = { [Op.in]: ['accepted', 'upcoming'] };
+        whereClause.paymentStatus = 'paid';
+        whereClause[Op.and] = [
+          {
+            [Op.or]: [
+              { counterDate: null },
+              { counterStatus: 'accepted' }
+            ]
+          }
+        ];
       } else if (type == 2) {
         whereClause.bookingStatus = 'ongoing';
       } else if (type == 3) {
@@ -449,7 +458,10 @@ module.exports = {
       let findBookings = await bookings.findAll({
         where: {
           userId: req.auth.id,
-          bookingStatus: 'pending'
+          [Op.or]: [
+            { bookingStatus: 'pending' },
+            { bookingStatus: { [Op.in]: ['accepted', 'upcoming'] }, paymentStatus: 'pending' }
+          ]
         },
         include: [
           {
@@ -512,7 +524,10 @@ module.exports = {
 
       let whereClause = {
         providerId: req.auth.id,
-        bookingStatus: 'pending'
+        [Op.or]: [
+          { bookingStatus: 'pending' },
+          { bookingStatus: { [Op.in]: ['accepted', 'upcoming'] }, paymentStatus: 'pending' }
+        ]
       };
 
       let findBookings = await bookings.findAll({
@@ -593,9 +608,14 @@ module.exports = {
       // 1 = UPCOMING
       if (type == 1) {
         whereClause.bookingStatus = { [Op.in]: ['accepted', 'upcoming'] };
-        whereClause[Op.or] = [
-          { counterDate: null },
-          { counterStatus: 'accepted' }
+        whereClause.paymentStatus = 'paid';
+        whereClause[Op.and] = [
+          {
+            [Op.or]: [
+              { counterDate: null },
+              { counterStatus: 'accepted' }
+            ]
+          }
         ];
       }
 
@@ -746,6 +766,53 @@ module.exports = {
 
     } catch (error) {
       console.log("startWork error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  startTracking: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        bookingId: 'required',
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { bookingId } = req.body;
+      const userId = req.auth.id;
+
+      const booking = await bookings.findOne({
+        where: { id: bookingId }
+      });
+
+      if (!booking) {
+        return helper.failed(res, 'Booking not found');
+      }
+
+      if (booking.bookingStatus === 'completed' || booking.bookingStatus === 'cancelled') {
+        return helper.failed(res, `Booking already ${booking.bookingStatus}`);
+      }
+
+      let updateData = { bookingStatus: 'ongoing' };
+
+      await booking.update(updateData);
+
+      let notifyUserId = booking.providerId === userId ? booking.userId : booking.providerId;
+      let notifyMsg = `Provider has started tracking for the booking`;
+
+      await sendBookingNotification(
+        notifyUserId,
+        userId,
+        'Booking Update',
+        notifyMsg,
+        bookingId
+      );
+
+      return helper.success(res, `Tracking started successfully`);
+
+    } catch (error) {
+      console.log("startTracking error:", error);
       return helper.error(res, 'Something went wrong');
     }
   },

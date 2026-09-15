@@ -99,6 +99,7 @@ module.exports = (io) => {
   router.get('/getProviderBookings', bookingController.getProviderBookings);
   router.get('/getBookingDetail/:id', bookingController.getBookingDetail);
   router.post('/startWork', bookingController.startWork);
+  router.post('/startTracking', bookingController.startTracking);
   router.post('/completeWork', bookingController.completeWork);
   router.post('/giveRating', bookingController.giveRating);
   router.get('/providerRatingList', bookingController.providerRatingList);
