@@ -298,11 +298,12 @@ module.exports = function (io) {
         const unread_msg = [Sequelize.literal(`(SELECT COUNT(*) FROM chats WHERE chats.roomId = rooms.id AND chats.receiverId = ${senderId} AND chats.isRead = '0')`), 'unread_msg'];
         const lastMsgTime = [Sequelize.literal(`(SELECT createdAt FROM chats WHERE chats.roomId = rooms.id ORDER BY id DESC LIMIT 1)`), 'createdAt_time'];
         const categoryName = [Sequelize.literal(`(SELECT categoryName FROM services_categories WHERE id = (SELECT serviceId FROM bookings WHERE id = rooms.bookingId))`), 'categoryName'];
+        const bookingStatus = [Sequelize.literal(`(SELECT bookingStatus FROM bookings WHERE id = rooms.bookingId)`), 'bookingStatus'];
 
         /* ------------------ MAIN QUERY ------------------ */
         const { count, rows } = await rooms.findAndCountAll({
           attributes: {
-            include: [lastMsgTime, unread_msg, lastMsgId, receiverName, imgquery, categoryName]
+            include: [lastMsgTime, unread_msg, lastMsgId, receiverName, imgquery, categoryName, bookingStatus]
           },
           where: {
             [Op.or]: [{ senderId: senderId }, { receiverId: senderId }
