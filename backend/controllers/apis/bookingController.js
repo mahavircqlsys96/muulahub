@@ -385,7 +385,7 @@ module.exports = {
           }
         ];
       } else if (type == 2) {
-        whereClause.bookingStatus = 'ongoing';
+        whereClause.bookingStatus = { [Op.in]: ['ongoing', 'active'] };
       } else if (type == 3) {
         whereClause.bookingStatus = 'completed';
       } else if (type == 4) {
@@ -621,7 +621,10 @@ module.exports = {
 
       // 2 = ONGOING
       if (type == 2) {
-        whereClause.bookingStatus = 'ongoing';
+        whereClause.bookingStatus = { [Op.in]: ['ongoing', 'active'] };
+
+        // whereClause.bookingStatus = 'ongoing';
+        // whereClause.bookingStatus = 'active';
 
       }
 
@@ -747,7 +750,7 @@ module.exports = {
         return helper.failed(res, `Booking already ${booking.bookingStatus}`);
       }
 
-      let updateData = { bookingStatus: 'ongoing' };
+      let updateData = { bookingStatus: 'active' };
 
       await booking.update(updateData);
 
