@@ -711,7 +711,13 @@ module.exports = {
           { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'] },
           { model: users, as: 'user', attributes: ['id', 'name', 'profileImage', 'phone', 'email'] },
           { model: users, as: 'provider', attributes: ['id', 'name', 'profileImage', 'phone'] },
-          { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'] }
+          { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'] },
+          {
+            model: rating,
+            as: 'rating',
+            attributes: ['id', 'rating', 'review', 'image'],
+            // include: [{ model: users, as: 'user', attributes: ['id', 'name', 'profileImage'] }]
+          }
         ]
       });
 
