@@ -96,10 +96,14 @@ module.exports = {
           let parsed = JSON.parse(images);
           if (Array.isArray(parsed)) {
             images = parsed;
+          } else {
+            images = [images];
           }
         } catch (e) {
-          // Keep as is or split by comma if appropriate, but assuming JSON
+          images = [images];
         }
+      } else if (images && !Array.isArray(images)) {
+        images = [images];
       }
 
       let videoUrl = req.body.video;
