@@ -104,6 +104,7 @@ module.exports = (io) => {
   router.post('/completeWork', bookingController.completeWork);
   router.post('/giveRating', bookingController.giveRating);
   router.get('/providerRatingList', bookingController.providerRatingList);
+  router.get('/userRatingList', bookingController.userRatingList);
 
   // Wallet
   router.get('/wallet_balance', walletController.get_wallet_balance);
