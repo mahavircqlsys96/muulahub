@@ -40,6 +40,7 @@ module.exports = (io) => {
 
   // Auth
   router.post('/logout', authController.logout);
+  router.post("/updateDeviceToken", authController.updateDeviceToken);
   router.patch('/notificationOnOff', authController.notificationOnOff);
   router.put('/isProviderOnOff', authController.isProviderOnOff);
   router.post('/completeProfile', authController.completeProfile);

@@ -155,6 +155,50 @@ module.exports = {
       return helper.error(res, err);
     }
   },
+  updateDeviceToken: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        fcmToken: "required",
+        deviceType: "required"
+      });
+
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const { fcmToken, deviceType } = req.body;
+
+      const user = await users.findOne({
+        where: {
+          id: req.user.id
+        }
+      });
+
+      if (!user) {
+        return helper.failed(res, "User not found.");
+      }
+
+      if (user.status === "inactive" || user.status === "blocked") {
+        return helper.failed(
+          res,
+          "Your account is suspended. Please contact the admin."
+        );
+      }
+
+      await user.update({
+        fcmToken: fcmToken,
+        deviceType: deviceType
+      });
+
+      return helper.success(res, "Device token updated successfully.", {
+        fcmToken: user.fcmToken,
+        deviceType: user.deviceType
+      });
+
+    } catch (err) {
+      console.log(err);
+      return helper.error(res, err);
+    }
+  },
   signUp: async (req, res) => {
     try {
 

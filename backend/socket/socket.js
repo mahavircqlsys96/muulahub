@@ -236,28 +236,27 @@ module.exports = function (io) {
           where: { id: get_data.receiverId },
           raw: true
         });
-        // Send push notification if enabled
-        if (findReceiver && findReceiver.isNotification == "on") {
+        if (findReceiver && findReceiver.isNotification == "on" && findReceiver.fcmToken) {
           const ndata = {
+            token: findReceiver.fcmToken,
+            title: "Muulahub",
+            body: "You received a new message",
             msg: "New Message",
-            title: "werral",
             message: "You received a new message",
             bookingId: get_data.bookingId,
             msg_type: get_data.messageType,
-            senderId: senderId,
+            sender_id: senderId,
             sender_name: findSender.name,
             sender_image: findSender.profileImage,
-            type: 6
+            type: 'chat'
           };
 
           console.log("Push sent successfully");
 
-          // 1 => iOS, 2 => Android
-
-          helper.sendPushNotification(findReceiver.fcmToken, ndata);
+          helper.sendPushNotification(ndata);
 
         } else {
-          console.log("Notification turned off");
+          console.log("Notification turned off or no token");
         }
         /* ------------------ WHERE CONDITION ------------------ */
 

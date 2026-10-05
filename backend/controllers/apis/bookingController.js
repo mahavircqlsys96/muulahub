@@ -84,11 +84,14 @@ module.exports = {
         // location: 'required',
         // latitude: 'required',
         // longitude: 'required',
+        // bookingType : 'required|in:onSite,offSite',
+        // amount: 'required',
+
       });
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail, notes } = req.body;
+      let { amount, bookingType, providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail, notes } = req.body;
       const userId = req.auth.id;
 
       if (typeof images === "string") {
@@ -125,6 +128,8 @@ module.exports = {
 
       const booking = await bookings.create({
         bookingNumber,
+        bookingType,
+        amount,
         userId,
         providerId: providerId,
         serviceId: categoryId,
@@ -1021,6 +1026,14 @@ module.exports = {
         review,
         image
       });
+
+      await sendBookingNotification(
+        booking.providerId,
+        userId,
+        'New Rating Received',
+        `You received a new rating of ${ratingCount} stars`,
+        booking.id
+      );
 
       return helper.success(res, 'Rating given successfully', ratingData);
     } catch (error) {

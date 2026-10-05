@@ -49,6 +49,12 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0.00
     },
+    bookingType: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: '1->onSite,2->offSite'
+    },
     counterDate: {
       type: DataTypes.DATEONLY,
       allowNull: true
