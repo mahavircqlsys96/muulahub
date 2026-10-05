@@ -129,7 +129,7 @@ module.exports = {
       const booking = await bookings.create({
         bookingNumber,
         bookingType,
-        amount,
+        counterPrice: amount,
         userId,
         providerId: providerId,
         serviceId: categoryId,
