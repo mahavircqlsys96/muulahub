@@ -52,7 +52,7 @@ module.exports = function (sequelize, DataTypes) {
     bookingType: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 0,
+      defaultValue: 1,
       comment: '1->onSite,2->offSite'
     },
     counterDate: {
