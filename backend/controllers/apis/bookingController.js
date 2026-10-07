@@ -91,7 +91,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { amount, bookingType, providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail, notes } = req.body;
+      let { amount, bookingType, providerId, bookingDate, bookingTime, categoryId, location, latitude, longitude, images, video, thumbnail, notes, currency } = req.body;
       const userId = req.auth.id;
 
       if (typeof images === "string") {
@@ -139,7 +139,8 @@ module.exports = {
         bookingStatus: 'pending',
         location, latitude, longitude,
         notes,
-        video: videoUrl, thumbnail: thumbnailUrl
+        video: videoUrl, thumbnail: thumbnailUrl,
+        currency
       });
 
       if (images && Array.isArray(images) && images.length > 0) {
@@ -173,7 +174,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { bookingId, status, amount, bookingDate, bookingTime, date, time, notes, providerNotes } = req.body;
+      const { bookingId, status, amount, bookingDate, bookingTime, date, time, notes, providerNotes, currency } = req.body;
       const userId = req.auth.id;
 
       const finalDate = date || bookingDate;
@@ -202,6 +203,10 @@ module.exports = {
 
       if (providerNotes) {
         updateData.providerNotes = providerNotes;
+      }
+
+      if (currency) {
+        updateData.currency = currency;
       }
 
       let isCounterOffer = false;
@@ -1041,9 +1046,10 @@ module.exports = {
       return helper.error(res, 'Something went wrong');
     }
   },
-  providerRatingList: async (req, res) => {
+
+
+  userRatingList: async (req, res) => {
     try {
-      const { providerId } = req.query;
 
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
@@ -1053,7 +1059,7 @@ module.exports = {
       // REVIEWS LIST (PAGINATION)
       // =========================
       const ratingData = await rating.findAll({
-        where: { providerId },
+        where: { providerId: req.query.userId },
         include: [
           {
             model: users,
@@ -1075,14 +1081,14 @@ module.exports = {
       // TOTAL COUNT
       // =========================
       const total = await rating.count({
-        where: { providerId }
+        where: { providerId: req.query.userId },
       });
 
       // =========================
       // STAR WISE COUNT (1-5)
       // =========================
       const starCounts = await rating.findAll({
-        where: { providerId },
+        where: { providerId: req.query.userId },
         attributes: [
           'rating',
           [db.sequelize.fn('COUNT', db.sequelize.col('rating')), 'count']
@@ -1107,104 +1113,7 @@ module.exports = {
       // AVERAGE RATING
       // =========================
       const avgData = await rating.findOne({
-        where: { providerId },
-        attributes: [
-          [db.sequelize.fn('AVG', db.sequelize.col('rating')), 'avgRating']
-        ],
-        raw: true
-      });
-
-      const avgRating = parseFloat(avgData?.avgRating || 0).toFixed(1);
-
-      // =========================
-      // RESPONSE
-      // =========================
-      return helper.success(res, 'Rating list fetched successfully', {
-
-        totalReviews: total,
-        averageRating: avgRating,
-        ratingBreakdown,
-        reviews: ratingData,
-        pagination: {
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit)
-        },
-      });
-
-    } catch (error) {
-      console.log("providerRatingList error:", error);
-      return helper.error(res, 'Something went wrong');
-    }
-  },
-
-  userRatingList: async (req, res) => {
-    try {
-      const { userId } = req.query;
-
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const offset = (page - 1) * limit;
-
-      // =========================
-      // REVIEWS LIST (PAGINATION)
-      // =========================
-      const ratingData = await rating.findAll({
-        where: { userId },
-        include: [
-          {
-            model: users,
-            as: 'provider',
-            attributes: ['id', 'name', 'profileImage']
-          },
-          {
-            model: bookings,
-            as: 'booking',
-            attributes: ['id', 'bookingDate']
-          }
-        ],
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset
-      });
-
-      // =========================
-      // TOTAL COUNT
-      // =========================
-      const total = await rating.count({
-        where: { userId }
-      });
-
-      // =========================
-      // STAR WISE COUNT (1-5)
-      // =========================
-      const starCounts = await rating.findAll({
-        where: { userId },
-        attributes: [
-          'rating',
-          [db.sequelize.fn('COUNT', db.sequelize.col('rating')), 'count']
-        ],
-        group: ['rating']
-      });
-
-      // Format star breakdown
-      let ratingBreakdown = {
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
-        5: 0
-      };
-
-      starCounts.forEach(item => {
-        ratingBreakdown[item.rating] = parseInt(item.dataValues.count);
-      });
-
-      // =========================
-      // AVERAGE RATING
-      // =========================
-      const avgData = await rating.findOne({
-        where: { userId },
+        where: { providerId: req.query.userId },
         attributes: [
           [db.sequelize.fn('AVG', db.sequelize.col('rating')), 'avgRating']
         ],

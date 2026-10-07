@@ -6,7 +6,7 @@ module.exports = (db) => {
     disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
     comment_likes, user_categories, bookmarks, booking_images,
-    mux_videos, rooms, chats
+    mux_videos, rooms, chats, login_histories
   } = db;
 
   // Users <-> Services (provider)
@@ -214,5 +214,11 @@ module.exports = (db) => {
   if (chats && rooms) {
     chats.belongsTo(rooms, { foreignKey: 'roomId', as: 'room' });
     rooms.hasMany(chats, { foreignKey: 'roomId', as: 'chats' });
+  }
+
+  // Login Histories
+  if (login_histories && users) {
+    login_histories.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(login_histories, { foreignKey: 'userId', as: 'loginHistories' });
   }
 };

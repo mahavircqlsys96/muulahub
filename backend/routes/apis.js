@@ -55,6 +55,7 @@ module.exports = (io) => {
 
   // User
   router.get('/getProfile', authController.getProfile);
+  router.get('/loginHistory', authController.loginHistory);
   router.put('/editProfile', authController.editProfile);
   router.post('/makeCategoryPrimary', authController.makeCategoryPrimary);
   router.post('/updateCategories', authController.updateCategories);
@@ -103,7 +104,7 @@ module.exports = (io) => {
   router.post('/startTracking', bookingController.startTracking);
   router.post('/completeWork', bookingController.completeWork);
   router.post('/giveRating', bookingController.giveRating);
-  router.get('/providerRatingList', bookingController.providerRatingList);
+  // router.get('/providerRatingList', bookingController.providerRatingList);
   router.get('/userRatingList', bookingController.userRatingList);
 
   // Wallet

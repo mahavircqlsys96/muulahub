@@ -83,6 +83,10 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true,
       defaultValue: "pending"
     },
+    currency: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
     location: {
       type: DataTypes.STRING(255),
       allowNull: true
@@ -113,6 +117,10 @@ module.exports = function (sequelize, DataTypes) {
     },
     providerNotes: {
       type: DataTypes.TEXT,
+      allowNull: true
+    },
+    currency: {
+      type: DataTypes.STRING(50),
       allowNull: true
     }
   }, {

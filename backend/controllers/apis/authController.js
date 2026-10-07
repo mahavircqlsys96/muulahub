@@ -11,7 +11,7 @@ const Op = sequelize.Op;
 let jwt = require("jsonwebtoken");
 const { req } = require("express");
 const stripe = require("stripe")(envfile.stripe_secret_key);
-const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media } = require("../../models");
+const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media, login_histories } = require("../../models");
 
 user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'categories' });
 
@@ -116,6 +116,14 @@ module.exports = {
         loginTime: loginTime,
         fcmToken: fcmToken,
         deviceType: deviceType
+      });
+
+      await login_histories.create({
+        userId: user.id,
+        loginTime: loginTime,
+        deviceType: deviceType,
+        fcmToken: fcmToken,
+        loginType: 'email'
       });
 
       let categoryData = [];
@@ -298,6 +306,14 @@ module.exports = {
         referralCode: generatedReferralCode,
         referredBy: referredByUserId,
         currency: currency
+      });
+
+      await login_histories.create({
+        userId: user.id,
+        loginTime: loginTime,
+        deviceType: deviceType,
+        fcmToken: deviceToken,
+        loginType: 'email'
       });
 
       const token = jwt.sign(
@@ -663,6 +679,14 @@ module.exports = {
           },
         }
       );
+
+      await login_histories.update(
+        { logoutTime: time },
+        {
+          where: { userId: req.auth.id, logoutTime: null },
+        }
+      );
+
       return helper.success(res, "Logout Successfully");
     } catch (error) {
       return helper.error(res, error);
@@ -1249,6 +1273,13 @@ module.exports = {
       /* =======================
          Generate Token
       ======================= */
+      await login_histories.create({
+        userId: user.id,
+        loginTime: loginTime,
+        fcmToken: deviceToken,
+        loginType: loginType
+      });
+
       const token = jwt.sign(
         {
           data: {
@@ -1725,4 +1756,34 @@ module.exports = {
     }
   },
 
+  loginHistory: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+
+      const history = await login_histories.findAndCountAll({
+        where: { userId: req.auth.id },
+        order: [['createdAt', 'DESC']],
+        limit: limit,
+        offset: offset
+      });
+
+      return helper.success(res, "Login history fetched successfully", {
+        rows: history.rows,
+        pagination: {
+          total: history.count,
+          page,
+          limit,
+          totalPages: Math.ceil(history.count / limit),
+          hasNextPage: page < Math.ceil(history.count / limit)
+        }
+      });
+
+
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, error);
+    }
+  },
 };
