@@ -12,6 +12,7 @@ const bookingController = require('../controllers/apis/bookingController');
 const walletController = require('../controllers/apis/walletController');
 const withdrawalController = require('../controllers/apis/withdrawalController');
 const muxController = require('../controllers/apis/muxController');
+const agoraController = require('../controllers/apis/agoraController');
 
 module.exports = (io) => {
 
@@ -123,6 +124,9 @@ module.exports = (io) => {
   // Mux
   router.post('/createMuxUpload', muxController.createUpload);
   router.get('/getVideoDetails/:id', muxController.getVideoDetails);
+
+  // Agora Live Streaming
+  router.post('/generateAgoraToken', agoraController.generateToken);
 
   return router;
 };
