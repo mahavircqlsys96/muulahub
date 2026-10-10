@@ -6,7 +6,7 @@ module.exports = (db) => {
     disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
     comment_likes, user_categories, bookmarks, booking_images,
-    mux_videos, rooms, chats, login_histories
+    mux_videos, rooms, chats, login_histories, profile_views, search_appearances, bank_accounts
   } = db;
 
   // Users <-> Services (provider)
@@ -220,5 +220,29 @@ module.exports = (db) => {
   if (login_histories && users) {
     login_histories.belongsTo(users, { foreignKey: 'userId', as: 'user' });
     users.hasMany(login_histories, { foreignKey: 'userId', as: 'loginHistories' });
+  }
+
+  // Profile Views
+  if (profile_views && users) {
+    profile_views.belongsTo(users, { foreignKey: 'viewById', as: 'viewer' });
+    profile_views.belongsTo(users, { foreignKey: 'viewToId', as: 'viewedProvider' });
+    users.hasMany(profile_views, { foreignKey: 'viewById', as: 'profilesViewed' });
+    users.hasMany(profile_views, { foreignKey: 'viewToId', as: 'profileViewsReceived' });
+  }
+
+  // Search Appearances
+  if (search_appearances && posts) {
+    search_appearances.belongsTo(posts, { foreignKey: 'postId', as: 'post' });
+    posts.hasMany(search_appearances, { foreignKey: 'postId', as: 'searchAppearances' });
+  }
+  if (search_appearances && users) {
+    search_appearances.belongsTo(users, { foreignKey: 'providerId', as: 'provider' });
+    users.hasMany(search_appearances, { foreignKey: 'providerId', as: 'searchAppearances' });
+  }
+
+  // Bank Accounts
+  if (bank_accounts && users) {
+    bank_accounts.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(bank_accounts, { foreignKey: 'userId', as: 'bankAccounts' });
   }
 };

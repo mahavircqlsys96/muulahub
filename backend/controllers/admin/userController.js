@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { users, bookings, followers } = require('../../models');
+const { users, bookings, followers, bank_accounts } = require('../../models');
 const db = require("../../models");
 const sequelize = db.sequelize;
 const Sequelize = require("sequelize");
@@ -173,6 +173,9 @@ module.exports = {
 
             const row = user_details.toJSON ? user_details.toJSON() : user_details;
             row.total_spent = parseFloat(totalSpentResult?.totalSpent || 0);
+
+            const bankDetails = await bank_accounts.findOne({ where: { userId: id } });
+            row.bankDetails = bankDetails;
 
             return helper.success(res, "user view", row);
 

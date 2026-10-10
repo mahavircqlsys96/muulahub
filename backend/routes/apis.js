@@ -59,6 +59,7 @@ module.exports = (io) => {
   router.put('/editProfile', authController.editProfile);
   router.post('/makeCategoryPrimary', authController.makeCategoryPrimary);
   router.post('/updateCategories', authController.updateCategories);
+  router.post('/addBankDetails', userController.addBankDetails);
 
   router.post('/followUser', userController.followUser);
   router.get('/getFollowers', userController.getFollowers);
@@ -72,6 +73,7 @@ module.exports = (io) => {
   router.get('/getProvidersList', providerController.getProvidersList);
   router.get('/providerDetail/:id', providerController.providerDetail);
   router.post('/addProviderCategory', providerController.addProviderCategory);
+  router.get('/getProviderInsights', providerController.getProviderInsights);
 
   // Posts
   router.post('/createPost', postsController.createPost);
@@ -95,6 +97,7 @@ module.exports = (io) => {
   router.post('/acceptRejectRequestProvider', bookingController.acceptRejectRequestProvider);
   router.post('/acceptRejectRequestUser', bookingController.acceptRejectRequestUser);
   router.post('/payBooking', bookingController.payBooking);
+  router.post('/stripe_status_update', bookingController.stripe_status_update);
   router.get('/getUserBookings', bookingController.getUserBookings);
   router.get('/getUserPendingBookings', bookingController.getUserPendingBookings);
   router.get('/getProviderPendingBookings', bookingController.getProviderPendingBookings);

@@ -11,7 +11,7 @@ const Op = sequelize.Op;
 let jwt = require("jsonwebtoken");
 const { req } = require("express");
 const stripe = require("stripe")(envfile.stripe_secret_key);
-const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media, login_histories } = require("../../models");
+const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media, login_histories, bank_accounts } = require("../../models");
 
 user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'categories' });
 
@@ -1092,9 +1092,15 @@ module.exports = {
         order: [['createdAt', 'DESC']]
       });
 
+      const bankDetails = await bank_accounts.findAll({
+        where: { userId: user.id },
+        attributes: ["id", "bankName", "accountHolderName", "accountNumber", "routingNumber"]
+      });
+
       const obj = user.toJSON();
       obj.categories = categoryData;
       obj.posts = userPosts;
+      obj.bankDetails = bankDetails;
 
       return helper.success(
         res,

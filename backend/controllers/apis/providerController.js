@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const db = require('../../models');
 const sequelize = require("sequelize");
 
-const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images, user_categories, posts, post_media } = db;
+const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images, user_categories, posts, post_media, profile_views, search_appearances } = db;
 
 users.hasMany(portfolio_images, { foreignKey: 'providerId', as: 'portfolioImages' });
 // portfolio_images.belongsTo(users, { foreignKey: 'providerId', as: 'provider' });
@@ -15,6 +15,14 @@ module.exports = {
   getProviderProfile: async (req, res) => {
     try {
       const providerId = req.query.providerId || req.auth.id;
+
+      if (req.auth && req.auth.id && req.auth.id != providerId) {
+        // Save the profile view entry
+        await profile_views.create({
+          viewById: req.auth.id,
+          viewToId: providerId
+        });
+      }
 
       const provider = await users.findOne({
         where: {
@@ -420,6 +428,96 @@ module.exports = {
       return helper.success(res, "Category added successfully. Waiting for admin approval.", newCategory);
     } catch (error) {
       console.log("addProviderCategory error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  getProviderInsights: async (req, res) => {
+    try {
+      const providerId = req.auth.id;
+
+      // 1. Total Profile Views
+      const totalViews = await profile_views.count({
+        where: { viewToId: providerId }
+      });
+
+      // 2. Fetch all views from the last 5 weeks
+      const moment = require('moment');
+      const fiveWeeksAgo = moment().subtract(5, 'weeks').startOf('isoWeek').toDate();
+
+      const recentViews = await profile_views.findAll({
+        where: {
+          viewToId: providerId,
+          createdAt: {
+            [Op.gte]: fiveWeeksAgo
+          }
+        },
+        attributes: ['createdAt']
+      });
+
+      // Initialize the weekly counts for W1 to W5
+      // W5 = current week, W4 = last week, ..., W1 = 4 weeks ago
+      let weeklyData = [
+        { label: 'W1', count: 0 },
+        { label: 'W2', count: 0 },
+        { label: 'W3', count: 0 },
+        { label: 'W4', count: 0 },
+        { label: 'W5', count: 0 }
+      ];
+      
+      recentViews.forEach(view => {
+        const viewMoment = moment(view.createdAt);
+        // Calculate the difference in weeks from the current week
+        const diffWeeks = moment().startOf('isoWeek').diff(viewMoment.startOf('isoWeek'), 'weeks');
+        
+        // diffWeeks: 0 = W5, 1 = W4, 2 = W3, 3 = W2, 4 = W1
+        if (diffWeeks >= 0 && diffWeeks <= 4) {
+          const index = 4 - diffWeeks;
+          weeklyData[index].count++;
+        }
+      });
+
+      // Search Hits
+      const searchHitsCount = await search_appearances.count({
+        where: { providerId: providerId }
+      });
+
+      const recentSearchHits = await search_appearances.findAll({
+        where: {
+          providerId: providerId,
+          createdAt: {
+            [Op.gte]: fiveWeeksAgo
+          }
+        },
+        attributes: ['createdAt']
+      });
+
+      let searchChartData = [
+        { label: 'W1', count: 0 },
+        { label: 'W2', count: 0 },
+        { label: 'W3', count: 0 },
+        { label: 'W4', count: 0 },
+        { label: 'W5', count: 0 }
+      ];
+
+      recentSearchHits.forEach(hit => {
+        const hitMoment = moment(hit.createdAt);
+        const diffWeeks = moment().startOf('isoWeek').diff(hitMoment.startOf('isoWeek'), 'weeks');
+        if (diffWeeks >= 0 && diffWeeks <= 4) {
+          const index = 4 - diffWeeks;
+          searchChartData[index].count++;
+        }
+      });
+
+      return helper.success(res, "Insights fetched successfully", {
+        totalViews: totalViews,
+        searchHits: searchHitsCount,
+        chartData: weeklyData,
+        searchChartData: searchChartData
+      });
+
+    } catch (error) {
+      console.log("getProviderInsights error:", error);
       return helper.error(res, 'Something went wrong');
     }
   },

@@ -68,7 +68,7 @@ const WithdrawalsList = () => {
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <TableHead columns={['Sr. No.', 'Provider', 'Amount', 'Bank', 'Account', 'IFSC', 'Status', 'Date', 'Actions']} />
+            <TableHead columns={['Sr. No.', 'Provider', 'Amount', 'Bank', 'Account', 'Routing No.', 'Status', 'Date', 'Actions']} />
             <tbody>
               {loading && <LoadingRow cols={9} />}
               {!loading && !data.list?.length && <EmptyRow cols={9} message="No withdrawal requests" />}
@@ -80,9 +80,9 @@ const WithdrawalsList = () => {
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>{w.provider?.email}</div>
                   </td>
                   <td style={{ padding: '12px 16px', fontWeight: '700', color: '#f97316' }}>{formatCurrency(w.amount)}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.bankName ?? w.bank_name ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.accountNumber ?? w.account_number ?? '—'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151', fontFamily: 'ui-monospace, monospace' }}>{w.ifscCode ?? w.ifsc_code ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.provider?.bankAccounts?.[0]?.bankName || w.bankName || w.bank_name || '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.provider?.bankAccounts?.[0]?.accountNumber || w.accountNumber || w.account_number || '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151', fontFamily: 'ui-monospace, monospace' }}>{w.provider?.bankAccounts?.[0]?.routingNumber || w.ifscCode || w.ifsc_code || '—'}</td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={w.status} /></td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(w.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>

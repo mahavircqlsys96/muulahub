@@ -1,7 +1,7 @@
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const db = require('../../models');
-const { users, withdrawal_requests, notifications } = db;
+const { users, withdrawal_requests, notifications, bank_accounts } = db;
 
 module.exports = {
 
@@ -9,16 +9,19 @@ module.exports = {
     try {
       const v = new Validator(req.body, {
         amount: 'required',
-        bankName: 'required|string',
-        accountNumber: 'required|string',
-        ifscCode: 'required|string'
+
       });
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { amount, bankName, accountNumber, ifscCode } = req.body;
+      const { amount } = req.body;
       const providerId = req.auth.id;
       const requestAmount = parseFloat(amount);
+
+      const bankDetails = await bank_accounts.findOne({
+        where: { userId: providerId }
+      });
+      if (!bankDetails) return helper.failed(res, 'Bank details not found');
 
       if (requestAmount <= 0) return helper.failed(res, 'Amount must be greater than 0');
 
@@ -40,9 +43,9 @@ module.exports = {
       const withdrawal = await withdrawal_requests.create({
         providerId,
         amount: requestAmount,
-        bankName,
-        accountNumber,
-        ifscCode,
+        bankName: bankDetails.bankName,
+        accountNumber: bankDetails.accountNumber,
+        ifscCode: bankDetails.routingNumber,
         status: 'pending'
       });
 

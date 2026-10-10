@@ -2,7 +2,7 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
-const { users, withdrawal_requests, notifications } = db;
+const { users, withdrawal_requests, notifications, bank_accounts } = db;
 
 module.exports = {
 
@@ -21,7 +21,12 @@ module.exports = {
         include: [{
           model: users,
           as: 'provider',
-          attributes: ['id', 'name', 'email', 'phone', 'walletAmount', 'totalEarning']
+          attributes: ['id', 'name', 'email', 'phone', 'walletAmount', 'totalEarning'],
+          include: [{
+            model: bank_accounts,
+            as: 'bankAccounts',
+            attributes: ['bankName', 'accountNumber', 'routingNumber', 'accountHolderName']
+          }]
         }],
         order: [['createdAt', 'DESC']],
         limit,

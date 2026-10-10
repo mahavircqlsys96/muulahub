@@ -130,37 +130,37 @@ module.exports = {
     try {
       const mux = require('../config/mux');
       const axios = require('axios');
-      
+
       const upload = await mux.video.uploads.create({
         new_asset_settings: { playback_policies: ['public'] },
         cors_origin: '*',
       });
-      
+
       await axios.put(upload.url, file.data, {
         headers: { 'Content-Type': file.mimetype }
       });
-      
+
       let playbackId = null;
       for (let i = 0; i < 30; i++) {
-         const up = await mux.video.uploads.retrieve(upload.id);
-         if (up.asset_id) {
-             const asset = await mux.video.assets.retrieve(up.asset_id);
-             if (asset.playback_ids && asset.playback_ids.length > 0) {
-                playbackId = asset.playback_ids[0].id;
-                break;
-             }
-         }
-         await new Promise(resolve => setTimeout(resolve, 2000));
+        const up = await mux.video.uploads.retrieve(upload.id);
+        if (up.asset_id) {
+          const asset = await mux.video.assets.retrieve(up.asset_id);
+          if (asset.playback_ids && asset.playback_ids.length > 0) {
+            playbackId = asset.playback_ids[0].id;
+            break;
+          }
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-      
+
       if (playbackId) {
-         return {
-            videoUrl: `https://stream.mux.com/${playbackId}.m3u8`,
-            thumbnailUrl: `https://image.mux.com/${playbackId}/thumbnail.jpg`
-         };
+        return {
+          videoUrl: `https://stream.mux.com/${playbackId}.m3u8`,
+          thumbnailUrl: `https://image.mux.com/${playbackId}/thumbnail.jpg`
+        };
       }
       return null;
-    } catch(err) {
+    } catch (err) {
       console.log("Mux upload error", err);
       return null;
     }
@@ -289,6 +289,77 @@ module.exports = {
       console.log("File delete error:", err);
       throw err
     }
+  },
+  stripePayment: async (
+    amounts,
+    user_dtails,
+    booking,
+    account_destinationId,
+    payment_type,
+    vender_amount
+  ) => {
+    let data = "";
+    const account = await stripe.accounts.retrieve(account_destinationId.stripeAccountId);
+
+    if (payment_type === 1) {
+      data = {
+        booking_details: booking.id,
+        package_id: 0,
+      };
+    } else {
+      data = {
+        booking_details: 0,
+        package_details: booking.id,
+      };
+    }
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      {
+        customer: user_dtails.stripe_id,
+      },
+      {
+        apiVersion: "2024-12-18.acacia",
+        // apiVersion: "2023-10-16",
+      }
+    );
+
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: account_destinationId.stripe_id,
+      type: 'card',
+    });
+    console.log("paymentMethods", paymentMethods);
+    // return
+
+    let price = (vender_amount * 100)
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amounts * 100),
+      application_fee_amount: Math.round((amounts - vender_amount) * 100),    // You take commission
+      currency: "USD",
+      customer: user_dtails.stripe_id,
+      payment_method_types: ["card"],
+      //   transfer_data: {
+      //     destination: account_destinationId.stripeAccountId, // connected account
+      //     amount: Math.round(vender_amount * 100), // amount to send to lawyer
+      // },
+      // // Key change
+      on_behalf_of: account_destinationId.stripeAccountId,
+
+      // Make Stripe settle to connected account
+      transfer_data: {
+        destination: account_destinationId.stripeAccountId,
+      },
+
+      metadata: {
+        data: JSON.stringify(data),
+      },
+    });
+    let obj = {
+      ephemeralKey: ephemeralKey,
+      paymentIntent: paymentIntent,
+    };
+
+
+    return obj;
   },
 
 

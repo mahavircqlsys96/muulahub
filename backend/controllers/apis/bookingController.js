@@ -3,7 +3,7 @@ const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op, fn, col } = require('sequelize');
 const db = require('../../models');
-const { users, bookings, payments, notifications, services_categories, rating, booking_images } = db;
+const { users, bookings, payments, notifications, services_categories, rating, booking_images, wallet_transactions } = db;
 const { v4: uuidv4 } = require('uuid');
 const stripe = require('stripe')(envfile.stripe_secret_key);
 
@@ -303,7 +303,7 @@ module.exports = {
     }
   },
 
-  payBooking: async (req, res) => {
+  payBookingOld: async (req, res) => {
     try {
       const v = new Validator(req.body, {
         bookingId: 'required',
@@ -370,6 +370,165 @@ module.exports = {
     } catch (error) {
       console.log(error);
       return helper.error(res, error.message || 'Payment processing failed');
+    }
+  },
+
+
+
+
+  payBooking: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        amount: "required|numeric",
+        type: "required|in:1,2", // 1 for booking, 2 for wallet top-up
+      });
+      let errorsResponse = await helper.checkValidation(v);
+      if (errorsResponse) {
+        return helper.failed(res, errorsResponse);
+      }
+
+      const { type, bookingId } = req.body;
+      const amount = parseFloat(req.body.amount);
+      const userId = req.auth.id;
+
+      if (amount <= 0) {
+        return helper.failed(res, "Amount must be greater than 0");
+      }
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) return helper.failed(res, "User not found");
+
+      // Ensure customerId exists
+      let customerId = user.customerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+        });
+        customerId = customer.id;
+        await user.update({ customerId });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        currency: 'usd',
+        customer: customerId,
+        payment_method_types: ['card'],
+      });
+
+      if (type == 1) {
+        // Booking payment
+        if (!bookingId) return helper.failed(res, "bookingId is required for type 1");
+        const booking = await bookings.findOne({ where: { id: bookingId } });
+        if (!booking) return helper.failed(res, "Booking not found");
+
+        const adminCommission = parseFloat(((ADMIN_COMMISSION_PERCENT / 100) * amount).toFixed(2));
+        const providerAmount = parseFloat((amount - adminCommission).toFixed(2));
+
+        await payments.create({
+          userId,
+          bookingId,
+          amount,
+          adminCommission,
+          providerAmount,
+          paymentStatus: 'pending',
+          transactionId: paymentIntent.id
+        });
+
+      } else if (type == 2) {
+        // Wallet top-up
+        await wallet_transactions.create({
+          userId,
+          amount,
+          type: 'credit',
+          status: 'pending',
+          referenceId: paymentIntent.id,
+          description: 'Wallet Top-up'
+        });
+      }
+
+      const ephemeralKey = await stripe.ephemeralKeys.create(
+        { customer: customerId },
+        { apiVersion: "2024-12-18.acacia" }
+      );
+
+      let paymentResponse = {
+        paymentIntent: paymentIntent.client_secret,
+        ephemeralKey: ephemeralKey.secret,
+        customer: customerId,
+        publishableKey: envfile.stripe_publish_key,
+        transactionId: paymentIntent.id,
+        currency: paymentIntent.currency,
+        country: "US"
+      };
+
+      return helper.success(res, "Payment Intent created successfully", {
+        paymentResponse,
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        customerId
+      });
+
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, "Error occurred while processing payment");
+    }
+  },
+
+  stripe_status_update: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        paymentIntent: "required",
+      });
+      let errorsResponse = await helper.checkValidation(v);
+      if (errorsResponse) {
+        return helper.failed(res, errorsResponse);
+      }
+
+      const { paymentIntent } = req.body;
+
+      // Verify payment intent status with Stripe
+      const pi = await stripe.paymentIntents.retrieve(paymentIntent);
+      if (pi.status !== 'succeeded') {
+        return helper.failed(res, "Payment not successful");
+      }
+
+      // Check if it's a booking payment
+      const payment = await payments.findOne({ where: { transactionId: paymentIntent } });
+      if (payment && payment.paymentStatus === 'pending') {
+        await payment.update({ paymentStatus: 'success' });
+        await bookings.update({ paymentStatus: 'paid' }, { where: { id: payment.bookingId } });
+
+        const booking = await bookings.findOne({ where: { id: payment.bookingId } });
+
+        // Add funds to provider's wallet
+        if (booking && payment.providerAmount) {
+          await users.increment(
+            { walletAmount: payment.providerAmount, totalEarning: payment.providerAmount, pendingAmount: payment.providerAmount },
+            { where: { id: booking.providerId } }
+          );
+        }
+        return helper.success(res, "Booking payment successfully completed");
+      }
+
+      // Check if it's a wallet top-up
+      const walletTx = await wallet_transactions.findOne({ where: { referenceId: paymentIntent } });
+      if (walletTx && walletTx.status === 'pending') {
+        await walletTx.update({ status: 'completed' });
+
+        // Add funds to user's wallet
+        await users.increment(
+          { walletAmount: walletTx.amount },
+          { where: { id: walletTx.userId } }
+        );
+        return helper.success(res, "Wallet top-up successfully completed");
+      }
+
+      return helper.failed(res, "Payment record not found or already processed");
+
+    } catch (error) {
+      console.log("Stripe status update error:", error);
+      return helper.error(res, "Error occurred while updating payment status");
     }
   },
 

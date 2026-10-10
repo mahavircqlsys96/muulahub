@@ -3,7 +3,7 @@ const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op, fn, col } = require('sequelize');
 const db = require('../../models');
-const { users, services, bookings, posts, followers, notifications, post_media, services_categories, portfolio_images, wallet_transactions } = db;
+const { users, services, bookings, posts, followers, notifications, post_media, services_categories, portfolio_images, wallet_transactions, search_appearances, bank_accounts, payments, withdrawal_requests } = db;
 
 module.exports = {
 
@@ -131,6 +131,18 @@ module.exports = {
         limit,
         offset
       });
+
+      // ✅ Save search appearances if searchKey is present
+      if (searchKey.trim() && findPosts && findPosts.length > 0) {
+        const searchAppearancesData = findPosts.map(post => {
+          return {
+            postId: post.id,
+            providerId: post.user ? post.user.id : post.userId,
+            searchKey: searchKey.trim()
+          };
+        });
+        await search_appearances.bulkCreate(searchAppearancesData).catch(e => console.error("Error saving search appearances:", e));
+      }
 
       return helper.success(res, 'Home', {
         posts: findPosts,
@@ -514,11 +526,49 @@ module.exports = {
         return helper.failed(res, 'User not found');
       }
 
-      const { count, rows } = await wallet_transactions.findAndCountAll({
-        where: { userId },
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset
+      const baseQuery = `
+        SELECT CONCAT('wt_', id) as id, COALESCE(description, 'Wallet Top-up') as title, amount, type, createdAt as date
+        FROM wallet_transactions 
+        WHERE userId = :userId
+
+        UNION ALL
+
+        SELECT CONCAT('pm_', p.id) as id, CONCAT('Payment · ', u.name) as title, p.amount, 'debit' as type, p.createdAt as date
+        FROM payments p
+        JOIN bookings b ON p.bookingId = b.id
+        JOIN users u ON b.providerId = u.id
+        WHERE p.userId = :userId AND p.paymentStatus = 'success'
+
+        UNION ALL
+
+        SELECT CONCAT('pr_', p.id) as id, 'Job payment received' as title, p.providerAmount as amount, 'credit' as type, p.createdAt as date
+        FROM payments p
+        JOIN bookings b ON p.bookingId = b.id
+        WHERE b.providerId = :userId AND p.paymentStatus = 'success'
+
+        UNION ALL
+
+        SELECT CONCAT('wd_', w.id) as id, IF(w.status='pending', 'Payout to bank (Pending)', 'Payout to bank') as title, w.amount, 'debit' as type, w.createdAt as date
+        FROM withdrawal_requests w
+        WHERE w.providerId = :userId AND w.status IN ('pending', 'approved')
+      `;
+
+      const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as transactions`;
+      
+      const [countResult] = await db.sequelize.query(countQuery, {
+        replacements: { userId },
+        type: db.sequelize.QueryTypes.SELECT
+      });
+
+      const count = parseInt(countResult.total) || 0;
+
+      const paginatedTransactions = await db.sequelize.query(`
+        SELECT * FROM (${baseQuery}) as transactions
+        ORDER BY date DESC
+        LIMIT :limit OFFSET :offset
+      `, {
+        replacements: { userId, limit, offset },
+        type: db.sequelize.QueryTypes.SELECT
       });
 
       return helper.success(res, 'Wallet details fetched', {
@@ -529,9 +579,7 @@ module.exports = {
           pendingAmount: userWallet.pendingAmount,
           withdrawnAmount: userWallet.withdrawnAmount
         },
-
-        transactions: rows,
-
+        transactions: paginatedTransactions,
         pagination: {
           total: count,
           page,
@@ -594,6 +642,49 @@ module.exports = {
       });
     } catch (error) {
       console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  addBankDetails: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        bankName: 'required',
+        accountHolderName: 'required',
+        accountNumber: 'required',
+        routingNumber: 'required'
+      });
+      const matched = await v.check();
+      if (!matched) {
+        return helper.failed(res, v.errors);
+      }
+
+      const { bankName, accountHolderName, accountNumber, routingNumber } = req.body;
+      const userId = req.auth.id;
+
+      // Check if user already has a bank account and update it, else create
+      let bankAccount = await bank_accounts.findOne({ where: { userId } });
+
+      if (bankAccount) {
+        await bankAccount.update({
+          bankName,
+          accountHolderName,
+          accountNumber,
+          routingNumber
+        });
+      } else {
+        bankAccount = await bank_accounts.create({
+          userId,
+          bankName,
+          accountHolderName,
+          accountNumber,
+          routingNumber
+        });
+      }
+
+      return helper.success(res, "Bank details saved successfully", bankAccount);
+    } catch (error) {
+      console.log("addBankDetails error:", error);
       return helper.error(res, 'Something went wrong');
     }
   },

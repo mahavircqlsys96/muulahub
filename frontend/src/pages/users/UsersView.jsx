@@ -482,9 +482,52 @@ const UsersView = () => {
               </div>
             </div>
           )}
-        </TableCard>
+      </TableCard>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <TableCard>
+            <div
+              style={{
+                padding: '20px',
+                borderBottom: '1px solid #f3f4f6',
+              }}
+            >
+              <h3 style={sectionTitleStyle}>Bank Details</h3>
+            </div>
+            <div style={{ padding: '20px' }}>
+              {userDetails?.bankDetails ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>Bank Name</div>
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {userDetails.bankDetails.bankName || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>Account Holder</div>
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {userDetails.bankDetails.accountHolderName || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>Account Number</div>
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {userDetails.bankDetails.accountNumber || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>Routing Number</div>
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {userDetails.bankDetails.routingNumber || '—'}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color: '#6b7280', fontSize: '14px', textAlign: 'center', padding: '10px 0' }}>No bank details provided</div>
+              )}
+            </div>
+          </TableCard>
+
           <TableCard>
             <div
               style={{
