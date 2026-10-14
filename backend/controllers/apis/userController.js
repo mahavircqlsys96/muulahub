@@ -527,13 +527,13 @@ module.exports = {
       }
 
       const baseQuery = `
-        SELECT CONCAT('wt_', id) as id, COALESCE(description, 'Wallet Top-up') as title, amount, type, createdAt as date
+        SELECT CONCAT('wt_', id) as id, COALESCE(description, 'Wallet Top-up') as title, amount, type, status, createdAt as date
         FROM wallet_transactions 
-        WHERE userId = :userId
+        WHERE userId = :userId AND status = 'completed'
 
         UNION ALL
 
-        SELECT CONCAT('pm_', p.id) as id, CONCAT('Payment · ', u.name) as title, p.amount, 'debit' as type, p.createdAt as date
+        SELECT CONCAT('pm_', p.id) as id, CONCAT('Payment · ', u.name) as title, p.amount, 'debit' as type, 'completed' as status, p.createdAt as date
         FROM payments p
         JOIN bookings b ON p.bookingId = b.id
         JOIN users u ON b.providerId = u.id
@@ -541,14 +541,14 @@ module.exports = {
 
         UNION ALL
 
-        SELECT CONCAT('pr_', p.id) as id, 'Job payment received' as title, p.providerAmount as amount, 'credit' as type, p.createdAt as date
+        SELECT CONCAT('pr_', p.id) as id, 'Job payment received' as title, p.providerAmount as amount, 'credit' as type, 'completed' as status, p.createdAt as date
         FROM payments p
         JOIN bookings b ON p.bookingId = b.id
         WHERE b.providerId = :userId AND p.paymentStatus = 'success'
 
         UNION ALL
 
-        SELECT CONCAT('wd_', w.id) as id, IF(w.status='pending', 'Payout to bank (Pending)', 'Payout to bank') as title, w.amount, 'debit' as type, w.createdAt as date
+        SELECT CONCAT('wd_', w.id) as id, IF(w.status='pending', 'Payout to bank (Pending)', 'Payout to bank') as title, w.amount, 'debit' as type, w.status as status, w.createdAt as date
         FROM withdrawal_requests w
         WHERE w.providerId = :userId AND w.status IN ('pending', 'approved')
       `;
@@ -571,14 +571,82 @@ module.exports = {
         type: db.sequelize.QueryTypes.SELECT
       });
 
+      const moment = require('moment');
+      const lastMonthStart = moment().subtract(1, 'month').startOf('month').toDate();
+      const lastMonthEnd = moment().subtract(1, 'month').endOf('month').toDate();
+      const fiveWeeksAgo = moment().subtract(4, 'weeks').startOf('isoWeek').toDate();
+      const fromDate = lastMonthStart < fiveWeeksAgo ? lastMonthStart : fiveWeeksAgo;
+
+      const earningsQuery = `
+        SELECT amount, date FROM (
+          SELECT p.providerAmount as amount, p.createdAt as date
+          FROM payments p
+          JOIN bookings b ON p.bookingId = b.id
+          WHERE b.providerId = :userId AND p.paymentStatus = 'success'
+
+          UNION ALL
+
+          SELECT b.amount as amount, COALESCE(b.updatedAt, b.createdAt) as date
+          FROM bookings b
+          LEFT JOIN payments p ON p.bookingId = b.id
+          WHERE b.providerId = :userId AND b.paymentStatus = 'paid' AND p.id IS NULL
+
+          UNION ALL
+
+          SELECT wt.amount as amount, wt.createdAt as date
+          FROM wallet_transactions wt
+          WHERE wt.userId = :userId AND wt.status = 'completed' AND wt.type = 'credit'
+            AND (wt.description IS NULL OR wt.description NOT LIKE '%Top-up%')
+        ) as earnings
+        WHERE date >= :fromDate
+      `;
+
+      const earningsRecords = await db.sequelize.query(earningsQuery, {
+        replacements: { userId, fromDate },
+        type: db.sequelize.QueryTypes.SELECT
+      });
+
+      let lastMonthEarning = 0;
+      let weeklyEarnings = [
+        { label: 'W1', earning: 0, amount: '0.00' },
+        { label: 'W2', earning: 0, amount: '0.00' },
+        { label: 'W3', earning: 0, amount: '0.00' },
+        { label: 'W4', earning: 0, amount: '0.00' },
+        { label: 'W5', earning: 0, amount: '0.00' }
+      ];
+
+      earningsRecords.forEach(record => {
+        const itemDate = moment(record.date);
+        const val = parseFloat(record.amount) || 0;
+
+        if (itemDate.isBetween(lastMonthStart, lastMonthEnd, null, '[]')) {
+          lastMonthEarning += val;
+        }
+
+        const diffWeeks = moment().startOf('isoWeek').diff(itemDate.clone().startOf('isoWeek'), 'weeks');
+        if (diffWeeks >= 0 && diffWeeks <= 4) {
+          const index = 4 - diffWeeks;
+          weeklyEarnings[index].earning += val;
+        }
+      });
+
+      weeklyEarnings.forEach(w => {
+        w.earning = parseFloat(w.earning.toFixed(2));
+        w.amount = w.earning.toFixed(2);
+      });
+
       return helper.success(res, 'Wallet details fetched', {
         wallet: {
           id: userWallet.id,
           walletAmount: userWallet.walletAmount,
           totalEarning: userWallet.totalEarning,
           pendingAmount: userWallet.pendingAmount,
-          withdrawnAmount: userWallet.withdrawnAmount
+          withdrawnAmount: userWallet.withdrawnAmount,
+          lastMonthEarning: lastMonthEarning.toFixed(2),
+          weeklyEarnings: weeklyEarnings
         },
+        lastMonthEarning: lastMonthEarning.toFixed(2),
+        weeklyEarnings: weeklyEarnings,
         transactions: paginatedTransactions,
         pagination: {
           total: count,

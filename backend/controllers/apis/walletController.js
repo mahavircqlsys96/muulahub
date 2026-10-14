@@ -34,9 +34,8 @@ module.exports = {
 
       const { count, rows } = await payments.findAndCountAll({
         where: {
-          [Op.or]: [
-            { userId: req.auth.id }
-          ]
+          userId: req.auth.id,
+          paymentStatus: 'success'
         },
         include: [{
           model: bookings,
@@ -52,6 +51,9 @@ module.exports = {
       });
 
       const allPayments = await payments.findAll({
+        where: {
+          paymentStatus: 'success'
+        },
         include: [{
           model: bookings,
           as: 'booking',

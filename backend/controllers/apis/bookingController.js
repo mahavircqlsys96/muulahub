@@ -485,11 +485,22 @@ module.exports = {
         return helper.failed(res, errorsResponse);
       }
 
-      const { paymentIntent } = req.body;
+      const { paymentIntent, status: reqStatus } = req.body;
 
       // Verify payment intent status with Stripe
       const pi = await stripe.paymentIntents.retrieve(paymentIntent);
       if (pi.status !== 'succeeded') {
+        if (pi.status === 'canceled' || reqStatus === 'canceled' || reqStatus === 'failed') {
+          const walletTx = await wallet_transactions.findOne({ where: { referenceId: paymentIntent } });
+          if (walletTx && walletTx.status === 'pending') {
+            await walletTx.update({ status: 'failed' });
+          }
+          const payment = await payments.findOne({ where: { transactionId: paymentIntent } });
+          if (payment && payment.paymentStatus === 'pending') {
+            await payment.update({ paymentStatus: 'failed' });
+          }
+          return helper.success(res, "Payment status updated to failed/canceled");
+        }
         return helper.failed(res, "Payment not successful");
       }
 

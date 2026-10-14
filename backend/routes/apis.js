@@ -92,6 +92,8 @@ module.exports = (io) => {
   router.post('/reportPost', postsController.reportPost);
   router.get('/getDraftPosts', postsController.getDraftPosts);
   router.post('/publishOrDeclinePost', postsController.publishOrDeclinePost);
+  router.get('/myPostPreformanc', postsController.myPostPreformanc);
+
 
   // Bookings
   router.post('/createBooking', bookingController.createBooking);
