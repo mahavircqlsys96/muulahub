@@ -1153,7 +1153,7 @@ module.exports = {
     }
   },
 
-  myPostPreformanc: async (req, res) => {
+  myPostPerformance: async (req, res) => {
     try {
       const targetUserId = req.query.userId || (req.auth ? req.auth.id : null);
 
