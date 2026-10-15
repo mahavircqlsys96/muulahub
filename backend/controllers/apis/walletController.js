@@ -14,10 +14,29 @@ module.exports = {
 
       if (!user) return helper.failed(res, 'User not found');
 
+      const [pendingResult] = await db.sequelize.query(`
+        SELECT COALESCE(SUM(
+          COALESCE(p.providerAmount, ROUND(COALESCE(b.amount, b.counterPrice, 0) - ((COALESCE(b.amount, b.counterPrice, 0) * :adminCommission) / 100), 2))
+        ), 0) as totalPending
+        FROM bookings b
+        LEFT JOIN payments p ON p.bookingId = b.id
+        WHERE b.providerId = :userId 
+          AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success' OR p.paymentStatus = 'success')
+          AND b.bookingStatus NOT IN ('completed', 'cancelled', 'reject')
+      `, {
+        replacements: { userId: req.auth.id, adminCommission: parseFloat(process.env.ADMIN_COMMISSION || 15) },
+        type: db.sequelize.QueryTypes.SELECT
+      });
+
+      const pendingAmount = parseFloat(pendingResult?.totalPending) || 0;
+      if (parseFloat(user.pendingAmount) !== pendingAmount) {
+        await user.update({ pendingAmount: pendingAmount.toFixed(2) });
+      }
+
       return helper.success(res, 'Wallet balance fetched', {
         walletAmount: parseFloat(user.walletAmount) || 0,
         totalEarning: parseFloat(user.totalEarning) || 0,
-        pendingAmount: parseFloat(user.pendingAmount) || 0,
+        pendingAmount: pendingAmount,
         withdrawnAmount: parseFloat(user.withdrawnAmount) || 0
       });
     } catch (error) {

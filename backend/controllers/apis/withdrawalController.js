@@ -8,22 +8,22 @@ module.exports = {
   request_withdrawal: async (req, res) => {
     try {
       const v = new Validator(req.body, {
-        amount: 'required',
-
+        amount: 'required|numeric',
+        bankId: 'required'
       });
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { amount } = req.body;
+      const { amount, bankId } = req.body;
       const providerId = req.auth.id;
       const requestAmount = parseFloat(amount);
 
-      const bankDetails = await bank_accounts.findOne({
-        where: { userId: providerId }
-      });
-      if (!bankDetails) return helper.failed(res, 'Bank details not found');
-
       if (requestAmount <= 0) return helper.failed(res, 'Amount must be greater than 0');
+
+      const bankDetails = await bank_accounts.findOne({
+        where: { id: bankId, userId: providerId }
+      });
+      if (!bankDetails) return helper.failed(res, 'Selected bank account not found');
 
       const provider = await users.findOne({ where: { id: providerId } });
       if (!provider) return helper.failed(res, 'Provider not found');

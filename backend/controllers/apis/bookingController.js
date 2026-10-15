@@ -251,19 +251,37 @@ module.exports = {
       return helper.error(res, 'Something went wrong');
     }
   },
-
-
   acceptRejectRequestUser: async (req, res) => {
     try {
+      if (req.body.paymentType && !req.body.type) {
+        req.body.type = req.body.paymentType;
+      }
+      if (req.body.payment_type && !req.body.type) {
+        req.body.type = req.body.payment_type;
+      }
+
       const v = new Validator(req.body, {
         bookingId: 'required',
-        status: 'required|in:accepted,reject'
+        status: 'required|in:accepted,reject',
+        type: 'in:1,2,3' // 1 for stripe, 2 for wallet, 3 for both
       });
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
       const { bookingId, status } = req.body;
       const userId = req.auth.id;
+
+      let rawType = req.body.type || req.body.paymentType || req.body.payment_type;
+      if (!rawType && req.body.paymentMethod) {
+        if (req.body.paymentMethod === 'stripe') rawType = 1;
+        else if (req.body.paymentMethod === 'wallet') rawType = 2;
+        else if (req.body.paymentMethod === 'both') rawType = 3;
+      }
+      const stripeIntent = req.body.stripeIntent || req.body.paymentIntent || req.body.stripe_intent || req.body.intent || null;
+      if (!rawType) {
+        rawType = stripeIntent ? 1 : 2;
+      }
+      const paymentType = parseInt(rawType);
 
       const booking = await bookings.findOne({ where: { id: bookingId, userId: userId } });
       if (!booking) return helper.failed(res, 'Booking not found or not authorized');
@@ -272,31 +290,214 @@ module.exports = {
         return helper.failed(res, 'Counter offer has already been responded to');
       }
 
-      const finalStatus = status === 'reject' ? 'cancelled' : 'accepted';
+      if (status === 'reject') {
+        await booking.update({
+          bookingStatus: 'cancelled',
+          counterStatus: 'rejected'
+        });
 
-      const updateData = {
-        bookingStatus: status,
-        counterStatus: status
-      };
+        await sendBookingNotification(
+          booking.providerId,
+          userId,
+          'Counter Offer Cancelled',
+          `Your counter offer for booking #${booking.bookingNumber} was rejected`,
+          booking.id
+        );
 
-      if (status === 'accepted') {
-        updateData.paymentStatus = 'paid';
-        updateData.bookingDate = booking.counterDate || booking.bookingDate;
-        updateData.bookingTime = booking.counterTime || booking.bookingTime;
-        updateData.amount = booking.counterPrice || booking.amount;
+        return helper.success(res, 'Counter offer rejected successfully', booking);
       }
 
-      await booking.update(updateData);
+      // Status is 'accepted'
+      const requestAmount = req.body.amount !== undefined && req.body.amount !== null && req.body.amount !== ''
+        ? parseFloat(req.body.amount)
+        : null;
+      const finalAmount = requestAmount !== null && !isNaN(requestAmount) && requestAmount > 0
+        ? requestAmount
+        : parseFloat(booking.counterPrice || booking.amount || 0);
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) return helper.failed(res, 'User not found');
+
+      let walletDeductAmount = 0;
+      let stripePaidAmount = 0;
+      const currentWalletBalance = parseFloat(user.walletAmount) || 0;
+
+      if (paymentType === 1) {
+        // Stripe payment
+        stripePaidAmount = finalAmount;
+        walletDeductAmount = 0;
+      } else if (paymentType === 2) {
+        // Wallet payment
+        if (user.isWalletFrozen == 1) {
+          return helper.failed(res, 'Your wallet is frozen. Please contact support.');
+        }
+        if (finalAmount > 0 && currentWalletBalance < finalAmount) {
+          return helper.failed(res, `Insufficient wallet balance. Available: $${currentWalletBalance.toFixed(2)}, Required: $${finalAmount.toFixed(2)}`);
+        }
+        walletDeductAmount = finalAmount;
+        stripePaidAmount = 0;
+      } else if (paymentType === 3) {
+        // Split payment (Wallet + Stripe)
+        if (user.isWalletFrozen == 1) {
+          return helper.failed(res, 'Your wallet is frozen. Please contact support.');
+        }
+        if (req.body.walletAmount || req.body.wallet_amount) {
+          walletDeductAmount = parseFloat(req.body.walletAmount || req.body.wallet_amount);
+          if (isNaN(walletDeductAmount) || walletDeductAmount < 0) walletDeductAmount = 0;
+          if (walletDeductAmount > currentWalletBalance) {
+            return helper.failed(res, `Insufficient wallet balance. Available: $${currentWalletBalance.toFixed(2)}`);
+          }
+          if (walletDeductAmount > finalAmount) {
+            walletDeductAmount = finalAmount;
+          }
+        } else {
+          if (currentWalletBalance <= 0) {
+            return helper.failed(res, 'Insufficient wallet balance for split payment');
+          }
+          walletDeductAmount = Math.min(currentWalletBalance, finalAmount);
+        }
+        stripePaidAmount = parseFloat((finalAmount - walletDeductAmount).toFixed(2));
+      } else {
+        stripePaidAmount = finalAmount;
+      }
+
+      const commissionPercent = parseFloat(process.env.ADMIN_COMMISSION || 15);
+      const adminCommission = parseFloat(((commissionPercent / 100) * finalAmount).toFixed(2));
+      const providerAmount = parseFloat((finalAmount - adminCommission).toFixed(2));
+
+      const updateData = {
+        bookingStatus: 'accepted',
+        counterStatus: 'accepted',
+        paymentStatus: 'paid',
+        bookingDate: booking.counterDate || booking.bookingDate,
+        bookingTime: booking.counterTime || booking.bookingTime,
+        amount: finalAmount
+      };
+
+      const t = await db.sequelize.transaction();
+      try {
+        // 1. Deduct from wallet if wallet was used
+        if (walletDeductAmount > 0) {
+          await users.decrement(
+            { walletAmount: walletDeductAmount },
+            { where: { id: userId }, transaction: t }
+          );
+        }
+
+        // 2. Save transaction entry in wallet_transactions for Stripe, Wallet, or Both
+        if (paymentType === 2) {
+          // Wallet transaction entry
+          await wallet_transactions.create({
+            userId,
+            amount: walletDeductAmount > 0 ? walletDeductAmount : finalAmount,
+            type: 'debit',
+            status: 'completed',
+            description: `Payment for booking #${booking.bookingNumber} via Wallet`,
+            referenceId: booking.id.toString()
+          }, { transaction: t });
+        } else if (paymentType === 1) {
+          // Stripe transaction entry
+          await wallet_transactions.create({
+            userId,
+            amount: stripePaidAmount > 0 ? stripePaidAmount : finalAmount,
+            type: 'debit',
+            status: 'completed',
+            description: `Payment for booking #${booking.bookingNumber} via Stripe`,
+            referenceId: stripeIntent || booking.id.toString()
+          }, { transaction: t });
+        } else if (paymentType === 3) {
+          // Both: split transaction entries
+          if (walletDeductAmount > 0) {
+            await wallet_transactions.create({
+              userId,
+              amount: walletDeductAmount,
+              type: 'debit',
+              status: 'completed',
+              description: `Split payment (Wallet) for booking #${booking.bookingNumber}`,
+              referenceId: booking.id.toString()
+            }, { transaction: t });
+          }
+          if (stripePaidAmount > 0) {
+            await wallet_transactions.create({
+              userId,
+              amount: stripePaidAmount,
+              type: 'debit',
+              status: 'completed',
+              description: `Split payment (Stripe) for booking #${booking.bookingNumber}`,
+              referenceId: stripeIntent || booking.id.toString()
+            }, { transaction: t });
+          }
+        } else {
+          // Default transaction entry
+          await wallet_transactions.create({
+            userId,
+            amount: finalAmount,
+            type: 'debit',
+            status: 'completed',
+            description: `Payment for booking #${booking.bookingNumber}`,
+            referenceId: stripeIntent || booking.id.toString()
+          }, { transaction: t });
+        }
+
+        // 3. Increment provider pending amount
+        if (providerAmount > 0) {
+          await users.increment(
+            { pendingAmount: providerAmount },
+            { where: { id: booking.providerId }, transaction: t }
+          );
+        }
+
+        // 4. Create or update payment record
+        const paymentMethodStr = paymentType === 1 ? 'stripe' : paymentType === 2 ? 'wallet' : 'both';
+        const txnId = stripeIntent || (paymentType === 2 ? `WLT_${booking.id}_${Date.now()}` : `TXN_${booking.id}_${Date.now()}`);
+
+        const existingPayment = await payments.findOne({
+          where: { bookingId: booking.id },
+          transaction: t
+        });
+
+        if (existingPayment) {
+          await existingPayment.update({
+            userId,
+            transactionId: stripeIntent || existingPayment.transactionId || txnId,
+            paymentMethod: paymentMethodStr,
+            amount: finalAmount,
+            adminCommission,
+            providerAmount,
+            paymentStatus: 'success'
+          }, { transaction: t });
+        } else {
+          await payments.create({
+            bookingId: booking.id,
+            userId,
+            transactionId: txnId,
+            paymentMethod: paymentMethodStr,
+            amount: finalAmount,
+            adminCommission,
+            providerAmount,
+            paymentStatus: 'success'
+          }, { transaction: t });
+        }
+
+        // 5. Update booking
+        await booking.update(updateData, { transaction: t });
+
+        await t.commit();
+      } catch (dbError) {
+        await t.rollback();
+        console.log("acceptRejectRequestUser transaction error:", dbError);
+        return helper.error(res, 'Payment or booking update failed');
+      }
 
       await sendBookingNotification(
         booking.providerId,
         userId,
-        'Counter Offer ' + finalStatus,
-        `Your counter offer for booking #${booking.bookingNumber} was ${finalStatus}`,
+        'Counter Offer accepted',
+        `Your counter offer for booking #${booking.bookingNumber} was accepted`,
         booking.id
       );
 
-      return helper.success(res, `Counter offer ${finalStatus} successfully`, booking);
+      return helper.success(res, 'Counter offer accepted successfully', booking);
     } catch (error) {
       console.log("userRespondToCounterOffer error:", error);
       return helper.error(res, 'Something went wrong');
@@ -350,10 +551,17 @@ module.exports = {
         paymentStatus: 'success'
       });
 
-      await users.increment(
-        { walletAmount: providerAmount, totalEarning: providerAmount, pendingAmount: providerAmount },
-        { where: { id: booking.providerId } }
-      );
+      if (booking.bookingStatus === 'completed') {
+        await users.increment(
+          { walletAmount: providerAmount, totalEarning: providerAmount },
+          { where: { id: booking.providerId } }
+        );
+      } else {
+        await users.increment(
+          { pendingAmount: providerAmount },
+          { where: { id: booking.providerId } }
+        );
+      }
 
       await sendBookingNotification(
         booking.providerId,
@@ -512,12 +720,19 @@ module.exports = {
 
         const booking = await bookings.findOne({ where: { id: payment.bookingId } });
 
-        // Add funds to provider's wallet
+        // Add funds to provider's wallet / pending
         if (booking && payment.providerAmount) {
-          await users.increment(
-            { walletAmount: payment.providerAmount, totalEarning: payment.providerAmount, pendingAmount: payment.providerAmount },
-            { where: { id: booking.providerId } }
-          );
+          if (booking.bookingStatus === 'completed') {
+            await users.increment(
+              { walletAmount: payment.providerAmount, totalEarning: payment.providerAmount },
+              { where: { id: booking.providerId } }
+            );
+          } else {
+            await users.increment(
+              { pendingAmount: payment.providerAmount },
+              { where: { id: booking.providerId } }
+            );
+          }
         }
         return helper.success(res, "Booking payment successfully completed");
       }
@@ -1040,12 +1255,12 @@ module.exports = {
       // =========================================
       // CHECK PROVIDER
       // =========================================
-      if (Number(booking.providerId) !== Number(providerId)) {
-        return helper.failed(
-          res,
-          "You are not authorized to complete this booking"
-        );
-      }
+      // if (Number(booking.providerId) !== Number(providerId)) {
+      //   return helper.failed(
+      //     res,
+      //     "You are not authorized to complete this booking"
+      //   );
+      // }
 
       // =========================================
       // CHECK BOOKING STATUS
@@ -1097,7 +1312,90 @@ module.exports = {
         updateData.comment = comment;
       }
 
+      // =========================================
+      // CREDIT EARNINGS TO PROVIDER'S WALLET
+      // =========================================
+      let payment = await payments.findOne({
+        where: { bookingId: booking.id }
+      });
+
+      const requestAmount = req.body.amount !== undefined && req.body.amount !== null && req.body.amount !== ''
+        ? parseFloat(req.body.amount)
+        : null;
+      const paymentAmount = payment && payment.amount ? parseFloat(payment.amount) : 0;
+      const bookingAmount = requestAmount !== null && !isNaN(requestAmount) && requestAmount > 0
+        ? requestAmount
+        : (paymentAmount > 0 ? paymentAmount : parseFloat(booking.amount || booking.counterPrice || 0));
+
+      const commissionPercent = parseFloat(process.env.ADMIN_COMMISSION || 15);
+      const adminCommission = parseFloat(((commissionPercent / 100) * bookingAmount).toFixed(2));
+      let providerAmount = parseFloat((bookingAmount - adminCommission).toFixed(2));
+
+      if (payment) {
+        if (payment.providerAmount && parseFloat(payment.providerAmount) > 0) {
+          providerAmount = parseFloat(payment.providerAmount);
+        } else if (providerAmount > 0) {
+          await payment.update({ providerAmount, adminCommission });
+        }
+        if (payment.paymentStatus !== 'success') {
+          await payment.update({ paymentStatus: 'success', providerAmount, adminCommission });
+        }
+      } else if (bookingAmount > 0) {
+        payment = await payments.create({
+          bookingId: booking.id,
+          userId: booking.userId,
+          transactionId: `BK_${booking.id}_${Date.now()}`,
+          paymentMethod: 'in_app',
+          amount: bookingAmount,
+          adminCommission,
+          providerAmount,
+          paymentStatus: 'success'
+        });
+      }
+
+      if (booking.paymentStatus !== 'paid') {
+        updateData.paymentStatus = 'paid';
+      }
+
       await booking.update(updateData);
+
+      if (providerAmount > 0) {
+        const provider = await users.findOne({ where: { id: booking.providerId } });
+        if (provider) {
+          const currentPending = parseFloat(provider.pendingAmount) || 0;
+          const decrementPending = Math.min(currentPending, providerAmount);
+
+          await users.increment(
+            { walletAmount: providerAmount, totalEarning: providerAmount },
+            { where: { id: booking.providerId } }
+          );
+
+          if (decrementPending > 0) {
+            await users.decrement(
+              { pendingAmount: decrementPending },
+              { where: { id: booking.providerId } }
+            );
+          }
+
+          // Create credit transaction for provider in wallet_transactions table
+          await wallet_transactions.create({
+            userId: booking.providerId,
+            amount: providerAmount,
+            type: 'credit',
+            status: 'completed',
+            description: `Earning for completed booking #${booking.bookingNumber}`,
+            referenceId: booking.id.toString()
+          });
+
+          await sendBookingNotification(
+            booking.providerId,
+            booking.userId,
+            'Earning Received',
+            `$${providerAmount.toFixed(2)} has been added to your wallet for completing booking #${booking.bookingNumber}`,
+            booking.id
+          );
+        }
+      }
 
       // =========================================
       // MULTIPLE IMAGES OPTIONAL

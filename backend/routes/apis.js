@@ -61,6 +61,9 @@ module.exports = (io) => {
   router.post('/makeCategoryPrimary', authController.makeCategoryPrimary);
   router.post('/updateCategories', authController.updateCategories);
   router.post('/addBankDetails', userController.addBankDetails);
+  router.get('/getBankList', userController.getBankList);
+  router.delete('/deleteBankAccount/:bankId', userController.deleteBankAccount);
+
 
   router.post('/followUser', userController.followUser);
   router.get('/getFollowers', userController.getFollowers);

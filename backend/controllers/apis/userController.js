@@ -526,6 +526,25 @@ module.exports = {
         return helper.failed(res, 'User not found');
       }
 
+      const [pendingResult] = await db.sequelize.query(`
+        SELECT COALESCE(SUM(
+          COALESCE(p.providerAmount, ROUND(COALESCE(b.amount, b.counterPrice, 0) - ((COALESCE(b.amount, b.counterPrice, 0) * :adminCommission) / 100), 2))
+        ), 0) as totalPending
+        FROM bookings b
+        LEFT JOIN payments p ON p.bookingId = b.id
+        WHERE b.providerId = :userId 
+          AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success' OR p.paymentStatus = 'success')
+          AND b.bookingStatus NOT IN ('completed', 'cancelled', 'reject')
+      `, {
+        replacements: { userId, adminCommission: parseFloat(process.env.ADMIN_COMMISSION || 15) },
+        type: db.sequelize.QueryTypes.SELECT
+      });
+
+      const currentPendingAmount = (parseFloat(pendingResult?.totalPending) || 0).toFixed(2);
+      if (userWallet.pendingAmount !== currentPendingAmount) {
+        await userWallet.update({ pendingAmount: currentPendingAmount });
+      }
+
       const baseQuery = `
         SELECT CONCAT('wt_', id) as id, COALESCE(description, 'Wallet Top-up') as title, amount, type, status, createdAt as date
         FROM wallet_transactions 
@@ -548,13 +567,22 @@ module.exports = {
 
         UNION ALL
 
+        SELECT CONCAT('bk_', b.id) as id, 'Job payment received' as title, 
+          ROUND(COALESCE(b.amount, b.counterPrice, 0) - ((COALESCE(b.amount, b.counterPrice, 0) * 15) / 100), 2) as amount, 
+          'credit' as type, 'completed' as status, COALESCE(b.updatedAt, b.createdAt) as date
+        FROM bookings b
+        LEFT JOIN payments p ON p.bookingId = b.id
+        WHERE b.providerId = :userId AND b.bookingStatus = 'completed' AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success') AND p.id IS NULL
+
+        UNION ALL
+
         SELECT CONCAT('wd_', w.id) as id, IF(w.status='pending', 'Payout to bank (Pending)', 'Payout to bank') as title, w.amount, 'debit' as type, w.status as status, w.createdAt as date
         FROM withdrawal_requests w
         WHERE w.providerId = :userId AND w.status IN ('pending', 'approved')
       `;
 
       const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as transactions`;
-      
+
       const [countResult] = await db.sequelize.query(countQuery, {
         replacements: { userId },
         type: db.sequelize.QueryTypes.SELECT
@@ -586,10 +614,10 @@ module.exports = {
 
           UNION ALL
 
-          SELECT b.amount as amount, COALESCE(b.updatedAt, b.createdAt) as date
+          SELECT ROUND(COALESCE(b.amount, b.counterPrice, 0) - ((COALESCE(b.amount, b.counterPrice, 0) * 15) / 100), 2) as amount, COALESCE(b.updatedAt, b.createdAt) as date
           FROM bookings b
           LEFT JOIN payments p ON p.bookingId = b.id
-          WHERE b.providerId = :userId AND b.paymentStatus = 'paid' AND p.id IS NULL
+          WHERE b.providerId = :userId AND b.bookingStatus = 'completed' AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success') AND p.id IS NULL
 
           UNION ALL
 
@@ -640,7 +668,7 @@ module.exports = {
           id: userWallet.id,
           walletAmount: userWallet.walletAmount,
           totalEarning: userWallet.totalEarning,
-          pendingAmount: userWallet.pendingAmount,
+          pendingAmount: currentPendingAmount,
           withdrawnAmount: userWallet.withdrawnAmount,
           lastMonthEarning: lastMonthEarning.toFixed(2),
           weeklyEarnings: weeklyEarnings
@@ -730,29 +758,82 @@ module.exports = {
       const { bankName, accountHolderName, accountNumber, routingNumber } = req.body;
       const userId = req.auth.id;
 
-      // Check if user already has a bank account and update it, else create
-      let bankAccount = await bank_accounts.findOne({ where: { userId } });
+      const bankId = req.body.bankId || req.body.id;
 
-      if (bankAccount) {
+      let bankAccount;
+      if (bankId) {
+        bankAccount = await bank_accounts.findOne({ where: { id: bankId, userId } });
+        if (!bankAccount) {
+          return helper.failed(res, "Bank account not found");
+        }
         await bankAccount.update({
           bankName,
           accountHolderName,
           accountNumber,
           routingNumber
         });
-      } else {
-        bankAccount = await bank_accounts.create({
-          userId,
-          bankName,
-          accountHolderName,
-          accountNumber,
-          routingNumber
-        });
+        return helper.success(res, "Bank details updated successfully", bankAccount);
       }
 
-      return helper.success(res, "Bank details saved successfully", bankAccount);
+      // Check if duplicate account number already exists for this user
+      const existing = await bank_accounts.findOne({ where: { userId, accountNumber } });
+      if (existing) {
+        return helper.failed(res, "A bank account with this account number already exists");
+      }
+
+      bankAccount = await bank_accounts.create({
+        userId,
+        bankName,
+        accountHolderName,
+        accountNumber,
+        routingNumber
+      });
+
+      return helper.success(res, "Bank details added successfully", bankAccount);
     } catch (error) {
       console.log("addBankDetails error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  getBankList: async (req, res) => {
+    try {
+      const userId = req.auth.id;
+      const accounts = await bank_accounts.findAll({
+        where: { userId },
+        attributes: ['id', 'bankName', 'accountHolderName', 'accountNumber', 'routingNumber', 'createdAt'],
+        order: [['createdAt', 'DESC']]
+      });
+
+      return helper.success(res, "Bank accounts fetched successfully", accounts);
+    } catch (error) {
+      console.log("getBankAccounts error:", error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  deleteBankAccount: async (req, res) => {
+    try {
+      const userId = req.auth.id;
+      const bankId = req.params.bankId;
+
+      if (!bankId) {
+        return helper.failed(res, "Bank ID is required");
+      }
+
+      const bankAccount = await bank_accounts.findOne({
+        where: { id: bankId, userId }
+      });
+
+      if (!bankAccount) {
+        return helper.failed(res, "Bank account not found or not authorized");
+      }
+
+      await bankAccount.destroy();
+
+      return helper.success(res, "Bank account deleted successfully");
+    } catch (error) {
+      console.log("deleteBankAccount error:", error);
       return helper.error(res, 'Something went wrong');
     }
   },

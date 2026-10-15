@@ -2,7 +2,7 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
-const { users, services, bookings, payments, notifications } = db;
+const { users, services, bookings, payments, notifications, wallet_transactions } = db;
 
 module.exports = {
 
@@ -91,6 +91,66 @@ module.exports = {
       const { id } = req.params;
       const booking = await bookings.findOne({ where: { id } });
       if (!booking) return helper.failed(res, 'Booking not found');
+
+      if (req.body.status === 'completed' && booking.bookingStatus !== 'completed') {
+        const bookingAmount = parseFloat(booking.amount || booking.counterPrice || 0);
+        const commissionPercent = parseFloat(process.env.ADMIN_COMMISSION || 15);
+        const adminCommission = parseFloat(((commissionPercent / 100) * bookingAmount).toFixed(2));
+        let providerAmount = parseFloat((bookingAmount - adminCommission).toFixed(2));
+
+        let payment = await payments.findOne({ where: { bookingId: booking.id } });
+        if (payment) {
+          if (payment.providerAmount && parseFloat(payment.providerAmount) > 0) {
+            providerAmount = parseFloat(payment.providerAmount);
+          }
+          if (payment.paymentStatus !== 'success') {
+            await payment.update({ paymentStatus: 'success', providerAmount, adminCommission });
+          }
+        } else if (bookingAmount > 0) {
+          await payments.create({
+            bookingId: booking.id,
+            userId: booking.userId,
+            transactionId: `BK_${booking.id}_${Date.now()}`,
+            paymentMethod: 'in_app',
+            amount: bookingAmount,
+            adminCommission,
+            providerAmount,
+            paymentStatus: 'success'
+          });
+        }
+
+        if (booking.paymentStatus !== 'paid') {
+          await booking.update({ paymentStatus: 'paid' });
+        }
+
+        if (providerAmount > 0) {
+          const provider = await users.findOne({ where: { id: booking.providerId } });
+          if (provider) {
+            const currentPending = parseFloat(provider.pendingAmount) || 0;
+            const decrementPending = Math.min(currentPending, providerAmount);
+
+            await users.increment(
+              { walletAmount: providerAmount, totalEarning: providerAmount },
+              { where: { id: booking.providerId } }
+            );
+
+            if (decrementPending > 0) {
+              await users.decrement(
+                { pendingAmount: decrementPending },
+                { where: { id: booking.providerId } }
+              );
+              await wallet_transactions.create({
+                userId: booking.providerId,
+                amount: providerAmount,
+                type: 'credit',
+                status: 'completed',
+                description: `Earning for completed booking #${booking.bookingNumber}`,
+                referenceId: booking.id.toString()
+              });
+            }
+          }
+        }
+      }
 
       await booking.update({ bookingStatus: req.body.status });
 
