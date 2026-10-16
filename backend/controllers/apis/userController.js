@@ -557,6 +557,12 @@ module.exports = {
         JOIN bookings b ON p.bookingId = b.id
         JOIN users u ON b.providerId = u.id
         WHERE p.userId = :userId AND p.paymentStatus = 'success'
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt 
+            WHERE wt.userId = p.userId 
+              AND wt.type = 'debit'
+              AND (wt.referenceId = p.transactionId OR wt.referenceId = CONVERT(p.bookingId, CHAR) COLLATE utf8mb4_unicode_520_ci)
+          )
 
         UNION ALL
 
@@ -564,6 +570,13 @@ module.exports = {
         FROM payments p
         JOIN bookings b ON p.bookingId = b.id
         WHERE b.providerId = :userId AND p.paymentStatus = 'success'
+          AND b.bookingStatus = 'completed'
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt 
+            WHERE wt.userId = b.providerId 
+              AND wt.type = 'credit'
+              AND (wt.referenceId = CONVERT(b.id, CHAR) COLLATE utf8mb4_unicode_520_ci OR wt.referenceId = p.transactionId)
+          )
 
         UNION ALL
 
@@ -573,6 +586,12 @@ module.exports = {
         FROM bookings b
         LEFT JOIN payments p ON p.bookingId = b.id
         WHERE b.providerId = :userId AND b.bookingStatus = 'completed' AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success') AND p.id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt 
+            WHERE wt.userId = b.providerId 
+              AND wt.type = 'credit'
+              AND wt.referenceId = CONVERT(b.id, CHAR) COLLATE utf8mb4_unicode_520_ci
+          )
 
         UNION ALL
 
@@ -611,6 +630,13 @@ module.exports = {
           FROM payments p
           JOIN bookings b ON p.bookingId = b.id
           WHERE b.providerId = :userId AND p.paymentStatus = 'success'
+            AND b.bookingStatus = 'completed'
+            AND NOT EXISTS (
+              SELECT 1 FROM wallet_transactions wt 
+              WHERE wt.userId = b.providerId 
+                AND wt.type = 'credit'
+                AND (wt.referenceId = CONVERT(b.id, CHAR) COLLATE utf8mb4_unicode_520_ci OR wt.referenceId = p.transactionId)
+            )
 
           UNION ALL
 
@@ -618,6 +644,12 @@ module.exports = {
           FROM bookings b
           LEFT JOIN payments p ON p.bookingId = b.id
           WHERE b.providerId = :userId AND b.bookingStatus = 'completed' AND (b.paymentStatus = 'paid' OR b.paymentStatus = 'success') AND p.id IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM wallet_transactions wt 
+              WHERE wt.userId = b.providerId 
+                AND wt.type = 'credit'
+                AND wt.referenceId = CONVERT(b.id, CHAR) COLLATE utf8mb4_unicode_520_ci
+            )
 
           UNION ALL
 

@@ -720,6 +720,24 @@ module.exports = {
 
         const booking = await bookings.findOne({ where: { id: payment.bookingId } });
 
+        // Create debit transaction entry in wallet_transactions for User 1 (customer)
+        const existingDebit = await wallet_transactions.findOne({
+          where: {
+            userId: payment.userId,
+            referenceId: paymentIntent
+          }
+        });
+        if (!existingDebit) {
+          await wallet_transactions.create({
+            userId: payment.userId,
+            amount: payment.amount,
+            type: 'debit',
+            status: 'completed',
+            description: `Payment for booking #${booking ? booking.bookingNumber : payment.bookingId} via Stripe`,
+            referenceId: paymentIntent
+          });
+        }
+
         // Add funds to provider's wallet / pending
         if (booking && payment.providerAmount) {
           if (booking.bookingStatus === 'completed') {
@@ -727,6 +745,24 @@ module.exports = {
               { walletAmount: payment.providerAmount, totalEarning: payment.providerAmount },
               { where: { id: booking.providerId } }
             );
+
+            const existingCredit = await wallet_transactions.findOne({
+              where: {
+                userId: booking.providerId,
+                referenceId: booking.id.toString(),
+                type: 'credit'
+              }
+            });
+            if (!existingCredit) {
+              await wallet_transactions.create({
+                userId: booking.providerId,
+                amount: payment.providerAmount,
+                type: 'credit',
+                status: 'completed',
+                description: `Job payment received`,
+                referenceId: booking.id.toString()
+              });
+            }
           } else {
             await users.increment(
               { pendingAmount: payment.providerAmount },
@@ -1377,15 +1413,25 @@ module.exports = {
             );
           }
 
-          // Create credit transaction for provider in wallet_transactions table
-          await wallet_transactions.create({
-            userId: booking.providerId,
-            amount: providerAmount,
-            type: 'credit',
-            status: 'completed',
-            description: `Earning for completed booking #${booking.bookingNumber}`,
-            referenceId: booking.id.toString()
+          // Create credit transaction for provider in wallet_transactions table if not exists
+          const existingCredit = await wallet_transactions.findOne({
+            where: {
+              userId: booking.providerId,
+              referenceId: booking.id.toString(),
+              type: 'credit'
+            }
           });
+
+          if (!existingCredit) {
+            await wallet_transactions.create({
+              userId: booking.providerId,
+              amount: providerAmount,
+              type: 'credit',
+              status: 'completed',
+              description: `Job payment received`,
+              referenceId: booking.id.toString()
+            });
+          }
 
           await sendBookingNotification(
             booking.providerId,

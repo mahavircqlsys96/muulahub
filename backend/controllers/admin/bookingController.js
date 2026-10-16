@@ -139,12 +139,23 @@ module.exports = {
                 { pendingAmount: decrementPending },
                 { where: { id: booking.providerId } }
               );
+            }
+
+            const existingCredit = await wallet_transactions.findOne({
+              where: {
+                userId: booking.providerId,
+                referenceId: booking.id.toString(),
+                type: 'credit'
+              }
+            });
+
+            if (!existingCredit) {
               await wallet_transactions.create({
                 userId: booking.providerId,
                 amount: providerAmount,
                 type: 'credit',
                 status: 'completed',
-                description: `Earning for completed booking #${booking.bookingNumber}`,
+                description: `Job payment received`,
                 referenceId: booking.id.toString()
               });
             }

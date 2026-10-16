@@ -6,8 +6,19 @@ module.exports = (db) => {
     disputes, wallet_transactions,
     portfolio_images, contact_support, rating, post_media,
     comment_likes, user_categories, bookmarks, booking_images,
-    mux_videos, rooms, chats, login_histories, profile_views, search_appearances, bank_accounts
+    mux_videos, rooms, chats, login_histories, profile_views, search_appearances, bank_accounts,
+    events
   } = db;
+
+  // Events
+  if (events && users) {
+    events.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(events, { foreignKey: 'userId', as: 'events' });
+  }
+  if (events && services_categories) {
+    events.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+    services_categories.hasMany(events, { foreignKey: 'categoryId', as: 'events' });
+  }
 
   // Users <-> Services (provider)
   if (users && services) {
