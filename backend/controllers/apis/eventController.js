@@ -53,26 +53,46 @@ module.exports = {
       // }
 
       // Generate unique Agora channel name
-      const channelName = req.body.channelName || `event_${userId}_${Date.now()}`;
-
-      // Numeric UID for Agora RTC
-      let agoraUid = req.body.uid ? parseInt(req.body.uid, 10) : parseInt(userId, 10);
-      if (isNaN(agoraUid) || agoraUid <= 0) {
-        agoraUid = Math.floor(100000 + Math.random() * 900000);
+      let channelName = req.body.channelName || req.body.channel;
+      if (!channelName || channelName.trim() === '') {
+        channelName = `event_${userId}_${Date.now()}`;
       }
 
-      // 24 hours token validity
-      const expireTimeInSeconds = req.body.expireTime ? parseInt(req.body.expireTime, 10) : 86400;
-      const currentTimestamp = Math.floor(Date.now() / 1000);
-      const privilegeExpireTime = currentTimestamp + expireTimeInSeconds;
+      // UID for Agora RTC:
+      // If uid is not provided, 0, or empty, use 0 (Agora wildcard UID allowing any client/dynamic UID to join)
+      let uid = req.body.uid;
+      if (uid === undefined || uid === null || uid === '' || uid === '0' || uid === 0) {
+        uid = 0;
+      } else {
+        uid = parseInt(uid, 10) || 0;
+      }
 
-      // Host token with PUBLISHER role
+      // Role for Agora RTC
+      let role = RtcRole.PUBLISHER;
+      if (req.body.role === 'subscriber') {
+        role = RtcRole.SUBSCRIBER;
+      } else if (req.body.role === 'publisher') {
+        role = RtcRole.PUBLISHER;
+      }
+
+      // Token validity: default 24 hours (86400 seconds) or client-specified
+      let expireTime = req.body.expireTime;
+      if (!expireTime || expireTime === '') {
+        expireTime = 86400; // 24 hours for live event streaming
+      } else {
+        expireTime = parseInt(expireTime, 10);
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const privilegeExpireTime = currentTime + expireTime;
+
+      // Build token with uid exactly like agoraController
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         appID,
         appCertificate,
         channelName,
-        agoraUid,
-        RtcRole.PUBLISHER,
+        uid,
+        role,
         privilegeExpireTime,
         privilegeExpireTime
       );
@@ -98,7 +118,7 @@ module.exports = {
         status: 'start',
         agoraToken,
         agoraChannel: channelName,
-        agoraUid: agoraUid.toString(),
+        agoraUid: uid.toString(),
         agoraAppId: appID,
         agoraAppCertificate: appCertificate
       });
@@ -120,7 +140,21 @@ module.exports = {
         ]
       });
 
-      return helper.success(res, "Live event created and streaming started successfully", eventDetails);
+      // Provide both direct Agora keys (token, channelName, uid, appId) matching agoraController.generateToken
+      // and the complete event model properties
+      const responseData = {
+        ...eventDetails.toJSON(),
+        token: agoraToken,
+        channelName: channelName,
+        uid: uid,
+        appId: appID,
+        agoraToken: agoraToken,
+        agoraChannel: channelName,
+        agoraUid: uid.toString(),
+        agoraAppId: appID
+      };
+
+      return helper.success(res, "Live event created and streaming started successfully", responseData);
 
     } catch (error) {
       console.log("createEvent error:", error);
@@ -198,7 +232,13 @@ module.exports = {
         return helper.success(res, "No active live event found", null);
       }
 
-      return helper.success(res, "Current live event fetched successfully", currentEvent);
+      const eventData = currentEvent.toJSON();
+      eventData.token = eventData.agoraToken;
+      eventData.channelName = eventData.agoraChannel;
+      eventData.uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
+      eventData.appId = eventData.agoraAppId || envfile.AGORA_APP_ID;
+
+      return helper.success(res, "Current live event fetched successfully", eventData);
 
     } catch (error) {
       console.log("getMyLiveEvent error:", error);
@@ -326,7 +366,7 @@ module.exports = {
       // Generate viewer Agora token (SUBSCRIBER) for each live stream
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTimestamp + 86400;
-      const viewerUid = parseInt(currentUserId, 10) || Math.floor(100000 + Math.random() * 900000);
+      const viewerUid = 0; // 0 for universal wildcard UID
 
       const formattedEvents = eventList.map(ev => {
         const eventData = ev.toJSON();
@@ -344,6 +384,10 @@ module.exports = {
             );
             eventData.viewerAgoraToken = viewerToken;
             eventData.viewerUid = viewerUid;
+            eventData.token = viewerToken;
+            eventData.channelName = eventData.agoraChannel;
+            eventData.uid = viewerUid;
+            eventData.appId = appID;
           } catch (tokErr) {
             console.log("Error generating viewer token:", tokErr.message);
           }
@@ -422,7 +466,7 @@ module.exports = {
         const privilegeExpireTime = currentTimestamp + 86400;
         const isHost = event.userId === currentUserId;
         const role = isHost ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-        const uid = isHost && event.agoraUid ? parseInt(event.agoraUid, 10) : (parseInt(currentUserId, 10) || Math.floor(100000 + Math.random() * 900000));
+        const uid = 0; // Universal wildcard UID so client joining with 0 or auto-assigned UID succeeds
 
         const token = RtcTokenBuilder.buildTokenWithUid(
           appID,
@@ -437,6 +481,10 @@ module.exports = {
         eventData.agoraToken = token;
         eventData.agoraUid = uid.toString();
         eventData.isHost = isHost;
+        eventData.token = token;
+        eventData.channelName = eventData.agoraChannel;
+        eventData.uid = uid;
+        eventData.appId = appID;
       }
 
       return helper.success(res, "Live event details fetched successfully", eventData);
