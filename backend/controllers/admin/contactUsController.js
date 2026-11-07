@@ -9,27 +9,45 @@ module.exports = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const search = req.query.search || '';
+      const userType = req.query.user_type || req.query.userType || '';
       const offset = (page - 1) * limit;
 
       let whereClause = {};
       if (search) {
         whereClause[Op.or] = [
-          { subject: { [Op.like]: `%${search}%` } },
+          { name: { [Op.like]: `%${search}%` } },
+          { email: { [Op.like]: `%${search}%` } },
+          { phone: { [Op.like]: `%${search}%` } },
           { message: { [Op.like]: `%${search}%` } },
         ];
       }
 
-      const { count, rows } = await db.contact_support
+      let userInclude = {
+        model: db.users,
+        as: 'user',
+        attributes: ['id', 'name', 'email', 'role', 'phone'],
+        required: false,
+        paranoid: false,
+      };
+
+      if (userType) {
+        userInclude.where = { role: userType };
+        userInclude.required = true;
+      }
+
+      const { count, rows } = db.contact_support
         ? await db.contact_support.findAndCountAll({
             where: whereClause,
             limit,
             offset,
             order: [['createdAt', 'DESC']],
-            include: [{ model: db.users, as: 'user', attributes: ['id', 'name', 'email'] }],
+            include: [userInclude],
+            distinct: true,
           })
         : { count: 0, rows: [] };
 
       return helper.success(res, 'Contact list fetched', {
+        contactUs_list: rows,
         list: rows,
         total: count,
         currentPage: page,
@@ -47,7 +65,13 @@ module.exports = {
       if (!db.contact_support) return helper.success(res, 'Not found', {});
       const item = await db.contact_support.findOne({
         where: { id },
-        include: [{ model: db.users, as: 'user', attributes: ['id', 'name', 'email'] }],
+        include: [{
+          model: db.users,
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'role', 'phone'],
+          required: false,
+          paranoid: false
+        }],
       });
       if (!item) return helper.failed(res, 'Not found');
       return helper.success(res, 'Fetched', item);

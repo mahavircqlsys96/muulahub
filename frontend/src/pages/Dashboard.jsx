@@ -111,7 +111,6 @@ const Dashboard = () => {
 
   const statCards = [
     { url: "/usersList", icon: "people", title: "Total Users", count: stats.usersCount, color: "#3b82f6", bgColor: "rgba(59,130,246,0.1)" },
-    { url: "/providers", icon: "verified_user", title: "Providers", count: stats.providersCount, color: "#10b981", bgColor: "rgba(16,185,129,0.1)" },
     { url: "/bookings", icon: "event_available", title: "Bookings", count: stats.bookingsCount, color: "#f97316", bgColor: "rgba(249,115,22,0.1)" },
     { url: "/payments", icon: "payments", title: "Revenue (Admin)", count: stats.totalRevenue, color: "#ff4d6d", bgColor: "rgba(255,77,109,0.1)" },
     { url: "/bookings", icon: "pending_actions", title: "Active Bookings", count: stats.activeBookings, color: "#06b6d4", bgColor: "rgba(6,182,212,0.1)" },

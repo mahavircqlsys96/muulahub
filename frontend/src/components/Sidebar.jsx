@@ -15,12 +15,12 @@ const menuSections = [
       // { to: "/providers",   label: "Providers",        icon: "verified_user",          activePaths: ["/providers/"] },
       { to: "/categories", label: "Service Categories", icon: "category" },
       { to: "/bookings", label: "Bookings", icon: "event_available", activePaths: ["/bookings/"] },
-      { to: "/disputes", label: "Disputes", icon: "gavel" },
+      // { to: "/disputes", label: "Disputes", icon: "gavel" },
       { to: "/payments", label: "Payments", icon: "payments" },
       { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet" },
       { to: "/wallets", label: "Wallets", icon: "account_balance" },
-      { to: "/locations", label: "Locations", icon: "public" },
-      { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
+      // { to: "/locations", label: "Locations", icon: "public" },
+      // { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
     ]
   },
   {
@@ -42,12 +42,12 @@ const menuSections = [
       { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule" }
     ]
   },
-  {
-    label: "MARKETING",
-    items: [
-      { to: "/promo-codes", label: "Promo Codes", icon: "local_offer" },
-    ]
-  },
+  // {
+  //   label: "MARKETING",
+  //   items: [
+  //     { to: "/promo-codes", label: "Promo Codes", icon: "local_offer" },
+  //   ]
+  // },
 ];
 
 const isActivePath = (to, activePaths = []) =>

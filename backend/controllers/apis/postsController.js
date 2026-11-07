@@ -1048,6 +1048,59 @@ module.exports = {
     }
   },
 
+  reportUser: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        userId: 'required',
+        reason: 'required|string'
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const report = await reports.create({
+        reportBy: req.auth.id,
+        reportType: 'user',
+        referenceId: req.body.userId,
+        reason: req.body.reason,
+        status: 'pending'
+      });
+
+      return helper.success(res, 'User reported successfully', report);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  createReport: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        reportType: 'required|in:user,job,post',
+        referenceId: 'required',
+        reason: 'required|string'
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const report = await reports.create({
+        reportBy: req.auth.id,
+        reportType: req.body.reportType,
+        referenceId: req.body.referenceId,
+        reason: req.body.reason,
+        status: 'pending'
+      });
+
+      if (req.body.reportType === 'post') {
+        await posts.update({ status: 'reported' }, { where: { id: req.body.referenceId } });
+      }
+
+      return helper.success(res, 'Report submitted successfully', report);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
   getDraftPosts: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;

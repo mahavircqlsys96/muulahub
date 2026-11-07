@@ -26,6 +26,23 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
+      // Check if there is already an active (unclosed) event for this user
+      const activeEvent = await events.findOne({
+        where: {
+          userId,
+          status: 'start'
+        }
+      });
+
+      if (activeEvent) {
+        return helper.failed(res, "An active event is already running. Please close your previous event before creating a new one.");
+      }
+
+      // Delete previous created event(s) for this user before creating a new one
+      await events.destroy({
+        where: { userId }
+      });
+
       const appID = envfile.AGORA_APP_ID;
       const appCertificate = envfile.AGORA_APP_CERTIFICATE;
 
@@ -35,22 +52,14 @@ module.exports = {
 
       const {
         caption,
-        description,
+        // description,
         categoryId,
         available,
         location,
         latitude,
         longitude,
         image
-
       } = req.body;
-
-      // // Handle media upload if provided
-      // let mediaUrl = req.body.media || null;
-      // if (req.files && (req.files.media || req.files.image || req.files.thumbnail)) {
-      //   const fileToUpload = req.files.media || req.files.image || req.files.thumbnail;
-      //   mediaUrl = await helper.fileUpload(fileToUpload, "events");
-      // }
 
       // Generate unique Agora channel name
       let channelName = req.body.channelName || req.body.channel;
@@ -59,7 +68,6 @@ module.exports = {
       }
 
       // UID for Agora RTC:
-      // If uid is not provided, 0, or empty, use 0 (Agora wildcard UID allowing any client/dynamic UID to join)
       let uid = req.body.uid;
       if (uid === undefined || uid === null || uid === '' || uid === '0' || uid === 0) {
         uid = 0;
@@ -78,7 +86,7 @@ module.exports = {
       // Token validity: default 24 hours (86400 seconds) or client-specified
       let expireTime = req.body.expireTime;
       if (!expireTime || expireTime === '') {
-        expireTime = 86400; // 24 hours for live event streaming
+        expireTime = 86400;
       } else {
         expireTime = parseInt(expireTime, 10);
       }
@@ -86,7 +94,7 @@ module.exports = {
       const currentTime = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTime + expireTime;
 
-      // Build token with uid exactly like agoraController
+      // Build token with uid
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         appID,
         appCertificate,
@@ -97,19 +105,11 @@ module.exports = {
         privilegeExpireTime
       );
 
-      // RULE: At any time, only ONE event can be live for this user.
-      // Automatically stop any previously active live event.
-      await events.update(
-        { status: 'stop' },
-        { where: { userId, status: 'start' } }
-      );
-
       // Create new live event record
       const newEvent = await events.create({
         userId,
         categoryId: categoryId || null,
         caption: caption || 'Live Event',
-        description: description || null,
         available: available || 'everyone',
         location: location || null,
         latitude: latitude ? parseFloat(latitude) : null,
@@ -140,8 +140,6 @@ module.exports = {
         ]
       });
 
-      // Provide both direct Agora keys (token, channelName, uid, appId) matching agoraController.generateToken
-      // and the complete event model properties
       const responseData = {
         ...eventDetails.toJSON(),
         token: agoraToken,
@@ -168,7 +166,7 @@ module.exports = {
   stopEvent: async (req, res) => {
     try {
       const userId = req.auth.id;
-      const eventId = req.params.eventId
+      const eventId = req.params.eventId || req.params.id || req.body.eventId;
 
       let event = null;
 
@@ -177,7 +175,6 @@ module.exports = {
           where: { id: eventId, userId }
         });
       } else {
-        // Fallback: stop currently active live event for this user
         event = await events.findOne({
           where: { userId, status: 'start' },
           order: [['id', 'DESC']]
@@ -190,7 +187,6 @@ module.exports = {
 
       await event.update({ status: 'stop' });
 
-      // Guarantee no other live event remains active for this user
       await events.update(
         { status: 'stop' },
         { where: { userId, status: 'start' } }
@@ -201,6 +197,33 @@ module.exports = {
     } catch (error) {
       console.log("stopEvent error:", error);
       return helper.error(res, "Something went wrong while stopping live event");
+    }
+  },
+
+  /**
+   * Delete Event
+   */
+  deleteEvent: async (req, res) => {
+    try {
+      const userId = req.auth.id;
+      const eventId = req.params.id || req.params.eventId || req.body.eventId;
+
+      let whereClause = { userId };
+      if (eventId) {
+        whereClause.id = eventId;
+      }
+
+      const event = await events.findOne({ where: whereClause });
+      if (!event) {
+        return helper.failed(res, "Event not found");
+      }
+
+      await events.destroy({ where: whereClause });
+
+      return helper.success(res, "Event deleted successfully");
+    } catch (error) {
+      console.log("deleteEvent error:", error);
+      return helper.error(res, "Something went wrong while deleting event");
     }
   },
 
@@ -248,8 +271,6 @@ module.exports = {
 
   /**
    * Get Nearby Live Events for Other Users
-   * Includes distance calculation, category & followersOnly privacy checks,
-   * and generates a SUBSCRIBER Agora token for each stream.
    */
   getNearbyLiveEvents: async (req, res) => {
     try {
@@ -262,7 +283,6 @@ module.exports = {
       const limit = parseInt(req.query.limit, 10) || 10;
       const offset = (page - 1) * limit;
 
-      // Latitude and Longitude from query or user profile
       let reqLat = req.query.latitude ? parseFloat(req.query.latitude) : null;
       let reqLng = req.query.longitude ? parseFloat(req.query.longitude) : null;
       const radiusKm = req.query.radius ? parseFloat(req.query.radius) : null;
@@ -278,15 +298,12 @@ module.exports = {
         }
       }
 
-      // Check who the current user is following (for followersOnly events)
       const followings = await followers.findAll({
         where: { followerId: currentUserId },
         attributes: ['followingId']
       });
       const followingIds = followings.map(f => f.followingId);
 
-      // Privacy condition:
-      // Show event if available == 'everyone' OR current user follows the creator
       const privacyCondition = {
         [Op.or]: [
           { available: 'everyone' },
@@ -300,14 +317,12 @@ module.exports = {
         ]
       };
 
-      // Base WHERE condition: other users' live events
       const whereCondition = {
         userId: { [Op.ne]: currentUserId },
         status: 'start',
         ...privacyCondition
       };
 
-      // Category filter if passed
       if (req.query.categoryId) {
         whereCondition.categoryId = req.query.categoryId;
       }
@@ -315,7 +330,6 @@ module.exports = {
       let attributes = { include: [] };
       let order = [['id', 'DESC']];
 
-      // Distance calculation with Haversine formula
       if (reqLat !== null && reqLng !== null && !isNaN(reqLat) && !isNaN(reqLng)) {
         const distanceFormula = `
           (6371 * acos(
@@ -354,7 +368,6 @@ module.exports = {
         distinct: true
       });
 
-      // Filter by radius if provided
       let eventList = rows;
       if (radiusKm && radiusKm > 0) {
         eventList = eventList.filter(ev => {
@@ -363,10 +376,9 @@ module.exports = {
         });
       }
 
-      // Generate viewer Agora token (SUBSCRIBER) for each live stream
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTimestamp + 86400;
-      const viewerUid = 0; // 0 for universal wildcard UID
+      const viewerUid = 0;
 
       const formattedEvents = eventList.map(ev => {
         const eventData = ev.toJSON();
@@ -415,7 +427,7 @@ module.exports = {
   },
 
   /**
-   * Get Details of a Specific Live Event (with viewer Agora token)
+   * Get Details of a Specific Live Event
    */
   getLiveEventDetail: async (req, res) => {
     try {
@@ -446,7 +458,6 @@ module.exports = {
         return helper.failed(res, "Event not found");
       }
 
-      // Check privacy if event is followersOnly
       if (event.available === 'followersOnly' && event.userId !== currentUserId) {
         const isFollowing = await followers.findOne({
           where: { followerId: currentUserId, followingId: event.userId }
@@ -466,7 +477,7 @@ module.exports = {
         const privilegeExpireTime = currentTimestamp + 86400;
         const isHost = event.userId === currentUserId;
         const role = isHost ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-        const uid = 0; // Universal wildcard UID so client joining with 0 or auto-assigned UID succeeds
+        const uid = 0;
 
         const token = RtcTokenBuilder.buildTokenWithUid(
           appID,

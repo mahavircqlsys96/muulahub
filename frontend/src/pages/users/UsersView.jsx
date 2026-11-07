@@ -52,6 +52,7 @@ const UsersView = () => {
 
   const limit = 5;
 
+  const [bookingTab, setBookingTab] = useState('user'); // 'user' | 'host'
   const [bookings, setBookings] = useState([]);
   const [bookingsPage, setBookingsPage] = useState(1);
   const [bookingsTotalPages, setBookingsTotalPages] = useState(1);
@@ -72,6 +73,25 @@ const UsersView = () => {
   const [followingTotalPages, setFollowingTotalPages] = useState(1);
   const [followingLoading, setFollowingLoading] = useState(false);
 
+  const [userCategories, setUserCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  const fetchUserCategories = useCallback(async () => {
+    if (!id) return;
+    try {
+      setCategoriesLoading(true);
+      const res = await apiInstance.get(`/userCategories/${id}`);
+      const body = res.data?.body;
+      if (Array.isArray(body)) {
+        setUserCategories(body);
+      }
+    } catch (e) {
+      console.log('Error fetching user categories:', e);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [id]);
+
   const fetchUserDetails = async () => {
     try {
       setLoading(true);
@@ -87,7 +107,7 @@ const UsersView = () => {
     try {
       setBookingsLoading(true);
       const res = await apiInstance.get(
-        `/bookings?userId=${id}&page=${bookingsPage}&limit=${limit}`
+        `/bookings?userId=${id}&role=${bookingTab}&page=${bookingsPage}&limit=${limit}`
       );
       const body = res.data?.body;
       setBookings(body?.list || []);
@@ -99,7 +119,7 @@ const UsersView = () => {
     } finally {
       setBookingsLoading(false);
     }
-  }, [id, bookingsPage, limit]);
+  }, [id, bookingTab, bookingsPage, limit]);
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -190,6 +210,18 @@ const UsersView = () => {
     fetchFollowing();
   }, [id, fetchFollowing]);
 
+  useEffect(() => {
+    if (!id) return;
+    fetchUserCategories();
+  }, [id, fetchUserCategories]);
+
+  useEffect(() => {
+    const list = userDetails?.userCategories || userDetails?.categories;
+    if (Array.isArray(list) && list.length > 0) {
+      setUserCategories(list);
+    }
+  }, [userDetails]);
+
   const profileImage =
     userDetails?.profileImage || userDetails?.profile_picture;
 
@@ -251,8 +283,8 @@ const UsersView = () => {
                     profileImage
                       ? `${imageBaseUrl}${profileImage}`
                       : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          userDetails?.name || 'U'
-                        )}&background=3b82f6&color=fff`
+                        userDetails?.name || 'U'
+                      )}&background=3b82f6&color=fff`
                   }
                   alt="profile"
                   style={{
@@ -371,7 +403,7 @@ const UsersView = () => {
                   </select>
                 </div>
 
-                <div>
+                {/* <div>
                   <div
                     style={{
                       fontSize: '12px',
@@ -411,7 +443,7 @@ const UsersView = () => {
                   >
                     {userDetails?.referrer?.referralCode || '—'}
                   </div>
-                </div>
+                </div> */}
 
                 <div>
                   <div
@@ -479,12 +511,213 @@ const UsersView = () => {
                       : '—'}
                   </div>
                 </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#9ca3af',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Selected Categories
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {categoriesLoading ? (
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>Loading...</span>
+                    ) : userCategories && userCategories.length > 0 ? (
+                      userCategories.map((uc, idx) => {
+                        const cat = uc.category || uc;
+                        const isPrimary = uc.isPrimary === 1 || uc.isPrimary === true;
+                        const catName = uc.categoryName || cat?.categoryName || 'Category';
+                        return (
+                          <span
+                            key={uc.id || cat?.id || cat?.categoryId || idx}
+                            style={{
+                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '16px',
+                              background: isPrimary ? '#dbeafe' : '#f3f4f6',
+                              color: isPrimary ? '#1d4ed8' : '#374151',
+                              fontWeight: isPrimary ? '600' : '500',
+                              border: isPrimary ? '1px solid #bfdbfe' : '1px solid #e5e7eb',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            {catName}
+                            {isPrimary && (
+                              <span style={{ fontSize: '10px', opacity: 0.8 }}>(Primary)</span>
+                            )}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span style={{ fontSize: '14px', color: '#9ca3af' }}>—</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
-      </TableCard>
+        </TableCard>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <TableCard>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid #f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="material-icons" style={{ color: '#3b82f6', fontSize: '20px' }}>
+                  category
+                </i>
+                <h3 style={sectionTitleStyle}>Selected Services Categories</h3>
+              </div>
+              {userCategories.length > 0 && (
+                <span
+                  style={{
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {userCategories.length} {userCategories.length === 1 ? 'Category' : 'Categories'}
+                </span>
+              )}
+            </div>
+            <div style={{ padding: '20px' }}>
+              {categoriesLoading ? (
+                <div style={{ padding: '24px', textAlign: 'center' }}>
+                  <div className="spinner-border text-primary" role="status" style={{ width: '24px', height: '24px' }} />
+                </div>
+              ) : userCategories && userCategories.length > 0 ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: '12px',
+                  }}
+                >
+                  {userCategories.map((uc, idx) => {
+                    const cat = uc.category || uc;
+                    const isPrimary = uc.isPrimary === 1 || uc.isPrimary === true;
+                    const catName = uc.categoryName || cat?.categoryName || 'Category';
+                    const rawImage = uc.image || cat?.image;
+                    const catImg = rawImage
+                      ? rawImage.startsWith('http')
+                        ? rawImage
+                        : `${imageBaseUrl}${rawImage}`
+                      : null;
+
+                    return (
+                      <div
+                        key={uc.id || cat?.id || cat?.categoryId || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '12px 14px',
+                          background: isPrimary ? 'rgba(59,130,246,0.05)' : '#f9fafb',
+                          border: isPrimary
+                            ? '1px solid rgba(59,130,246,0.3)'
+                            : '1px solid #e5e7eb',
+                          borderRadius: '12px',
+                        }}
+                      >
+                        {catImg ? (
+                          <img
+                            src={catImg}
+                            alt={catName}
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              objectFit: 'cover',
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              background: '#e0e7ff',
+                              color: '#4f46e5',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            <i className="material-icons" style={{ fontSize: '20px' }}>
+                              category
+                            </i>
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              color: '#111827',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={catName}
+                          >
+                            {catName}
+                          </div>
+                          {isPrimary && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                textTransform: 'uppercase',
+                                color: '#2563eb',
+                                background: '#dbeafe',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                display: 'inline-block',
+                                marginTop: '3px',
+                              }}
+                            >
+                              Primary Category
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    textAlign: 'center',
+                    padding: '10px 0',
+                  }}
+                >
+                  No service categories selected
+                </div>
+              )}
+            </div>
+          </TableCard>
+
           <TableCard>
             <div
               style={{
@@ -531,11 +764,91 @@ const UsersView = () => {
           <TableCard>
             <div
               style={{
-                padding: '20px',
+                padding: '16px 20px',
                 borderBottom: '1px solid #f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
               }}
             >
-              <h3 style={sectionTitleStyle}>Bookings</h3>
+              <div>
+                <h3 style={sectionTitleStyle}>Bookings</h3>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                  {bookingTab === 'user' ? 'Bookings made as a customer' : 'Bookings received as a host'}
+                </div>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  background: '#f3f4f6',
+                  padding: '4px',
+                  borderRadius: '10px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingTab('user');
+                    setBookingsPage(1);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                    background: bookingTab === 'user' ? '#fff' : 'transparent',
+                    color: bookingTab === 'user' ? '#2563eb' : '#6b7280',
+                    boxShadow:
+                      bookingTab === 'user'
+                        ? '0 1px 3px rgba(0,0,0,0.1)'
+                        : 'none',
+                  }}
+                >
+                  <i className="material-icons" style={{ fontSize: '16px' }}>
+                    person
+                  </i>
+                  As Users Booking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBookingTab('host');
+                    setBookingsPage(1);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                    background: bookingTab === 'host' ? '#fff' : 'transparent',
+                    color: bookingTab === 'host' ? '#2563eb' : '#6b7280',
+                    boxShadow:
+                      bookingTab === 'host'
+                        ? '0 1px 3px rgba(0,0,0,0.1)'
+                        : 'none',
+                  }}
+                >
+                  <i className="material-icons" style={{ fontSize: '16px' }}>
+                    storefront
+                  </i>
+                  As Host Booking
+                </button>
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table
@@ -549,7 +862,7 @@ const UsersView = () => {
                     'S No.',
                     'Booking #',
                     'Title',
-                    'Provider',
+                    bookingTab === 'user' ? 'Host' : 'Customer',
                     'Status',
                     'Amount',
                     'Date',
@@ -558,7 +871,14 @@ const UsersView = () => {
                 <tbody>
                   {bookingsLoading && <LoadingRow cols={7} />}
                   {!bookingsLoading && bookings.length === 0 && (
-                    <EmptyRow cols={7} message="No bookings found" />
+                    <EmptyRow
+                      cols={7}
+                      message={
+                        bookingTab === 'user'
+                          ? 'No bookings found as user'
+                          : 'No bookings found as host'
+                      }
+                    />
                   )}
                   {!bookingsLoading &&
                     bookings.map((b, index) => (
@@ -580,10 +900,11 @@ const UsersView = () => {
                             padding: '14px 16px',
                             fontSize: '13px',
                             color: '#374151',
+                            fontWeight: '600',
                           }}
                           title={b.bookingNumber || ''}
                         >
-                          {b.bookingNumber || '—'}
+                          {b.bookingNumber ? `#${b.bookingNumber}` : '—'}
                         </td>
                         <td
                           style={{
@@ -601,9 +922,31 @@ const UsersView = () => {
                             fontSize: '13px',
                             color: '#374151',
                           }}
-                          title={b.provider?.name || ''}
+                          title={
+                            bookingTab === 'user'
+                              ? b.provider?.name || ''
+                              : b.user?.name || ''
+                          }
                         >
-                          {b.provider?.name || '—'}
+                          {bookingTab === 'user' ? (
+                            <div>
+                              <div style={{ fontWeight: '500' }}>{b.provider?.name || '—'}</div>
+                              {b.provider?.email && (
+                                <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                                  {b.provider.email}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <div style={{ fontWeight: '500' }}>{b.user?.name || '—'}</div>
+                              {b.user?.email && (
+                                <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                                  {b.user.email}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '14px 16px' }} title={b.bookingStatus || ''}>
                           <StatusBadge status={b.bookingStatus} />
@@ -613,6 +956,7 @@ const UsersView = () => {
                             padding: '14px 16px',
                             fontSize: '13px',
                             color: '#374151',
+                            fontWeight: '600',
                           }}
                           title={b.amount != null ? `$${Number(b.amount).toFixed(2)}` : ''}
                         >

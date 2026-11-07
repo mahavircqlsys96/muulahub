@@ -20,7 +20,13 @@ const ReportsList = () => {
     setLoading(true);
     try {
       const { payload } = await dispatch(get_reports({ page, limit: 10, reportType, status }));
-      if (payload) setData(payload);
+      if (payload) {
+        setData({
+          list: payload.list || payload.reports_list || [],
+          total: payload.total || 0,
+          totalPages: payload.totalPages || 1
+        });
+      }
     } catch {
       toast.error('Failed to load reports');
     } finally {

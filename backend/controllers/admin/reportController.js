@@ -12,14 +12,27 @@ module.exports = {
       const offset = (page - 1) * limit;
       const reportType = req.query.reportType;
       const status = req.query.status;
+      const search = req.query.search;
 
       let whereClause = {};
       if (reportType) whereClause.reportType = reportType;
       if (status) whereClause.status = status;
+      if (search) {
+        whereClause[Op.or] = [
+          { reason: { [Op.like]: `%${search}%` } },
+          { adminRemarks: { [Op.like]: `%${search}%` } },
+        ];
+      }
 
       const { count, rows } = await reports.findAndCountAll({
         where: whereClause,
-        include: [{ model: users, as: 'reporter', attributes: ['id', 'name', 'email'] }],
+        include: [{
+          model: users,
+          as: 'reporter',
+          attributes: ['id', 'name', 'email', 'phone', 'role'],
+          required: false,
+          paranoid: false
+        }],
         order: [['createdAt', 'DESC']],
         limit,
         offset,
@@ -27,6 +40,7 @@ module.exports = {
       });
 
       return helper.success(res, 'Reports fetched', {
+        reports_list: rows,
         list: rows,
         total: count,
         currentPage: page,
@@ -41,12 +55,12 @@ module.exports = {
   updateReportStatus: async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, adminNote } = req.body;
+      const { status, adminNote, adminRemarks } = req.body;
 
       const report = await reports.findOne({ where: { id } });
       if (!report) return helper.failed(res, 'Report not found');
 
-      await report.update({ status: status || 'resolved', adminRemarks: adminNote });
+      await report.update({ status: status || 'resolved', adminRemarks: adminNote || adminRemarks });
       return helper.success(res, 'Report updated');
     } catch (error) {
       console.log(error);

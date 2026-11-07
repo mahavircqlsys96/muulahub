@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { users, bookings, followers, bank_accounts } = require('../../models');
+const { users, bookings, followers, bank_accounts, user_categories, services_categories } = require('../../models');
 const db = require("../../models");
 const sequelize = db.sequelize;
 const Sequelize = require("sequelize");
@@ -177,11 +177,96 @@ module.exports = {
             const bankDetails = await bank_accounts.findOne({ where: { userId: id } });
             row.bankDetails = bankDetails;
 
+            // Fetch user selected service categories from user_categories table
+            const uid = parseInt(id, 10) || id;
+            const ucs = await user_categories.findAll({
+                where: {
+                    userId: [id, uid].filter(Boolean)
+                },
+                raw: true,
+                order: [['isPrimary', 'DESC'], ['id', 'ASC']]
+            });
+
+            const catIds = ucs.map(u => u.categoryId).filter(Boolean);
+            const cats = catIds.length ? await services_categories.findAll({
+                where: { id: { [Op.in]: catIds } },
+                raw: true
+            }) : [];
+
+            const catMap = {};
+            cats.forEach(c => {
+                catMap[String(c.id)] = c;
+            });
+
+            const formattedCategories = ucs.map(u => {
+                const matched = catMap[String(u.categoryId)] || {};
+                return {
+                    id: u.id,
+                    userId: u.userId,
+                    categoryId: u.categoryId,
+                    isPrimary: u.isPrimary === 1 || u.isPrimary === true,
+                    categoryName: matched.categoryName || 'Unnamed Category',
+                    image: matched.image || null,
+                    status: matched.status,
+                    approvalStatus: matched.approvalStatus,
+                    category: matched
+                };
+            });
+
+            row.userCategories = formattedCategories;
+            row.categories = formattedCategories;
+
             return helper.success(res, "user view", row);
 
         } catch (error) {
             console.log(error);
             return helper.failed(res, "Something went wrong");
+        }
+    },
+
+    getUserCategories: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const uid = parseInt(id, 10) || id;
+
+            const ucs = await user_categories.findAll({
+                where: {
+                    userId: [id, uid].filter(Boolean)
+                },
+                raw: true,
+                order: [['isPrimary', 'DESC'], ['id', 'ASC']]
+            });
+
+            const catIds = ucs.map(u => u.categoryId).filter(Boolean);
+            const cats = catIds.length ? await services_categories.findAll({
+                where: { id: { [Op.in]: catIds } },
+                raw: true
+            }) : [];
+
+            const catMap = {};
+            cats.forEach(c => {
+                catMap[String(c.id)] = c;
+            });
+
+            const list = ucs.map(u => {
+                const matched = catMap[String(u.categoryId)] || {};
+                return {
+                    id: u.id,
+                    userId: u.userId,
+                    categoryId: u.categoryId,
+                    isPrimary: u.isPrimary === 1 || u.isPrimary === true,
+                    categoryName: matched.categoryName || 'Unnamed Category',
+                    image: matched.image || null,
+                    status: matched.status,
+                    approvalStatus: matched.approvalStatus,
+                    category: matched
+                };
+            });
+
+            return helper.success(res, "User categories fetched", list);
+        } catch (error) {
+            console.log("getUserCategories error:", error);
+            return helper.error(res, "Failed to fetch user categories");
         }
     },
 
@@ -339,6 +424,7 @@ module.exports = {
             return helper.failed(res, "Something went wrong");
         }
     },
+
     userVehiclesByUserId: async (req, res) => {
         try {
             return helper.success(res, "Vehicles list fetched", {

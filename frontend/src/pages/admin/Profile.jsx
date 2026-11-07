@@ -544,7 +544,7 @@ const Profile = () => {
                     onChange={(e) => setSettings({ ...settings, promotional_fee_waivers: e.target.value })}
                   />
                 </div>
-
+                {/* 
                 <div style={{ ...S.formGroup, gridColumn: "1 / -1" }}>
                   <label style={S.label} htmlFor="country-fees">
                     <i className="material-icons" style={{ fontSize: 15, verticalAlign: "middle", marginRight: 4, color: "#f91942" }}>public</i>
@@ -557,7 +557,7 @@ const Profile = () => {
                     value={settings.country_fees}
                     onChange={(e) => setSettings({ ...settings, country_fees: e.target.value })}
                   />
-                </div>
+                </div> */}
               </div>
 
               {/* info strip */}
@@ -634,7 +634,7 @@ const Profile = () => {
               </div>
 
               {/* Payout Providers */}
-              <div>
+              {/* <div>
                 <label style={{ ...S.label, fontSize: 15, marginBottom: 12 }}>
                   <i className="material-icons" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6, color: "#ff4d6d" }}>account_balance</i>
                   Payout Providers
@@ -672,10 +672,10 @@ const Profile = () => {
                     );
                   })}
                 </div>
-              </div>
+              </div> */}
 
               {/* Tax Rules */}
-              <div style={S.formGroup}>
+              {/* <div style={S.formGroup}>
                 <label style={{ ...S.label, fontSize: 15, marginBottom: 12 }}>
                   <i className="material-icons" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6, color: "#10b981" }}>receipt_long</i>
                   Tax Management (VAT/GST/Country Rules)
@@ -690,7 +690,7 @@ const Profile = () => {
                 <p style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
                   Enter tax configuration in JSON format. This will be used dynamically during checkout.
                 </p>
-              </div>
+              </div> */}
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button type="button" onClick={handleSettingsSubmit} style={{ ...S.btn, background: "linear-gradient(90deg, #10b981, #059669)" }} disabled={loading}>

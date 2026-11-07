@@ -11,7 +11,7 @@ const Op = sequelize.Op;
 let jwt = require("jsonwebtoken");
 const { req } = require("express");
 const stripe = require("stripe")(envfile.stripe_secret_key);
-const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media, login_histories, bank_accounts } = require("../../models");
+const { users, cms, notifications, services_categories, user_categories, contact_support, portfolio_images, posts, post_media, login_histories, bank_accounts, reports } = require("../../models");
 
 user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'categories' });
 
@@ -1454,6 +1454,38 @@ module.exports = {
       message: req.body.message,
     });
     return helper.success(res, "Support request received", supportData);
+  },
+  publicReport: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        reason: "required|string",
+      });
+
+      let errorsResponse = await helper.checkValidation(v);
+      if (errorsResponse) return helper.failed(res, errorsResponse);
+
+      let reporterId = req.body.userId || null;
+      if (!reporterId) {
+        const firstUser = await users.findOne({ attributes: ['id'] });
+        reporterId = firstUser ? firstUser.id : null;
+      }
+
+      const reportType = req.body.reportType && ['user', 'job', 'post'].includes(req.body.reportType)
+        ? req.body.reportType
+        : 'post';
+
+      const reportData = await reports.create({
+        reportBy: reporterId,
+        reportType,
+        referenceId: req.body.referenceId || 0,
+        reason: req.body.reason + (req.body.name ? ` (Reporter: ${req.body.name}, Email: ${req.body.email || 'N/A'}, Phone: ${req.body.phone || 'N/A'})` : ''),
+        status: 'pending'
+      });
+      return helper.success(res, "Report submitted successfully", reportData);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, error.message || 'Something went wrong');
+    }
   },
   contactUs: async (req, res) => {
     const v = new Validator(req.body, {

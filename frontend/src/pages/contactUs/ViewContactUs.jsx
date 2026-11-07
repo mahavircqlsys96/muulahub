@@ -53,19 +53,19 @@ const ViewContactUs = () => {
           <div className="row">
             <div className="col-md-4 mb-2">
               <label>User</label>
-              <input className="form-control" disabled value={row.user ? `${row.user.name} (${row.user.email})` : row.user_id} />
+              <input className="form-control" disabled value={row.user ? `${row.user.name} (${row.user.email})` : (row.name ? `${row.name} (${row.email || row.phone || ''})` : (row.user_id || 'Guest'))} />
             </div>
             <div className="col-md-4 mb-2">
               <label>User Type</label>
-              <input className="form-control" disabled value={row.user?.role === 'owner' ? 'Garage Owner' : row.user?.role === 'user' ? 'User' : '—'} />
+              <input className="form-control" disabled value={row.user?.role === 'owner' ? 'Garage Owner' : row.user?.role === 'user' ? 'User' : row.user?.role === 'provider' ? 'Provider' : (row.user?.role || 'Guest')} />
             </div>
             <div className="col-md-4 mb-2">
-              <label>Issue Type</label>
-              <input className="form-control text-capitalize" disabled value={row.type || ""} />
+              <label>Phone</label>
+              <input className="form-control" disabled value={row.phone || row.user?.phone || '—'} />
             </div>
             <div className="col-12 mb-2">
               <label>Subject</label>
-              <input className="form-control" disabled value={row.subject} />
+              <input className="form-control" disabled value={row.subject || (row.message ? (row.message.length > 60 ? row.message.substring(0, 60) + '...' : row.message) : '—')} />
             </div>
             <div className="col-12 mb-2">
               <label>Message</label>

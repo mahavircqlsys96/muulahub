@@ -53,7 +53,7 @@ const ContactUs = () => {
       );
 
       setData({
-        list: payload?.contactUs_list || [],
+        list: payload?.contactUs_list || payload?.list || [],
         total: payload?.total || 0,
         totalPages: payload?.totalPages || 1
       });
@@ -238,7 +238,7 @@ const ContactUs = () => {
                         maxWidth: '250px'
                       }}
                     >
-                      {ticket?.subject || '—'}
+                      {ticket?.subject || ticket?.message || '—'}
                     </td>
 
                     <td
@@ -255,7 +255,8 @@ const ContactUs = () => {
                           }}
                         >
                           {ticket?.user?.name ||
-                            'Unknown User'}
+                            ticket?.name ||
+                            'Guest'}
                         </div>
 
                         <div
@@ -265,7 +266,10 @@ const ContactUs = () => {
                           }}
                         >
                           {ticket?.user?.email ||
-                            ticket?.user_id}
+                            ticket?.email ||
+                            ticket?.phone ||
+                            ticket?.user_id ||
+                            '—'}
                         </div>
                       </div>
                     </td>
@@ -283,7 +287,10 @@ const ContactUs = () => {
                         : ticket?.user?.role ===
                           'user'
                         ? 'User'
-                        : '—'}
+                        : ticket?.user?.role ===
+                          'provider'
+                        ? 'Provider'
+                        : ticket?.user?.role || 'Guest'}
                     </td>
 
                     <td

@@ -24,6 +24,7 @@ module.exports = (io) => {
   router.get('/resetPasswordPage', authController.resetPasswordPage);
   router.post('/resetPassword', authController.resetPassword);
   router.post('/publicContactUs', authController.publicContactUs);
+  router.post('/publicReport', authController.publicReport);
   router.post('/muxWebhook', muxController.webhook);
 
   // ─── Header Auth ───
@@ -94,6 +95,9 @@ module.exports = (io) => {
   router.get('/getCommentReplies', postsController.getCommentReplies);
   router.post('/likeComment', postsController.likeComment);
   router.post('/reportPost', postsController.reportPost);
+  router.post('/reportUser', postsController.reportUser);
+  router.post('/createReport', postsController.createReport);
+  router.post('/report', postsController.createReport);
   router.get('/getDraftPosts', postsController.getDraftPosts);
   router.post('/publishOrDeclinePost', postsController.publishOrDeclinePost);
   router.get('/myPostPerformance', postsController.myPostPerformance);
@@ -135,6 +139,11 @@ module.exports = (io) => {
   router.post('/generateAgoraToken', agoraController.generateToken);
   router.post('/createEvent', eventController.createEvent);
   router.put('/stopEvent/:eventId', eventController.stopEvent);
+  router.put('/stopEvent', eventController.stopEvent);
+  router.post('/stopEvent', eventController.stopEvent);
+  router.delete('/deleteEvent/:id', eventController.deleteEvent);
+  router.delete('/deleteEvent', eventController.deleteEvent);
+  router.post('/deleteEvent', eventController.deleteEvent);
   router.get('/getMyLiveEvent', eventController.getMyLiveEvent);
   router.get('/getNearbyLiveEvents', eventController.getNearbyLiveEvents);
   router.get('/getLiveEventDetail/:id', eventController.getLiveEventDetail);

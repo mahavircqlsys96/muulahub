@@ -22,7 +22,9 @@ const ContactUs = () => {
     
     try {
       // POST to backend api
-      await axios.post(`${import.meta.env.VITE_IMAGE_BASE}mobile/publicContactUs`, formData);
+      const apiBase = (import.meta.env.VITE_ADMIN_API_BASE ? import.meta.env.VITE_ADMIN_API_BASE.replace(/\/admin\/?$/, '') : (import.meta.env.VITE_IMAGE_BASE || '')).replace(/\/$/, '');
+      const url = apiBase ? `${apiBase}/mobile/publicContactUs` : '/mobile/publicContactUs';
+      await axios.post(url, formData);
       setStatus({ loading: false, success: true, error: '' });
       setFormData({ name: '', email: '', phone: '', message: '' });
       

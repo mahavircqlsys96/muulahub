@@ -15,15 +15,33 @@ module.exports = {
       const status = req.query.status;
       const paymentStatus = req.query.paymentStatus;
       const userId = req.query.userId;
+      const providerId = req.query.providerId;
+      const bookingRole = req.query.bookingRole || req.query.role; // 'user' | 'host' | 'provider'
 
       const andParts = [];
-      if (userId) {
+      if (userId && !providerId) {
         const uid = parseInt(userId, 10);
         if (!Number.isNaN(uid)) {
-          andParts.push({
-            [Op.or]: [{ userId: uid }, { providerId: uid }],
-          });
+          if (bookingRole === 'user' || bookingRole === 'customer') {
+            andParts.push({ userId: uid });
+          } else if (bookingRole === 'host' || bookingRole === 'provider') {
+            andParts.push({ providerId: uid });
+          } else {
+            andParts.push({
+              [Op.or]: [{ userId: uid }, { providerId: uid }],
+            });
+          }
         }
+      } else if (providerId && !userId) {
+        const pid = parseInt(providerId, 10);
+        if (!Number.isNaN(pid)) {
+          andParts.push({ providerId: pid });
+        }
+      } else if (userId && providerId) {
+        const uid = parseInt(userId, 10);
+        const pid = parseInt(providerId, 10);
+        if (!Number.isNaN(uid)) andParts.push({ userId: uid });
+        if (!Number.isNaN(pid)) andParts.push({ providerId: pid });
       }
       if (status) andParts.push({ bookingStatus: status });
       if (paymentStatus) andParts.push({ paymentStatus: paymentStatus });

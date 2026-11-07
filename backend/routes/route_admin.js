@@ -80,6 +80,7 @@ router.get('/userListDeleted', userController.userListDeleted);
 router.get('/userFollowers/:id', userController.userFollowers);
 router.get('/userFollowing/:id', userController.userFollowing);
 router.get('/viewUser/:id/:role', userController.viewUser);
+router.get('/userCategories/:id', userController.getUserCategories);
 router.put('/toggleUserStatus/:id', userController.toggleUserStatus);
 router.put('/updateApprovalStatus', userController.updateApprovalStatus);
 router.delete('/deleteUser/:id', userController.deleteUser);

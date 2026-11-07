@@ -34,7 +34,9 @@ const Home = () => {
     e.preventDefault();
     setStatus({ loading: true, success: false, error: '' });
     try {
-      await axios.post(`${import.meta.env.VITE_IMAGE_BASE}mobile/publicContactUs`, formData);
+      const apiBase = (import.meta.env.VITE_ADMIN_API_BASE ? import.meta.env.VITE_ADMIN_API_BASE.replace(/\/admin\/?$/, '') : (import.meta.env.VITE_IMAGE_BASE || '')).replace(/\/$/, '');
+      const url = apiBase ? `${apiBase}/mobile/publicContactUs` : '/mobile/publicContactUs';
+      await axios.post(url, formData);
       setStatus({ loading: false, success: true, error: '' });
       setFormData({ name: '', email: '', phone: '', message: '' });
       setTimeout(() => setStatus(prev => ({ ...prev, success: false })), 5000);
