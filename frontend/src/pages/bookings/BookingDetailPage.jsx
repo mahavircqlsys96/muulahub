@@ -27,7 +27,6 @@ const BookingDetailPage = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
 
   const fetchBooking = async () => {
     try {
@@ -41,19 +40,6 @@ const BookingDetailPage = () => {
   };
 
   useEffect(() => { fetchBooking(); }, [id]);
-
-  const updateStatus = async (status) => {
-    setUpdating(true);
-    try {
-      await apiInstance.put(`/bookings/${id}/status`, { status });
-      toast.success(`Booking marked as ${status}`);
-      fetchBooking();
-    } catch {
-      toast.error('Failed to update status');
-    } finally {
-      setUpdating(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -127,33 +113,6 @@ const BookingDetailPage = () => {
             <InfoRow label="Email" value={booking.provider?.email} />
             <InfoRow label="Phone" value={booking.provider?.phone} />
           </div>
-
-          {booking.bookingStatus !== 'completed' && booking.bookingStatus !== 'cancelled' && (
-            <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <h6 style={{ fontWeight: '700', marginBottom: '12px' }}>Update Status</h6>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {['accepted', 'upcoming', 'ongoing', 'completed', 'cancelled'].map(s => (
-                  <button
-                    key={s}
-                    disabled={updating || booking.bookingStatus === s}
-                    onClick={() => updateStatus(s)}
-                    style={{
-                      padding: '10px',
-                      border: 'none',
-                      borderRadius: '8px',
-                      background: booking.bookingStatus === s ? '#f3f4f6' : 'linear-gradient(90deg,#f97316,#fb923c)',
-                      color: booking.bookingStatus === s ? '#9ca3af' : '#fff',
-                      fontWeight: '600',
-                      cursor: booking.bookingStatus === s ? 'default' : 'pointer',
-                      textTransform: 'capitalize'
-                    }}
-                  >
-                    Mark as {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
