@@ -130,7 +130,25 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'email', 'profileImage', 'phone', 'countryCode']
+            attributes: [
+              'id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'avgRating'
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'totalReview'
+              ]
+            ]
           },
           {
             model: services_categories,
@@ -140,8 +158,18 @@ module.exports = {
         ]
       });
 
+      const eventJson = eventDetails.toJSON();
+      if (eventJson.user) {
+        eventJson.user.avgRating = eventJson.user.avgRating !== undefined && eventJson.user.avgRating !== null
+          ? parseFloat(eventJson.user.avgRating)
+          : 0;
+        eventJson.user.totalReview = eventJson.user.totalReview !== undefined && eventJson.user.totalReview !== null
+          ? parseInt(eventJson.user.totalReview, 10)
+          : 0;
+      }
+
       const responseData = {
-        ...eventDetails.toJSON(),
+        ...eventJson,
         token: agoraToken,
         channelName: channelName,
         uid: uid,
@@ -240,7 +268,25 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'email', 'profileImage', 'phone', 'countryCode']
+            attributes: [
+              'id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'avgRating'
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'totalReview'
+              ]
+            ]
           },
           {
             model: services_categories,
@@ -256,6 +302,14 @@ module.exports = {
       }
 
       const eventData = currentEvent.toJSON();
+      if (eventData.user) {
+        eventData.user.avgRating = eventData.user.avgRating !== undefined && eventData.user.avgRating !== null
+          ? parseFloat(eventData.user.avgRating)
+          : 0;
+        eventData.user.totalReview = eventData.user.totalReview !== undefined && eventData.user.totalReview !== null
+          ? parseInt(eventData.user.totalReview, 10)
+          : 0;
+      }
       eventData.token = eventData.agoraToken;
       eventData.channelName = eventData.agoraChannel;
       eventData.uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
@@ -354,7 +408,25 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider']
+            attributes: [
+              'id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'avgRating'
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'totalReview'
+              ]
+            ]
           },
           {
             model: services_categories,
@@ -382,6 +454,15 @@ module.exports = {
 
       const formattedEvents = eventList.map(ev => {
         const eventData = ev.toJSON();
+
+        if (eventData.user) {
+          eventData.user.avgRating = eventData.user.avgRating !== undefined && eventData.user.avgRating !== null
+            ? parseFloat(eventData.user.avgRating)
+            : 0;
+          eventData.user.totalReview = eventData.user.totalReview !== undefined && eventData.user.totalReview !== null
+            ? parseInt(eventData.user.totalReview, 10)
+            : 0;
+        }
 
         if (appID && appCertificate && eventData.agoraChannel) {
           try {
@@ -426,6 +507,7 @@ module.exports = {
     }
   },
 
+
   /**
    * Get Details of a Specific Live Event
    */
@@ -444,7 +526,25 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider']
+            attributes: [
+              'id', 'name', 'email', 'profileImage', 'phone', 'countryCode', 'isProvider',
+              [
+                db.sequelize.literal(`(
+                  SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'avgRating'
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM rating
+                  WHERE rating.providerId = user.id
+                )`),
+                'totalReview'
+              ]
+            ]
           },
           {
             model: services_categories,
@@ -468,6 +568,14 @@ module.exports = {
       }
 
       const eventData = event.toJSON();
+      if (eventData.user) {
+        eventData.user.avgRating = eventData.user.avgRating !== undefined && eventData.user.avgRating !== null
+          ? parseFloat(eventData.user.avgRating)
+          : 0;
+        eventData.user.totalReview = eventData.user.totalReview !== undefined && eventData.user.totalReview !== null
+          ? parseInt(eventData.user.totalReview, 10)
+          : 0;
+      }
 
       const appID = envfile.AGORA_APP_ID;
       const appCertificate = envfile.AGORA_APP_CERTIFICATE;
