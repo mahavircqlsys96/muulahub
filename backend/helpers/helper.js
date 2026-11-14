@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require('fs');
 var uuid = require("uuid").v4;
 const nodemailer = require("nodemailer");
 const ENV = process.env
@@ -28,7 +29,6 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const clientNumber = "+14155238886";
 const WhatsappclientNumber = "+14155238886";
-const fs = require('fs');
 const client = twilio(accountSid, authToken);
 let TWILIO_API_KEY = process.env.TWILIO_API_KEY;
 let TWILIO_API_SECRET = process.env.TWILIO_API_SECRET;
