@@ -1515,6 +1515,7 @@ module.exports = {
   },
   notificationList: async (req, res) => {
     try {
+      console.log("notification");
 
       const page = Math.max(1, parseInt(req.query.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
