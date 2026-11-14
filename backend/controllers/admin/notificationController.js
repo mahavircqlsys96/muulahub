@@ -93,16 +93,17 @@ module.exports = {
       // Attempt to send push notifications via Firebase if device token exists
       let pushedCount = 0;
       for (const u of usersToNotify) {
-        if (u.deviceToken) {
+        const token = u.fcmToken || u.deviceToken;
+        if (token) {
           try {
-            await helper.sendPushNotification({
-              token: u.deviceToken,
+            const sent = await helper.sendPushNotification({
+              token: token,
               title: title,
               body: message,
               type: 'system',
               sender_id: 1,
             });
-            pushedCount++;
+            if (sent) pushedCount++;
           } catch (e) {
             console.error("Firebase push failed for user " + u.id);
           }

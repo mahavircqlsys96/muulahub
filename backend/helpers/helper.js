@@ -5,6 +5,24 @@ const ENV = process.env
 const admin = require("firebase-admin");
 const AWS = require("aws-sdk");
 
+// Initialize Firebase Admin SDK
+try {
+  const serviceAccountPath = path.resolve(__dirname, "./mulla-hub-d64f38492841.json");
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = require(serviceAccountPath);
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log("✅ Firebase Admin initialized with project:", serviceAccount.project_id);
+    }
+  } else {
+    console.log("⚠️ Firebase service account file not found at:", serviceAccountPath);
+  }
+} catch (fbErr) {
+  console.error("❌ Firebase Admin initialization error:", fbErr.message);
+}
+
 const twilio = require("twilio");
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -19,6 +37,11 @@ let TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 module.exports = {
   sendPushNotification: async (notificationData) => {
     try {
+      if (!admin.apps.length) {
+        console.error("❌ Push Error: Firebase Admin is not initialized");
+        return false;
+      }
+
       const {
         token,
         title,
@@ -31,13 +54,32 @@ module.exports = {
         image
       } = notificationData;
 
+      if (!token) {
+        console.log("⚠️ Push skipped: Token missing");
+        return false;
+      }
+
+      const notificationPayload = {
+        title: title || "Muulahub",
+        body: String(body || ""),
+      };
+
+      if (image) {
+        notificationPayload.imageUrl = String(image);
+      }
+
+      const apnsHeaders = {
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+      };
+      if (process.env.APNS_TOPIC) {
+        apnsHeaders["apns-topic"] = process.env.APNS_TOPIC;
+      }
+
       const message = {
         token: token,
         // ✅ REQUIRED for popup when app is killed
-        notification: {
-          title: title || "Muulahub",
-          body: String(body),
-        },
+        notification: notificationPayload,
 
         // ✅ ANDROID CONFIG (HEADS-UP NOTIFICATION)
         android: {
@@ -49,18 +91,19 @@ module.exports = {
             priority: "high",
             defaultSound: true,
             defaultVibrateTimings: true,
+            ...(image ? { imageUrl: String(image) } : {})
           },
         },
 
         // ✅ DATA PAYLOAD (for click handling)
         data: {
           title: title || "Muulahub",
-          body: String(body),
-          message: String(body),
+          body: String(body || ""),
+          message: String(body || ""),
           type: String(type || ''),
           sender_id: String(sender_id || '0'),
-          sender_name: sender_name || '',
-          sender_image: sender_image || '',
+          sender_name: String(sender_name || ''),
+          sender_image: String(sender_image || ''),
           request_id: request_id ? String(request_id) : '',
         },
 
@@ -72,11 +115,7 @@ module.exports = {
               contentAvailable: true,
             },
           },
-          headers: {
-            "apns-push-type": "alert",
-            "apns-priority": "10",
-            "apns-topic": "com.parkez.app"
-          },
+          headers: apnsHeaders,
         },
       };
 
@@ -89,7 +128,7 @@ module.exports = {
       return true;
 
     } catch (err) {
-      console.error("❌ Push Error:", err);
+      console.error("❌ Push Error:", err.message || err);
       return false;
     }
   },
