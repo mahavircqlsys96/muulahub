@@ -236,27 +236,38 @@ module.exports = function (io) {
           where: { id: get_data.receiverId },
           raw: true
         });
-        if (findReceiver && findReceiver.isNotification == "on" && findReceiver.fcmToken) {
+        if (findReceiver && findReceiver.isNotification !== "off" && findReceiver.fcmToken) {
+          const pushTitle = findSender ? findSender.name : "Muulahub";
+          let pushBody = "You received a new message";
+          if (get_data.messageType === 'image') {
+            pushBody = "Sent an image";
+          } else if (get_data.messageType === 'audio') {
+            pushBody = "Sent an audio message";
+          } else if (get_data.message && String(get_data.message).trim() !== '') {
+            pushBody = String(get_data.message);
+          }
+
           const ndata = {
             token: findReceiver.fcmToken,
-            title: "Muulahub",
-            body: "You received a new message",
-            msg: "New Message",
-            message: "You received a new message",
-            bookingId: get_data.bookingId,
-            msg_type: get_data.messageType,
+            title: pushTitle,
+            body: pushBody,
+            msg: pushBody,
+            message: pushBody,
+            bookingId: get_data.bookingId || '',
+            roomId: createMessage ? createMessage.roomId : '',
+            msg_type: get_data.messageType || 'text',
             sender_id: senderId,
-            sender_name: findSender.name,
-            sender_image: findSender.profileImage,
+            sender_name: findSender ? findSender.name : '',
+            sender_image: findSender ? findSender.profileImage : '',
             type: 'chat'
           };
 
-          console.log("Push sent successfully");
+          console.log("Chat push sent to receiver:", get_data.receiverId);
 
           helper.sendPushNotification(ndata);
 
         } else {
-          console.log("Notification turned off or no token");
+          console.log("Notification turned off or no fcmToken for receiver:", get_data.receiverId);
         }
         /* ------------------ WHERE CONDITION ------------------ */
 

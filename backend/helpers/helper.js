@@ -96,16 +96,25 @@ module.exports = {
         },
 
         // ✅ DATA PAYLOAD (for click handling)
-        data: {
-          title: title || "Muulahub",
-          body: String(body || ""),
-          message: String(body || ""),
-          type: String(type || ''),
-          sender_id: String(sender_id || '0'),
-          sender_name: String(sender_name || ''),
-          sender_image: String(sender_image || ''),
-          request_id: request_id ? String(request_id) : '',
-        },
+        data: (() => {
+          const payloadData = {
+            title: title || "Muulahub",
+            body: String(body || ""),
+            message: String(body || ""),
+            type: String(type || ''),
+            sender_id: String(sender_id || '0'),
+            sender_name: String(sender_name || ''),
+            sender_image: String(sender_image || ''),
+            request_id: request_id ? String(request_id) : '',
+          };
+
+          for (const [key, val] of Object.entries(notificationData)) {
+            if (!['token', 'notification', 'image', 'title', 'body', 'message', 'type', 'sender_id', 'sender_name', 'sender_image', 'request_id'].includes(key) && val !== undefined && val !== null) {
+              payloadData[key] = String(val);
+            }
+          }
+          return payloadData;
+        })(),
 
         // ✅ iOS CONFIG
         apns: {
