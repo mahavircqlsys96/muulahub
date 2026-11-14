@@ -26,19 +26,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      // Check if there is already an active (unclosed) event for this user
-      const activeEvent = await events.findOne({
-        where: {
-          userId,
-          status: 'start'
-        }
-      });
-
-      if (activeEvent) {
-        return helper.failed(res, "An active event is already running. Please close your previous event before creating a new one.");
-      }
-
-      // Delete previous created event(s) for this user before creating a new one
+      // Delete any previous created event(s) for this user so a new one can always be created
       await events.destroy({
         where: { userId }
       });
@@ -75,12 +63,13 @@ module.exports = {
         uid = parseInt(uid, 10) || 0;
       }
 
-      // Role for Agora RTC
+      // Role for Agora RTC (roleType: 0 for creator/publisher, 1 for other user/subscriber)
       let role = RtcRole.PUBLISHER;
-      if (req.body.role === 'subscriber') {
-        role = RtcRole.SUBSCRIBER;
-      } else if (req.body.role === 'publisher') {
+      const rawRoleType = req.body.roleType !== undefined ? req.body.roleType : req.body.role;
+      if (rawRoleType === 0 || rawRoleType === '0' || rawRoleType === 'publisher') {
         role = RtcRole.PUBLISHER;
+      } else if (rawRoleType === 1 || rawRoleType === '1' || rawRoleType === 'subscriber') {
+        role = RtcRole.SUBSCRIBER;
       }
 
       // Token validity: default 24 hours (86400 seconds) or client-specified
@@ -173,6 +162,8 @@ module.exports = {
         token: agoraToken,
         channelName: channelName,
         uid: uid,
+        roleType: role === RtcRole.PUBLISHER ? 0 : 1,
+        role: role === RtcRole.PUBLISHER ? "publisher" : "subscriber",
         appId: appID,
         agoraToken: agoraToken,
         agoraChannel: channelName,
