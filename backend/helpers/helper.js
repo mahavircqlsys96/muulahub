@@ -29,7 +29,7 @@ try {
             console.log(`✅ Found Firebase service account in: ${file}`);
             break;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   }
@@ -44,7 +44,7 @@ try {
           serviceAccount = candidate;
           console.log("✅ Using Firebase credentials from firebase-dummy.json");
         }
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -57,7 +57,7 @@ try {
       } else if (fs.existsSync(rawEnv)) {
         serviceAccount = require(path.resolve(rawEnv));
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (serviceAccount && !admin.apps.length) {
@@ -139,7 +139,7 @@ module.exports = {
             priority: "high",
             defaultSound: true,
             defaultVibrateTimings: true,
-            ...(image ? { imageUrl: String(image) } : {})
+
           },
         },
 

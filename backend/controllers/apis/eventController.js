@@ -190,7 +190,7 @@ module.exports = {
             { deviceToken: String(req.body.deviceToken).trim() },
             { where: { id: userId } }
           );
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // Send push notification to all users to join the live streaming event (background task)
@@ -262,8 +262,8 @@ module.exports = {
                   channelName: String(channelName),
                   sender_id: String(userId),
                   sender_name: creatorName,
-                  sender_image: creatorImage,
-                  image: image || creatorImage || '',
+                  sender_image: "",
+                  image: '',
                   request_id: String(newEvent.id)
                 });
                 if (sent) sentCount++;
