@@ -21,9 +21,9 @@ const sendReminder = async (booking, hoursLabel) => {
         referenceId: booking.id
       });
 
-      if (recipient.fcmToken) {
+      if (recipient.deviceToken) {
         await helper.sendPushNotification({
-          token: recipient.fcmToken,
+          token: recipient.deviceToken,
           title: 'Booking Reminder',
           body: message,
           type: 'booking',

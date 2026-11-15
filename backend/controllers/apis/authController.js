@@ -73,7 +73,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { email, password, fcmToken, deviceType } = req.body;
+      const { email, password, deviceToken, deviceType } = req.body;
 
       const loginTime = helper.unixTimestamp();
 
@@ -114,7 +114,7 @@ module.exports = {
 
       await user.update({
         loginTime: loginTime,
-        fcmToken: fcmToken,
+        deviceToken: deviceToken,
         deviceType: deviceType
       });
 
@@ -122,7 +122,7 @@ module.exports = {
         userId: user.id,
         loginTime: loginTime,
         deviceType: deviceType,
-        fcmToken: fcmToken,
+        deviceToken: deviceToken,
         loginType: 'email'
       });
 
@@ -166,14 +166,14 @@ module.exports = {
   updateDeviceToken: async (req, res) => {
     try {
       const v = new Validator(req.body, {
-        fcmToken: "required",
+        deviceToken: "required",
         deviceType: "required"
       });
 
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { fcmToken, deviceType } = req.body;
+      const { deviceToken, deviceType } = req.body;
 
       const user = await users.findOne({
         where: {
@@ -193,12 +193,12 @@ module.exports = {
       }
 
       await user.update({
-        fcmToken: fcmToken,
+        deviceToken: deviceToken,
         deviceType: deviceType
       });
 
       return helper.success(res, "Device token updated successfully.", {
-        fcmToken: user.fcmToken,
+        deviceToken: user.deviceToken,
         deviceType: user.deviceType
       });
 
@@ -300,7 +300,7 @@ module.exports = {
         userName,
         password: hashedPassword,
         loginTime: loginTime,
-        fcmToken: deviceToken,
+        deviceToken: deviceToken,
         deviceType: deviceType,
         customerId: customer.id,
         referralCode: generatedReferralCode,
@@ -312,7 +312,7 @@ module.exports = {
         userId: user.id,
         loginTime: loginTime,
         deviceType: deviceType,
-        fcmToken: deviceToken,
+        deviceToken: deviceToken,
         loginType: 'email'
       });
 
@@ -671,7 +671,7 @@ module.exports = {
       const logout = await users.update(
         {
           loginTime: time,
-          fcmToken: null
+          deviceToken: null
         },
         {
           where: {
@@ -1197,7 +1197,7 @@ module.exports = {
             socialId,
             loginType,
             loginTime,
-            fcmToken: deviceToken,
+            deviceToken: deviceToken,
             ...(profileImage && { profileImage }),
           });
         }
@@ -1259,7 +1259,7 @@ module.exports = {
           socialId,
           loginType,
           loginTime,
-          fcmToken: deviceToken,
+          deviceToken: deviceToken,
           status: "active",
           isProfileComplte: 0, // Pending profile completion
           referralCode: generatedReferralCode,
@@ -1271,7 +1271,7 @@ module.exports = {
 
         await user.update({
           loginTime,
-          fcmToken: deviceToken,
+          deviceToken: deviceToken,
           ...(profileImage && { profileImage }),
         });
       }
@@ -1282,7 +1282,7 @@ module.exports = {
       await login_histories.create({
         userId: user.id,
         loginTime: loginTime,
-        fcmToken: deviceToken,
+        deviceToken: deviceToken,
         loginType: loginType
       });
 

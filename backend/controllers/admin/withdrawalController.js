@@ -84,9 +84,9 @@ module.exports = {
       });
 
       const provider = await users.findOne({ where: { id: withdrawal.providerId } });
-      if (provider && provider.fcmToken) {
+      if (provider && provider.deviceToken) {
         await helper.sendPushNotification({
-          token: provider.fcmToken,
+          token: provider.deviceToken,
           title: 'Withdrawal Update',
           body: notifyMessage,
           type: 'payment',

@@ -35,7 +35,7 @@ module.exports = {
             "password",
             "resetToken",
             "resetTokenExpiry",
-            "fcmToken",
+            "deviceToken",
           ],
           include: [
 
@@ -342,7 +342,7 @@ module.exports = {
         where: { id, role: 'user', isProvider: 1, providerStatus: "approved" },
 
         attributes: {
-          exclude: ['password', 'fcmToken', 'deviceType', 'socialId', 'loginType', 'resetToken', 'resetTokenExpiry', 'customerId', 'isNotification', 'walletAmount', 'totalEarning', 'pendingAmount', 'withdrawnAmount', 'isWalletFrozen', 'referralCode', 'referredBy', 'admin_commission', 'govt_tax', 'contact_email', 'contact_phone', 'withdrawal_fees', 'country_fees', 'promotional_fee_waivers', 'supported_currencies', 'tax_rules', 'payout_providers', 'otp', 'otpVerify', 'isProfileComplete', 'createdAt', 'updatedAt', 'deletedAt'],
+          exclude: ['password', 'deviceToken', 'deviceType', 'socialId', 'loginType', 'resetToken', 'resetTokenExpiry', 'customerId', 'isNotification', 'walletAmount', 'totalEarning', 'pendingAmount', 'withdrawnAmount', 'isWalletFrozen', 'referralCode', 'referredBy', 'admin_commission', 'govt_tax', 'contact_email', 'contact_phone', 'withdrawal_fees', 'country_fees', 'promotional_fee_waivers', 'supported_currencies', 'tax_rules', 'payout_providers', 'otp', 'otpVerify', 'isProfileComplete', 'createdAt', 'updatedAt', 'deletedAt'],
           include: [
             [
               db.sequelize.literal(`(
@@ -464,12 +464,12 @@ module.exports = {
         { label: 'W4', count: 0 },
         { label: 'W5', count: 0 }
       ];
-      
+
       recentViews.forEach(view => {
         const viewMoment = moment(view.createdAt);
         // Calculate the difference in weeks from the current week
         const diffWeeks = moment().startOf('isoWeek').diff(viewMoment.startOf('isoWeek'), 'weeks');
-        
+
         // diffWeeks: 0 = W5, 1 = W4, 2 = W3, 3 = W2, 4 = W1
         if (diffWeeks >= 0 && diffWeeks <= 4) {
           const index = 4 - diffWeeks;

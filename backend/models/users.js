@@ -90,7 +90,7 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.BIGINT,
       allowNull: true,
     },
-    fcmToken: {
+    deviceToken: {
       type: DataTypes.TEXT,
       allowNull: true,
     },

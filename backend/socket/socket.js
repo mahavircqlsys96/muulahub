@@ -236,7 +236,7 @@ module.exports = function (io) {
           where: { id: get_data.receiverId },
           raw: true
         });
-        if (findReceiver && findReceiver.isNotification !== "off" && findReceiver.fcmToken) {
+        if (findReceiver && findReceiver.isNotification !== "off" && findReceiver.deviceToken) {
           const pushTitle = findSender ? findSender.name : "Muulahub";
           let pushBody = "You received a new message";
           if (get_data.messageType === 'image') {
@@ -248,7 +248,7 @@ module.exports = function (io) {
           }
 
           const ndata = {
-            token: findReceiver.fcmToken,
+            token: findReceiver.deviceToken,
             title: pushTitle,
             body: pushBody,
             msg: pushBody,
@@ -267,7 +267,7 @@ module.exports = function (io) {
           helper.sendPushNotification(ndata);
 
         } else {
-          console.log("Notification turned off or no fcmToken for receiver:", get_data.receiverId);
+          console.log("Notification turned off or no deviceToken for receiver:", get_data.receiverId);
         }
         /* ------------------ WHERE CONDITION ------------------ */
 

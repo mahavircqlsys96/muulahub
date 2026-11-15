@@ -13,9 +13,9 @@ const sendBookingNotification = async (userId, senderId, title, message, referen
   try {
     const user = await users.findOne({ where: { id: userId } });
     await notifications.create({ userId, senderId, title, message, type: 'booking', referenceId });
-    if (user && user.fcmToken) {
+    if (user && user.deviceToken) {
       await helper.sendPushNotification({
-        token: user.fcmToken,
+        token: user.deviceToken,
         title,
         body: message,
         type: 'booking',

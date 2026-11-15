@@ -147,9 +147,9 @@ module.exports = {
       });
 
       const providerUser = await users.findOne({ where: { id: providerId } });
-      if (providerUser && providerUser.fcmToken) {
+      if (providerUser && providerUser.deviceToken) {
         await helper.sendPushNotification({
-          token: providerUser.fcmToken,
+          token: providerUser.deviceToken,
           title: 'Provider Status Update',
           body: status === 'approved' ? 'Your provider account is approved!' : `Account ${status}`,
           type: 'system',

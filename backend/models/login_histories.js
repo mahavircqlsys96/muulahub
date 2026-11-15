@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('login_histories', {
     id: {
       autoIncrement: true,
@@ -27,7 +27,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(50),
       allowNull: true
     },
-    fcmToken: {
+    deviceToken: {
       type: DataTypes.TEXT,
       allowNull: true
     },

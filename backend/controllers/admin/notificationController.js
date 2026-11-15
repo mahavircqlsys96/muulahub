@@ -69,7 +69,7 @@ module.exports = {
       const usersToNotify = await db.users.findAll({
         where: whereClause,
         include: includeClause,
-        attributes: ['id', 'fcmToken']
+        attributes: ['id', 'deviceToken']
       });
 
       if (!usersToNotify || usersToNotify.length === 0) {
@@ -93,7 +93,7 @@ module.exports = {
       // Attempt to send push notifications via Firebase if device token exists
       let pushedCount = 0;
       for (const u of usersToNotify) {
-        const token = u.fcmToken || u.deviceToken;
+        const token = u.deviceToken || u.deviceToken;
         if (token) {
           try {
             const sent = await helper.sendPushNotification({
