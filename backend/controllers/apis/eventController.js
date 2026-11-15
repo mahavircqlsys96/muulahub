@@ -184,7 +184,7 @@ module.exports = {
       };
 
       // Send push notification to all users to join the live streaming event (background task)
-      setImmediate(async () => {
+      (async () => {
         try {
           const creatorName = (eventJson.user && eventJson.user.name) ? eventJson.user.name : (req.auth && req.auth.name ? req.auth.name : 'Someone');
           const creatorImage = (eventJson.user && (eventJson.user.profileImage || eventJson.user.profileImageProvider)) || '';
@@ -193,10 +193,9 @@ module.exports = {
             ? `${creatorName} is streaming live: "${caption}". Tap to join!`
             : `${creatorName} has started a live video stream. Tap to join and watch!`;
 
-          // Find all users except the host, who have a deviceToken and are not blocked
+          // Find all users who have a deviceToken and are not blocked (including the creator so testing on 1 device works)
           const recipients = await users.findAll({
             where: {
-              id: { [Op.ne]: userId },
               status: { [Op.ne]: 'blocked' },
               deviceToken: {
                 [Op.and]: [
@@ -213,14 +212,9 @@ module.exports = {
             attributes: ['id', 'deviceToken', 'name', 'status']
           });
 
-          console.log(`📡 [createEvent Push] Host ID: ${userId}, Event ID: ${newEvent.id}. Found ${recipients.length} recipients with device tokens.`);
-          if (recipients && recipients.length > 0) {
-            console.log(`📡 [createEvent Push] Recipients list:`, recipients.map(r => ({ id: r.id, name: r.name, status: r.status })));
-          }
+          console.log(`📡 [createEvent Push] Event ID: ${newEvent.id}, Host: ${creatorName} (${userId}). Total recipients found: ${recipients.length}`);
 
           if (recipients && recipients.length > 0) {
-            console.log(`📡 Sending live stream push notification to ${recipients.length} users...`);
-
             // 1. Create in-app notification records in DB
             try {
               const notificationsData = recipients.map(u => ({
@@ -241,28 +235,37 @@ module.exports = {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
             }
 
-            // 2. Send Firebase Multicast Push Notification
-            const tokens = recipients.map(u => u.deviceToken);
-            const pushResult = await helper.sendMulticastNotification(tokens, {
-              title: pushTitle,
-              body: pushBody,
-              type: 'live_event',
-              eventId: String(newEvent.id),
-              channelName: String(channelName),
-              sender_id: String(userId),
-              sender_name: creatorName,
-              sender_image: creatorImage,
-              image: image || creatorImage || '',
-              request_id: String(newEvent.id)
-            });
-            console.log("📡 [createEvent Push] Multicast push result:", pushResult);
+            // 2. Filter valid tokens (skip dummy 160-char raw hex APNs tokens if present)
+            const validTokens = recipients
+              .map(u => u.deviceToken)
+              .filter(tok => tok && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'));
+
+            console.log(`📡 [createEvent Push] Sending multicast to ${validTokens.length} valid FCM tokens...`);
+
+            if (validTokens.length > 0) {
+              const pushResult = await helper.sendMulticastNotification(validTokens, {
+                title: pushTitle,
+                body: pushBody,
+                type: 'live_event',
+                eventId: String(newEvent.id),
+                channelName: String(channelName),
+                sender_id: String(userId),
+                sender_name: creatorName,
+                sender_image: creatorImage,
+                image: image || creatorImage || '',
+                request_id: String(newEvent.id)
+              });
+              console.log("📡 [createEvent Push] Multicast push result:", pushResult);
+            } else {
+              console.log("⚠️ [createEvent Push] No valid FCM registration tokens found in database yet.");
+            }
           } else {
-            console.log("⚠️ [createEvent Push] No recipients found with registered device tokens (other than host).");
+            console.log("⚠️ [createEvent Push] No recipients found with registered device tokens.");
           }
         } catch (pushErr) {
-          console.error("Error sending live event push notification:", pushErr.message || pushErr);
+          console.error("❌ Error sending live event push notification:", pushErr.message || pushErr);
         }
-      });
+      })();
 
       return helper.success(res, "Live event created and streaming started successfully", responseData);
 

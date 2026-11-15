@@ -155,6 +155,7 @@ module.exports = (io) => {
   router.get('/getNearbyLiveEvents', eventController.getNearbyLiveEvents);
   router.get('/getLiveEventDetail/:id', eventController.getLiveEventDetail);
   router.post('/getLiveEventDetail', eventController.getLiveEventDetail);
+
   router.get('/testLivePush', eventController.testLivePush);
   router.post('/testLivePush', eventController.testLivePush);
 
