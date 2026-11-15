@@ -8,17 +8,65 @@ const AWS = require("aws-sdk");
 
 // Initialize Firebase Admin SDK
 try {
-  const serviceAccountPath = path.resolve(__dirname, "./mulla-hub-d64f38492841.json");
-  if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = require(serviceAccountPath);
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log("✅ Firebase Admin initialized with project:", serviceAccount.project_id);
+  let serviceAccount = null;
+  const helpersDir = path.resolve(__dirname);
+
+  // 1. Try explicit mulla-hub-d64f38492841.json
+  const defaultPath = path.resolve(helpersDir, "./mulla-hub-d64f38492841.json");
+  if (fs.existsSync(defaultPath)) {
+    serviceAccount = require(defaultPath);
+  }
+
+  // 2. Try any json file in helpers directory that has private_key & client_email
+  if (!serviceAccount && fs.existsSync(helpersDir)) {
+    const files = fs.readdirSync(helpersDir);
+    for (const file of files) {
+      if (file.endsWith('.json') && file !== 'firebase-dummy.json') {
+        try {
+          const candidate = require(path.resolve(helpersDir, file));
+          if (candidate && candidate.private_key && candidate.client_email && candidate.project_id && !candidate.private_key.includes("YOUR_PRIVATE_KEY_HERE")) {
+            serviceAccount = candidate;
+            console.log(`✅ Found Firebase service account in: ${file}`);
+            break;
+          }
+        } catch (_) {}
+      }
     }
-  } else {
-    console.log("⚠️ Firebase service account file not found at:", serviceAccountPath);
+  }
+
+  // 3. Try firebase-dummy.json (if user pasted credentials into it)
+  if (!serviceAccount) {
+    const dummyPath = path.resolve(helpersDir, "./firebase-dummy.json");
+    if (fs.existsSync(dummyPath)) {
+      try {
+        const candidate = require(dummyPath);
+        if (candidate && candidate.private_key && !candidate.private_key.includes("YOUR_PRIVATE_KEY_HERE")) {
+          serviceAccount = candidate;
+          console.log("✅ Using Firebase credentials from firebase-dummy.json");
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 4. Try environment variable FIREBASE_SERVICE_ACCOUNT (raw JSON string or file path)
+  if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      const rawEnv = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
+      if (rawEnv.startsWith('{')) {
+        serviceAccount = JSON.parse(rawEnv);
+      } else if (fs.existsSync(rawEnv)) {
+        serviceAccount = require(path.resolve(rawEnv));
+      }
+    } catch (_) {}
+  }
+
+  if (serviceAccount && !admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("✅ Firebase Admin initialized with project:", serviceAccount.project_id);
+  } else if (!admin.apps.length) {
+    console.log("⚠️ Firebase service account file not found or invalid in helpers directory");
   }
 } catch (fbErr) {
   console.error("❌ Firebase Admin initialization error:", fbErr.message);

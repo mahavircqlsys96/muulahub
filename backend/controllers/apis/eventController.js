@@ -193,11 +193,11 @@ module.exports = {
             ? `${creatorName} is streaming live: "${caption}". Tap to join!`
             : `${creatorName} has started a live video stream. Tap to join and watch!`;
 
-          // Find all active users except the host, who have a deviceToken and notifications enabled
+          // Find all users except the host, who have a deviceToken and are not blocked
           const recipients = await users.findAll({
             where: {
               id: { [Op.ne]: userId },
-              status: 'active',
+              status: { [Op.ne]: 'blocked' },
               deviceToken: {
                 [Op.and]: [
                   { [Op.ne]: null },
@@ -206,11 +206,17 @@ module.exports = {
               },
               [Op.or]: [
                 { isNotification: 'on' },
-                { isNotification: null }
+                { isNotification: null },
+                { isNotification: '1' }
               ]
             },
-            attributes: ['id', 'deviceToken', 'name']
+            attributes: ['id', 'deviceToken', 'name', 'status']
           });
+
+          console.log(`📡 [createEvent Push] Host ID: ${userId}, Event ID: ${newEvent.id}. Found ${recipients.length} recipients with device tokens.`);
+          if (recipients && recipients.length > 0) {
+            console.log(`📡 [createEvent Push] Recipients list:`, recipients.map(r => ({ id: r.id, name: r.name, status: r.status })));
+          }
 
           if (recipients && recipients.length > 0) {
             console.log(`📡 Sending live stream push notification to ${recipients.length} users...`);
@@ -230,13 +236,14 @@ module.exports = {
                 updatedAt: new Date()
               }));
               await notifications.bulkCreate(notificationsData);
+              console.log(`✅ [createEvent Push] Created ${notificationsData.length} in-app notification records in DB.`);
             } catch (dbNotifErr) {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
             }
 
             // 2. Send Firebase Multicast Push Notification
             const tokens = recipients.map(u => u.deviceToken);
-            await helper.sendMulticastNotification(tokens, {
+            const pushResult = await helper.sendMulticastNotification(tokens, {
               title: pushTitle,
               body: pushBody,
               type: 'live_event',
@@ -248,6 +255,9 @@ module.exports = {
               image: image || creatorImage || '',
               request_id: String(newEvent.id)
             });
+            console.log("📡 [createEvent Push] Multicast push result:", pushResult);
+          } else {
+            console.log("⚠️ [createEvent Push] No recipients found with registered device tokens (other than host).");
           }
         } catch (pushErr) {
           console.error("Error sending live event push notification:", pushErr.message || pushErr);
@@ -724,6 +734,87 @@ module.exports = {
     } catch (error) {
       console.log("getLiveEventDetail error:", error);
       return helper.error(res, "Something went wrong while fetching live event details");
+    }
+  },
+
+  /**
+   * Diagnostic test endpoint for push notification
+   */
+  testLivePush: async (req, res) => {
+    try {
+      const admin = require('firebase-admin');
+      const firebaseInitialized = !!admin.apps.length;
+      let firebaseProject = null;
+      if (firebaseInitialized && admin.apps[0].options && admin.apps[0].options.credential) {
+        firebaseProject = admin.apps[0].options.credential.projectId || null;
+      }
+
+      const targetUserId = req.query.userId || req.body.userId || (req.auth ? req.auth.id : null);
+
+      const allUsersWithToken = await users.findAll({
+        where: {
+          deviceToken: {
+            [Op.and]: [
+              { [Op.ne]: null },
+              { [Op.ne]: '' }
+            ]
+          }
+        },
+        attributes: ['id', 'name', 'email', 'status', 'isNotification', 'deviceType', 'deviceToken']
+      });
+
+      let targetUser = null;
+      let pushResult = null;
+
+      if (targetUserId) {
+        targetUser = await users.findOne({
+          where: { id: targetUserId },
+          attributes: ['id', 'name', 'email', 'status', 'isNotification', 'deviceType', 'deviceToken']
+        });
+      }
+
+      const testToken = req.query.deviceToken || req.body.deviceToken || (targetUser && targetUser.deviceToken ? targetUser.deviceToken : (allUsersWithToken.length > 0 ? allUsersWithToken[0].deviceToken : null));
+
+      if (testToken && firebaseInitialized) {
+        pushResult = await helper.sendPushNotification({
+          token: testToken,
+          title: "Test Live Stream Notification",
+          body: "This is a test notification from Muulahub backend!",
+          type: "live_event",
+          eventId: "999",
+          channelName: "test_channel",
+          sender_id: String(req.auth ? req.auth.id : 0),
+          sender_name: "Muulahub System"
+        });
+      }
+
+      return helper.success(res, "Push test diagnostic result", {
+        firebaseInitialized,
+        firebaseProject,
+        totalUsersWithDeviceToken: allUsersWithToken.length,
+        usersWithDeviceToken: allUsersWithToken.map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          status: u.status,
+          isNotification: u.isNotification,
+          deviceType: u.deviceType,
+          deviceTokenPreview: u.deviceToken ? u.deviceToken.substring(0, 30) + '...' : null
+        })),
+        targetUser: targetUser ? {
+          id: targetUser.id,
+          name: targetUser.name,
+          status: targetUser.status,
+          isNotification: targetUser.isNotification,
+          hasToken: !!targetUser.deviceToken
+        } : null,
+        testedTokenPreview: testToken ? testToken.substring(0, 30) + '...' : null,
+        pushDelivered: pushResult
+      });
+
+    } catch (err) {
+      console.error("testLivePush error:", err);
+      return helper.error(res, "Error testing push: " + err.message);
     }
   }
 

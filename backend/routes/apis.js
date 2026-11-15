@@ -140,7 +140,7 @@ module.exports = (io) => {
   router.post('/renewToken', agoraController.renewToken);
   router.post('/renewAgoraToken', agoraController.renewToken);
   router.post('/generateRtmToken', agoraController.generateRtmToken);
-  router.post('/renewRtmToken', agoraController.generateRtmToken);
+
   router.post('/getRtmToken', agoraController.generateRtmToken);
   router.post('/createEvent', eventController.createEvent);
   router.put('/stopEvent/:eventId', eventController.stopEvent);
@@ -153,6 +153,8 @@ module.exports = (io) => {
   router.get('/getNearbyLiveEvents', eventController.getNearbyLiveEvents);
   router.get('/getLiveEventDetail/:id', eventController.getLiveEventDetail);
   router.post('/getLiveEventDetail', eventController.getLiveEventDetail);
+  router.get('/testLivePush', eventController.testLivePush);
+  router.post('/testLivePush', eventController.testLivePush);
 
   return router;
 };
