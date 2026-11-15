@@ -235,27 +235,41 @@ module.exports = {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
             }
 
-            // 2. Extract valid tokens (skip empty and dummy hex tokens)
-            const validTokens = recipients
-              .map(u => u.deviceToken)
-              .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'));
+            // 2. Send push notifications to recipients using helper.sendPushNotification
+            const validTokens = [...new Set(
+              recipients
+                .map(u => u.deviceToken)
+                .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'))
+            )];
 
-            console.log(`📡 [createEvent Push] Sending multicast push to ${validTokens.length} valid FCM tokens...`);
+            console.log(`📡 [createEvent Push] Sending push to ${validTokens.length} devices via sendPushNotification...`);
 
             if (validTokens.length > 0) {
-              const pushResult = await helper.sendMulticastNotification(validTokens, {
-                title: pushTitle,
-                body: pushBody,
-                type: 'live_event',
-                eventId: String(newEvent.id),
-                channelName: String(channelName),
-                sender_id: String(userId),
-                sender_name: creatorName,
-                sender_image: creatorImage,
-                image: image || creatorImage || '',
-                request_id: String(newEvent.id)
-              });
-              console.log("📡 [createEvent Push] Multicast push result:", pushResult);
+              let sentCount = 0;
+              let failCount = 0;
+              await Promise.allSettled(validTokens.map(async (tok) => {
+                try {
+                  const sent = await helper.sendPushNotification({
+                    token: tok,
+                    title: pushTitle,
+                    body: pushBody,
+                    type: 'live_event',
+                    eventId: String(newEvent.id),
+                    channelName: String(channelName),
+                    sender_id: String(userId),
+                    sender_name: creatorName,
+                    sender_image: creatorImage,
+                    image: image || creatorImage || '',
+                    request_id: String(newEvent.id)
+                  });
+                  if (sent) sentCount++;
+                  else failCount++;
+                } catch (tokErr) {
+                  failCount++;
+                  console.error("Push send error for token:", tokErr.message);
+                }
+              }));
+              console.log(`📡 [createEvent Push] sendPushNotification finished: ${sentCount} sent, ${failCount} failed.`);
             } else {
               console.log("⚠️ [createEvent Push] No valid FCM registration tokens found in database.");
             }
