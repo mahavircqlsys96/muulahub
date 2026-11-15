@@ -142,6 +142,146 @@ module.exports = {
     }
   },
 
+  sendMulticastNotification: async (tokens, notificationData) => {
+    try {
+      if (!admin.apps.length) {
+        console.error("❌ Push Error: Firebase Admin is not initialized");
+        return { success: false, successCount: 0, failureCount: 0 };
+      }
+
+      if (!tokens || !Array.isArray(tokens) || !tokens.length) {
+        console.log("⚠️ Multicast push skipped: No tokens provided");
+        return { success: false, successCount: 0, failureCount: 0 };
+      }
+
+      // Deduplicate and filter non-empty valid string tokens
+      const uniqueTokens = [...new Set(tokens.filter(t => t && typeof t === 'string' && t.trim() !== ''))];
+      if (uniqueTokens.length === 0) {
+        console.log("⚠️ Multicast push skipped: No valid non-empty tokens");
+        return { success: false, successCount: 0, failureCount: 0 };
+      }
+
+      const {
+        title,
+        body,
+        type,
+        sender_id,
+        sender_name,
+        sender_image,
+        request_id,
+        image
+      } = notificationData;
+
+      const notificationPayload = {
+        title: title || "Muulahub",
+        body: String(body || ""),
+      };
+
+      if (image) {
+        notificationPayload.imageUrl = String(image);
+      }
+
+      const apnsHeaders = {
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+      };
+      if (process.env.APNS_TOPIC) {
+        apnsHeaders["apns-topic"] = process.env.APNS_TOPIC;
+      }
+
+      const payloadData = {
+        title: title || "Muulahub",
+        body: String(body || ""),
+        message: String(body || ""),
+        type: String(type || ''),
+        sender_id: String(sender_id || '0'),
+        sender_name: String(sender_name || ''),
+        sender_image: String(sender_image || ''),
+        request_id: request_id ? String(request_id) : '',
+      };
+
+      for (const [key, val] of Object.entries(notificationData)) {
+        if (!['tokens', 'token', 'notification', 'image', 'title', 'body', 'message', 'type', 'sender_id', 'sender_name', 'sender_image', 'request_id'].includes(key) && val !== undefined && val !== null) {
+          payloadData[key] = String(val);
+        }
+      }
+
+      // Firebase limits multicast to 500 tokens per call
+      const chunkSize = 500;
+      let totalSuccess = 0;
+      let totalFailure = 0;
+
+      for (let i = 0; i < uniqueTokens.length; i += chunkSize) {
+        const batchTokens = uniqueTokens.slice(i, i + chunkSize);
+        const multicastMessage = {
+          tokens: batchTokens,
+          notification: notificationPayload,
+          android: {
+            priority: "high",
+            notification: {
+              channelId: "high_importance_channel",
+              sound: "default",
+              visibility: "PUBLIC",
+              priority: "high",
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              ...(image ? { imageUrl: String(image) } : {})
+            },
+          },
+          data: payloadData,
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                contentAvailable: true,
+              },
+            },
+            headers: apnsHeaders,
+          },
+        };
+
+        try {
+          let response;
+          if (typeof admin.messaging().sendEachForMulticast === 'function') {
+            response = await admin.messaging().sendEachForMulticast(multicastMessage);
+          } else if (typeof admin.messaging().sendMulticast === 'function') {
+            response = await admin.messaging().sendMulticast(multicastMessage);
+          } else {
+            let sCount = 0, fCount = 0;
+            await Promise.allSettled(batchTokens.map(async (tok) => {
+              try {
+                const s = await admin.messaging().send({
+                  token: tok,
+                  notification: notificationPayload,
+                  android: multicastMessage.android,
+                  data: payloadData,
+                  apns: multicastMessage.apns
+                });
+                if (s) sCount++;
+              } catch (_) {
+                fCount++;
+              }
+            }));
+            response = { successCount: sCount, failureCount: fCount };
+          }
+
+          totalSuccess += response.successCount || 0;
+          totalFailure += response.failureCount || 0;
+        } catch (batchErr) {
+          console.error("Batch multicast error:", batchErr.message);
+          totalFailure += batchTokens.length;
+        }
+      }
+
+      console.log(`✅ Multicast push completed: ${totalSuccess} sent, ${totalFailure} failed across ${uniqueTokens.length} recipients`);
+      return { success: true, successCount: totalSuccess, failureCount: totalFailure };
+
+    } catch (err) {
+      console.error("❌ Multicast Push Error:", err.message || err);
+      return { success: false, successCount: 0, failureCount: 0 };
+    }
+  },
+
 
   fileUpload: async (file, folder) => {
     if (file) {

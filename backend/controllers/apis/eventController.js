@@ -2,7 +2,7 @@ const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op } = require('sequelize');
 const db = require('../../models');
-const { events, users, services_categories, followers } = db;
+const { events, users, services_categories, followers, notifications } = db;
 const { RtcTokenBuilder, RtcRole, RtmTokenBuilder } = require('agora-token');
 
 const envfile = process.env;
@@ -182,6 +182,77 @@ module.exports = {
         agoraUid: uid.toString(),
         agoraAppId: appID
       };
+
+      // Send push notification to all users to join the live streaming event (background task)
+      setImmediate(async () => {
+        try {
+          const creatorName = (eventJson.user && eventJson.user.name) ? eventJson.user.name : (req.auth && req.auth.name ? req.auth.name : 'Someone');
+          const creatorImage = (eventJson.user && (eventJson.user.profileImage || eventJson.user.profileImageProvider)) || '';
+          const pushTitle = `${creatorName} is Live Now!`;
+          const pushBody = caption && caption.trim() !== ''
+            ? `${creatorName} is streaming live: "${caption}". Tap to join!`
+            : `${creatorName} has started a live video stream. Tap to join and watch!`;
+
+          // Find all active users except the host, who have a deviceToken and notifications enabled
+          const recipients = await users.findAll({
+            where: {
+              id: { [Op.ne]: userId },
+              status: 'active',
+              deviceToken: {
+                [Op.and]: [
+                  { [Op.ne]: null },
+                  { [Op.ne]: '' }
+                ]
+              },
+              [Op.or]: [
+                { isNotification: 'on' },
+                { isNotification: null }
+              ]
+            },
+            attributes: ['id', 'deviceToken', 'name']
+          });
+
+          if (recipients && recipients.length > 0) {
+            console.log(`📡 Sending live stream push notification to ${recipients.length} users...`);
+
+            // 1. Create in-app notification records in DB
+            try {
+              const notificationsData = recipients.map(u => ({
+                userId: u.id,
+                senderId: userId,
+                title: pushTitle,
+                message: pushBody,
+                type: 'system',
+                notificationType: 'push',
+                referenceId: newEvent.id,
+                isRead: 0,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }));
+              await notifications.bulkCreate(notificationsData);
+            } catch (dbNotifErr) {
+              console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
+            }
+
+            // 2. Send Firebase Multicast Push Notification
+            const tokens = recipients.map(u => u.deviceToken);
+            await helper.sendMulticastNotification(tokens, {
+              title: pushTitle,
+              body: pushBody,
+              type: 'live_event',
+              eventId: String(newEvent.id),
+              channelName: String(channelName),
+              sender_id: String(userId),
+              sender_name: creatorName,
+              sender_image: creatorImage,
+              image: image || creatorImage || '',
+              request_id: String(newEvent.id)
+            });
+          }
+        } catch (pushErr) {
+          console.error("Error sending live event push notification:", pushErr.message || pushErr);
+        }
+      });
 
       return helper.success(res, "Live event created and streaming started successfully", responseData);
 
