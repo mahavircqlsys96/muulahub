@@ -58,9 +58,9 @@ module.exports = {
         privilegeExpireTime
       );
 
-      // RTM Token (real-time chat/messaging during live stream)
+      // RTM Token (real-time chat/messaging during live stream - supports RTM 1.x & RTM 2.x)
       const rtmUserId = String(req.body.userId || (uid !== 0 ? uid : (req.auth ? req.auth.id : 0)));
-      const rtmToken = RtmTokenBuilder.buildToken(
+      const rtmToken = helper.buildAgoraRtmToken(
         appID,
         appCertificate,
         rtmUserId,
@@ -145,9 +145,9 @@ module.exports = {
         privilegeExpireTime
       );
 
-      // Build new Agora RTM token for live streaming chat
+      // Build new Agora RTM token for live streaming chat (supports RTM 1.x & RTM 2.x)
       const rtmUserId = String(req.body.userId || (uid !== 0 ? uid : (req.auth ? req.auth.id : 0)));
-      const rtmToken = RtmTokenBuilder.buildToken(
+      const rtmToken = helper.buildAgoraRtmToken(
         appID,
         appCertificate,
         rtmUserId,
@@ -212,7 +212,7 @@ module.exports = {
         expireTime = parseInt(expireTime, 10);
       }
 
-      const rtmToken = RtmTokenBuilder.buildToken(
+      const rtmToken = helper.buildAgoraRtmToken(
         appID,
         appCertificate,
         String(userId),

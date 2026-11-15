@@ -94,9 +94,9 @@ module.exports = {
         privilegeExpireTime
       );
 
-      // Build RTM token for live streaming real-time chat
+      // Build RTM token for live streaming real-time chat (supports RTM 1.x & RTM 2.x)
       const rtmUserId = String(uid && uid !== 0 ? uid : userId);
-      const rtmToken = RtmTokenBuilder.buildToken(
+      const rtmToken = helper.buildAgoraRtmToken(
         appID,
         appCertificate,
         rtmUserId,
@@ -423,7 +423,7 @@ module.exports = {
       if (appID && appCertificate) {
         try {
           const rtmUserId = String(eventData.uid || userId);
-          eventData.rtmToken = RtmTokenBuilder.buildToken(appID, appCertificate, rtmUserId, 86400);
+          eventData.rtmToken = helper.buildAgoraRtmToken(appID, appCertificate, rtmUserId, 86400);
           eventData.rtmUserId = rtmUserId;
         } catch (rtmErr) {
           console.log("Error generating RTM token in getMyLiveEvent:", rtmErr.message);
@@ -590,7 +590,7 @@ module.exports = {
               privilegeExpireTime,
               privilegeExpireTime
             );
-            const viewerRtmToken = RtmTokenBuilder.buildToken(
+            const viewerRtmToken = helper.buildAgoraRtmToken(
               appID,
               appCertificate,
               String(currentUserId),
@@ -725,7 +725,7 @@ module.exports = {
         const rtmUserId = String(uid && uid !== 0 ? uid : currentUserId);
         let rtmToken = null;
         try {
-          rtmToken = RtmTokenBuilder.buildToken(
+          rtmToken = helper.buildAgoraRtmToken(
             appID,
             appCertificate,
             rtmUserId,

@@ -190,6 +190,32 @@ module.exports = {
     }
   },
 
+  /**
+   * Build Agora RTM Token supporting both RTM 1.x (ServiceRtm) and RTM 2.x (ServiceRtm2 / Signaling)
+   */
+  buildAgoraRtmToken: (appId, appCertificate, userId, expire = 86400) => {
+    try {
+      const { AccessToken2, ServiceRtm, ServiceRtm2 } = require('agora-token/src/AccessToken2');
+      const token = new AccessToken2(appId, appCertificate, null, expire);
+
+      // Add RTM 1.x Service (service type 2)
+      const serviceRtm = new ServiceRtm(String(userId));
+      serviceRtm.add_privilege(ServiceRtm.kPrivilegeLogin, expire);
+      token.add_service(serviceRtm);
+
+      // Add RTM 2.x / Signaling Service (service type 8)
+      const serviceRtm2 = new ServiceRtm2(String(userId));
+      serviceRtm2.add_privilege(ServiceRtm2.kPrivilegeLogin, expire);
+      token.add_service(serviceRtm2);
+
+      return token.build();
+    } catch (err) {
+      console.error("buildAgoraRtmToken error, fallback to RtmTokenBuilder:", err.message);
+      const { RtmTokenBuilder } = require('agora-token');
+      return RtmTokenBuilder.buildToken(appId, appCertificate, String(userId), expire);
+    }
+  },
+
   fileUpload: async (file, folder) => {
     if (file) {
       const extension = path.extname(file.name);
