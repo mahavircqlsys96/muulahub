@@ -689,10 +689,11 @@ module.exports = function (io) {
       };
     }
 
-    // 1. Join Live Stream Room
-    socket.on('joinLiveStream', async (data) => {
+    // 1. Join Channel / Live Room
+    const handleJoinChannel = async (data) => {
       try {
-        const channelName = data && (data.channelName || data.channel || data.eventId);
+        const channel = data && (data.channelId || data.channelName || data.channel || data.eventId);
+        const channelName = String(channel || '').trim();
         if (!channelName) return;
 
         socket.join(channelName);
@@ -703,37 +704,46 @@ module.exports = function (io) {
 
         const roomSize = io.sockets.adapter.rooms.get(channelName)?.size || 1;
 
-        console.log(`📡 [Socket Live] User ${liveUser.id} (${liveUser.name}) joined live stream: ${channelName}. Total viewers: ${roomSize}`);
+        console.log(`📡 [Socket Live] User ${liveUser.id} (${liveUser.name}) joined channel: ${channelName}. Total viewers: ${roomSize}`);
 
-        // Notify all other viewers in the room
-        socket.to(channelName).emit('userJoinedLiveStream', {
-          channelName,
+        // Notify room
+        const joinPayload = {
+          channelId: channelName,
+          channelName: channelName,
           user: {
             id: liveUser.id,
             name: liveUser.name,
             profileImage: liveUser.profileImage
           },
           viewerCount: roomSize
-        });
+        };
+        socket.to(channelName).emit('userJoinedLiveStream', joinPayload);
+        socket.to(channelName).emit('userJoinedChannel', joinPayload);
 
-        // Acknowledge to joining user with current viewer count
-        socket.emit('liveStreamJoined', {
+        // Acknowledge to joining user
+        const ackPayload = {
           code: 200,
-          channelName,
+          channelId: channelName,
+          channelName: channelName,
           viewerCount: roomSize
-        });
+        };
+        socket.emit('liveStreamJoined', ackPayload);
+        socket.emit('channelJoined', ackPayload);
 
       } catch (err) {
-        console.error('[Socket Live] Error in joinLiveStream:', err);
+        console.error('[Socket Live] Error in joinChannel:', err);
       }
-    });
+    };
+    socket.on('joinLiveStream', handleJoinChannel);
+    socket.on('joinChannel', handleJoinChannel);
 
-    // 2. Send Live Stream Comment / Message
-    socket.on('sendLiveMessage', async (data) => {
+    // 2. Send Real-Time Message to Channel
+    const handleSendMessage = async (data) => {
       try {
-        const channelName = data && (data.channelName || data.channel || socket.activeLiveChannel);
+        const channel = data && (data.channelId || data.channelName || data.channel || socket.activeLiveChannel);
+        const channelName = String(channel || '').trim();
         if (!channelName) {
-          socket.emit('sendLiveMessageError', { message: 'channelName is required' });
+          socket.emit('sendMessageError', { message: 'channelId is required' });
           return;
         }
 
@@ -746,25 +756,33 @@ module.exports = function (io) {
 
         const commentPayload = {
           id: uuidv4(),
+          channelId: channelName,
           channelName: channelName,
+          userId: liveUser.id,
+          userName: liveUser.name || 'Viewer',
+          userImage: liveUser.profileImage || '',
           senderId: liveUser.id,
           senderName: liveUser.name || 'Viewer',
           senderImage: liveUser.profileImage || '',
           message: String(messageText).trim(),
-          type: (data && data.type) || 'comment',
+          type: (data && data.type) || 'text',
           createdAt: new Date().toISOString()
         };
 
-        console.log(`💬 [Socket Live] Comment in ${channelName} from ${commentPayload.senderName}: "${commentPayload.message}"`);
+        console.log(`💬 [Socket Live] Message in ${channelName} from ${commentPayload.userName}: "${commentPayload.message}"`);
 
-        // Broadcast to EVERYONE in the live room (including sender)
+        // Broadcast to EVERYONE in the channel (including sender)
+        io.to(channelName).emit('receiveChannelMessage', commentPayload);
+        io.to(channelName).emit('channelMessage', commentPayload);
         io.to(channelName).emit('newLiveMessage', commentPayload);
         io.to(channelName).emit('newLiveComment', commentPayload);
 
       } catch (err) {
-        console.error('[Socket Live] Error in sendLiveMessage:', err);
+        console.error('[Socket Live] Error in sendChannelMessage:', err);
       }
-    });
+    };
+    socket.on('sendLiveMessage', handleSendMessage);
+    socket.on('sendChannelMessage', handleSendMessage);
 
     // 3. Send Live Stream Reaction (e.g. Heart / Like / Gift)
     socket.on('sendLiveReaction', async (data) => {
@@ -793,32 +811,38 @@ module.exports = function (io) {
       }
     });
 
-    // 4. Leave Live Stream Room
-    socket.on('leaveLiveStream', async (data) => {
+    // 4. Leave Channel / Live Room
+    const handleLeaveChannel = async (data) => {
       try {
-        const channelName = (data && (data.channelName || data.channel)) || socket.activeLiveChannel;
+        const channel = (data && (data.channelId || data.channelName || data.channel)) || socket.activeLiveChannel;
+        const channelName = String(channel || '').trim();
         if (!channelName) return;
 
         socket.leave(channelName);
         const liveUser = socket.liveUser || await resolveLiveUser(data);
         const roomSize = io.sockets.adapter.rooms.get(channelName)?.size || 0;
 
-        console.log(`👋 [Socket Live] User ${liveUser.id} left live room: ${channelName}. Remaining: ${roomSize}`);
+        console.log(`👋 [Socket Live] User ${liveUser.id} left room: ${channelName}. Remaining: ${roomSize}`);
 
-        io.to(channelName).emit('userLeftLiveStream', {
-          channelName,
+        const leavePayload = {
+          channelId: channelName,
+          channelName: channelName,
           userId: liveUser.id,
           viewerCount: roomSize
-        });
+        };
+        io.to(channelName).emit('userLeftLiveStream', leavePayload);
+        io.to(channelName).emit('userLeftChannel', leavePayload);
 
         if (socket.activeLiveChannel === channelName) {
           socket.activeLiveChannel = null;
         }
 
       } catch (err) {
-        console.error('[Socket Live] Error in leaveLiveStream:', err);
+        console.error('[Socket Live] Error in leaveChannel:', err);
       }
-    });
+    };
+    socket.on('leaveLiveStream', handleLeaveChannel);
+    socket.on('leaveChannel', handleLeaveChannel);
 
   });
 
