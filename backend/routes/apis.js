@@ -30,6 +30,10 @@ module.exports = (io) => {
   router.get('/sendTestPush', eventController.sendTestPushByToken);
   router.get('/testLivePush', eventController.testLivePush);
   router.post('/testLivePush', eventController.testLivePush);
+  router.get('/getChannelUsers/:channelName?', agoraController.getChannelUsers);
+  router.post('/getChannelUsers', agoraController.getChannelUsers);
+  router.get('/getChannelUserCount', agoraController.getChannelUsers);
+  router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
   // ─── Header Auth ───
   router.use(authenticateHeader);
@@ -160,6 +164,10 @@ module.exports = (io) => {
 
   router.get('/testLivePush', eventController.testLivePush);
   router.post('/testLivePush', eventController.testLivePush);
+  router.get('/getChannelUsers/:channelName?', agoraController.getChannelUsers);
+  router.post('/getChannelUsers', agoraController.getChannelUsers);
+  router.get('/getChannelUserCount', agoraController.getChannelUsers);
+  router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
   return router;
 };

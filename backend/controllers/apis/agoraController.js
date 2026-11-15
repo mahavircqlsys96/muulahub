@@ -231,5 +231,104 @@ module.exports = {
       console.log("generateRtmToken error:", error);
       return helper.error(res, 'Error generating Agora RTM token');
     }
+  },
+
+  /**
+   * Query Agora RTC REST API for channel users and connected count
+   * Endpoint: https://api.agora.io/dev/v1/channel/user/{APP_ID}/{CHANNEL_NAME}
+   * Query / Body:
+   *  - channelName (or channel)
+   *  - eventId (optional, looks up channelName from DB)
+   */
+  getChannelUsers: async (req, res) => {
+    try {
+      const https = require('https');
+      const appID = envfile.AGORA_APP_ID;
+      const customerId = envfile.AGORA_CUSTOMER_ID || envfile.AGORA_CUSTOMER_KEY;
+      const customerSecret = envfile.AGORA_CUSTOMER_SECRET;
+
+      let channelName = req.query.channelName || req.query.channel || (req.body && (req.body.channelName || req.body.channel)) || (req.params && req.params.channelName);
+      const eventId = req.query.eventId || (req.body && req.body.eventId) || (req.params && req.params.eventId);
+
+      if (!channelName && eventId && db && db.events) {
+        const ev = await db.events.findOne({ where: { id: eventId } });
+        if (ev && ev.agoraChannel) {
+          channelName = ev.agoraChannel;
+        }
+      }
+
+      if (!channelName || String(channelName).trim() === '') {
+        return helper.failed(res, "channelName is required");
+      }
+
+      if (!appID) {
+        return helper.failed(res, "AGORA_APP_ID is missing in .env");
+      }
+
+      if (!customerId || !customerSecret) {
+        return helper.failed(res, "Agora RESTful API credentials (AGORA_CUSTOMER_ID and AGORA_CUSTOMER_SECRET) are missing in .env. Please generate RESTful API credentials from Agora Console (Account -> RESTful API Keys).", {
+          total: 0,
+          channel_exist: false,
+          missingCredentials: true
+        });
+      }
+
+      const basicAuth = Buffer.from(`${customerId}:${customerSecret}`).toString('base64');
+      const encodedChannel = encodeURIComponent(String(channelName).trim());
+      const apiPath = `/dev/v1/channel/user/${appID}/${encodedChannel}`;
+
+      const agoraResult = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.agora.io',
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 8000
+        };
+
+        const apiReq = https.request(options, (apiRes) => {
+          let data = '';
+          apiRes.on('data', (chunk) => { data += chunk; });
+          apiRes.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              resolve({ statusCode: apiRes.statusCode, data: parsed });
+            } catch (jsonErr) {
+              resolve({ statusCode: apiRes.statusCode, raw: data });
+            }
+          });
+        });
+
+        apiReq.on('error', (err) => reject(err));
+        apiReq.on('timeout', () => {
+          apiReq.destroy();
+          reject(new Error("Request to Agora API timed out"));
+        });
+        apiReq.end();
+      });
+
+      if (agoraResult.data && agoraResult.data.success) {
+        const channelData = agoraResult.data.data || {};
+        return helper.success(res, "Channel users fetched successfully", {
+          channelName: channelName,
+          channel_exist: !!channelData.channel_exist,
+          total: channelData.total || 0,
+          broadcasters: channelData.broadcasters || [],
+          audience: channelData.audience || [],
+          users: channelData.users || [],
+          broadcasterCount: (channelData.broadcasters || []).length,
+          audienceCount: (channelData.audience || []).length
+        });
+      } else {
+        return helper.failed(res, (agoraResult.data && agoraResult.data.message) || "Failed to fetch Agora channel users", agoraResult.data || {});
+      }
+
+    } catch (error) {
+      console.log("getChannelUsers error:", error);
+      return helper.error(res, "Error fetching channel users: " + error.message);
+    }
   }
 };
