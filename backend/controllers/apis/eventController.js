@@ -816,6 +816,107 @@ module.exports = {
       console.error("testLivePush error:", err);
       return helper.error(res, "Error testing push: " + err.message);
     }
+  },
+
+  /**
+   * Dummy endpoint to test push notification by pasting any deviceToken
+   * Can be called via POST or GET (no auth required)
+   * Body or query params:
+   *  - deviceToken (or token): string (required)
+   *  - title: string (optional)
+   *  - body / message: string (optional)
+   */
+  sendTestPushByToken: async (req, res) => {
+    try {
+      const admin = require('firebase-admin');
+
+      const token = (req.body && (req.body.deviceToken || req.body.token)) ||
+                    (req.query && (req.query.deviceToken || req.query.token));
+
+      if (!token || String(token).trim() === '') {
+        return helper.failed(res, "deviceToken is required. Please paste your FCM device token.", {
+          exampleUsage: {
+            method: "POST",
+            url: "https://app.muulahub.com/mobile/sendTestPush",
+            body: {
+              deviceToken: "PASTE_YOUR_FCM_TOKEN_HERE",
+              title: "Test Title (optional)",
+              body: "Test Message (optional)"
+            }
+          }
+        });
+      }
+
+      if (!admin.apps.length) {
+        return helper.failed(res, "Firebase Admin is not initialized. Please verify backend/helpers/ service account JSON file.", {
+          firebaseInitialized: false
+        });
+      }
+
+      const cleanToken = String(token).trim();
+      const title = (req.body && req.body.title) || (req.query && req.query.title) || "Muulahub Test Notification";
+      const bodyText = (req.body && (req.body.body || req.body.message)) || (req.query && (req.query.body || req.query.message)) || "Hello! Push notification is working perfectly.";
+
+      const messagePayload = {
+        token: cleanToken,
+        notification: {
+          title: title,
+          body: bodyText,
+        },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "high_importance_channel",
+            sound: "default",
+            visibility: "PUBLIC",
+            priority: "high",
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
+        data: {
+          title: title,
+          body: bodyText,
+          message: bodyText,
+          type: "test_push",
+          sender_id: "0",
+          sender_name: "Muulahub Admin"
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              contentAvailable: true,
+            },
+          },
+          headers: {
+            "apns-push-type": "alert",
+            "apns-priority": "10",
+          },
+        },
+      };
+
+      console.log("Sending dummy test push to token:", cleanToken.substring(0, 30) + '...');
+      const response = await admin.messaging().send(messagePayload);
+      console.log("✅ Dummy test push success:", response);
+
+      return helper.success(res, "Push notification sent successfully!", {
+        success: true,
+        firebaseMessageId: response,
+        tokenTested: cleanToken,
+        title: title,
+        body: bodyText
+      });
+
+    } catch (err) {
+      console.error("❌ Dummy test push failed:", err);
+      return helper.failed(res, "Push notification failed: " + (err.message || err), {
+        success: false,
+        errorCode: err.code || null,
+        errorMessage: err.message || String(err),
+        tokenTested: (req.body && (req.body.deviceToken || req.body.token)) || (req.query && (req.query.deviceToken || req.query.token))
+      });
+    }
   }
 
 };

@@ -26,6 +26,8 @@ module.exports = (io) => {
   router.post('/publicContactUs', authController.publicContactUs);
   router.post('/publicReport', authController.publicReport);
   router.post('/muxWebhook', muxController.webhook);
+  router.post('/sendTestPush', eventController.sendTestPushByToken);
+  router.get('/sendTestPush', eventController.sendTestPushByToken);
 
   // ─── Header Auth ───
   router.use(authenticateHeader);
