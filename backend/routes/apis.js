@@ -28,6 +28,8 @@ module.exports = (io) => {
   router.post('/muxWebhook', muxController.webhook);
   router.post('/sendTestPush', eventController.sendTestPushByToken);
   router.get('/sendTestPush', eventController.sendTestPushByToken);
+  router.get('/testLivePush', eventController.testLivePush);
+  router.post('/testLivePush', eventController.testLivePush);
 
   // ─── Header Auth ───
   router.use(authenticateHeader);

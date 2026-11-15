@@ -77,6 +77,7 @@ module.exports = {
       }
 
       req.auth = user;
+      req.user = user;
       next();
 
     } catch (error) {
@@ -258,6 +259,7 @@ module.exports = {
       }
 
       req.auth = user;
+      req.user = user;
       next();
 
     } catch (error) {

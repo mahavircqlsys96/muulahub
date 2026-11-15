@@ -175,9 +175,10 @@ module.exports = {
 
       const { deviceToken, deviceType } = req.body;
 
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
       const user = await users.findOne({
         where: {
-          id: req.user.id
+          id: userId
         }
       });
 

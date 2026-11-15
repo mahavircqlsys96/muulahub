@@ -183,6 +183,16 @@ module.exports = {
         agoraAppId: appID
       };
 
+      // If caller passes deviceToken in createEvent body, ensure it is saved for this user
+      if (req.body && req.body.deviceToken && String(req.body.deviceToken).trim() !== '') {
+        try {
+          await users.update(
+            { deviceToken: String(req.body.deviceToken).trim() },
+            { where: { id: userId } }
+          );
+        } catch (_) {}
+      }
+
       // Send push notification to all users to join the live streaming event (background task)
       (async () => {
         try {
@@ -193,7 +203,7 @@ module.exports = {
             ? `${creatorName} is streaming live: "${caption}". Tap to join!`
             : `${creatorName} has started a live video stream. Tap to join and watch!`;
 
-          // Find all users who have a deviceToken and are not blocked (including the creator so testing on 1 device works)
+          // Find all non-blocked users who have a deviceToken (including creator so testing on 1 device works)
           const recipients = await users.findAll({
             where: {
               status: { [Op.ne]: 'blocked' },
@@ -202,12 +212,7 @@ module.exports = {
                   { [Op.ne]: null },
                   { [Op.ne]: '' }
                 ]
-              },
-              [Op.or]: [
-                { isNotification: 'on' },
-                { isNotification: null },
-                { isNotification: '1' }
-              ]
+              }
             },
             attributes: ['id', 'deviceToken', 'name', 'status']
           });
@@ -239,42 +244,38 @@ module.exports = {
             const validTokens = [...new Set(
               recipients
                 .map(u => u.deviceToken)
-                .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'))
+                .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '')
             )];
 
             console.log(`📡 [createEvent Push] Sending push to ${validTokens.length} devices via sendPushNotification...`);
 
-            if (validTokens.length > 0) {
-              let sentCount = 0;
-              let failCount = 0;
-              await Promise.allSettled(validTokens.map(async (tok) => {
-                try {
-                  const sent = await helper.sendPushNotification({
-                    token: tok,
-                    title: pushTitle,
-                    body: pushBody,
-                    type: 'live_event',
-                    eventId: String(newEvent.id),
-                    channelName: String(channelName),
-                    sender_id: String(userId),
-                    sender_name: creatorName,
-                    sender_image: creatorImage,
-                    image: image || creatorImage || '',
-                    request_id: String(newEvent.id)
-                  });
-                  if (sent) sentCount++;
-                  else failCount++;
-                } catch (tokErr) {
-                  failCount++;
-                  console.error("Push send error for token:", tokErr.message);
-                }
-              }));
-              console.log(`📡 [createEvent Push] sendPushNotification finished: ${sentCount} sent, ${failCount} failed.`);
-            } else {
-              console.log("⚠️ [createEvent Push] No valid FCM registration tokens found in database.");
-            }
+            let sentCount = 0;
+            let failCount = 0;
+            await Promise.allSettled(validTokens.map(async (tok) => {
+              try {
+                const sent = await helper.sendPushNotification({
+                  token: tok,
+                  title: pushTitle,
+                  body: pushBody,
+                  type: 'live_event',
+                  eventId: String(newEvent.id),
+                  channelName: String(channelName),
+                  sender_id: String(userId),
+                  sender_name: creatorName,
+                  sender_image: creatorImage,
+                  image: image || creatorImage || '',
+                  request_id: String(newEvent.id)
+                });
+                if (sent) sentCount++;
+                else failCount++;
+              } catch (tokErr) {
+                failCount++;
+                console.error("Push send error for token:", tokErr.message);
+              }
+            }));
+            console.log(`📡 [createEvent Push] sendPushNotification finished: ${sentCount} sent, ${failCount} failed.`);
           } else {
-            console.log("⚠️ [createEvent Push] No recipients found with registered device tokens.");
+            console.log("⚠️ [createEvent Push] No recipients found with registered device tokens in database.");
           }
         } catch (pushErr) {
           console.error("❌ Error sending live event push notification:", pushErr.message || pushErr);
