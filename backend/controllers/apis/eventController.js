@@ -235,12 +235,12 @@ module.exports = {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
             }
 
-            // 2. Filter valid tokens (skip dummy 160-char raw hex APNs tokens if present)
+            // 2. Extract valid tokens (skip empty and dummy hex tokens)
             const validTokens = recipients
               .map(u => u.deviceToken)
-              .filter(tok => tok && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'));
+              .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '' && !tok.startsWith('802DC5401350B196318EBB9CDD950F'));
 
-            console.log(`📡 [createEvent Push] Sending multicast to ${validTokens.length} valid FCM tokens...`);
+            console.log(`📡 [createEvent Push] Sending multicast push to ${validTokens.length} valid FCM tokens...`);
 
             if (validTokens.length > 0) {
               const pushResult = await helper.sendMulticastNotification(validTokens, {
@@ -257,7 +257,7 @@ module.exports = {
               });
               console.log("📡 [createEvent Push] Multicast push result:", pushResult);
             } else {
-              console.log("⚠️ [createEvent Push] No valid FCM registration tokens found in database yet.");
+              console.log("⚠️ [createEvent Push] No valid FCM registration tokens found in database.");
             }
           } else {
             console.log("⚠️ [createEvent Push] No recipients found with registered device tokens.");
@@ -834,7 +834,7 @@ module.exports = {
       const admin = require('firebase-admin');
 
       const token = (req.body && (req.body.deviceToken || req.body.token)) ||
-                    (req.query && (req.query.deviceToken || req.query.token));
+        (req.query && (req.query.deviceToken || req.query.token));
 
       if (!token || String(token).trim() === '') {
         return helper.failed(res, "deviceToken is required. Please paste your FCM device token.", {
