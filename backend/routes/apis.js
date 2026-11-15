@@ -138,6 +138,10 @@ module.exports = (io) => {
   // Agora Live Streaming & Events
   router.post('/generateAgoraToken', agoraController.generateToken);
   router.post('/renewToken', agoraController.renewToken);
+  router.post('/renewAgoraToken', agoraController.renewToken);
+  router.post('/generateRtmToken', agoraController.generateRtmToken);
+  router.post('/renewRtmToken', agoraController.generateRtmToken);
+  router.post('/getRtmToken', agoraController.generateRtmToken);
   router.post('/createEvent', eventController.createEvent);
   router.put('/stopEvent/:eventId', eventController.stopEvent);
   router.put('/stopEvent', eventController.stopEvent);

@@ -1,11 +1,11 @@
 const envfile = process.env;
 const helper = require('../../helpers/helper');
-const { RtcTokenBuilder, RtcRole } = require('agora-token');
+const { RtcTokenBuilder, RtcRole, RtmTokenBuilder } = require('agora-token');
 const db = require('../../models');
 
 module.exports = {
   /**
-   * Generate initial Agora RTC Token
+   * Generate initial Agora RTC & RTM Tokens
    */
   generateToken: async (req, res) => {
     try {
@@ -47,6 +47,7 @@ module.exports = {
       const currentTime = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTime + expireTime;
 
+      // RTC Token (audio/video streaming)
       const token = RtcTokenBuilder.buildTokenWithUid(
         appID,
         appCertificate,
@@ -57,8 +58,20 @@ module.exports = {
         privilegeExpireTime
       );
 
+      // RTM Token (real-time chat/messaging during live stream)
+      const rtmUserId = String(req.body.userId || (uid !== 0 ? uid : (req.auth ? req.auth.id : 0)));
+      const rtmToken = RtmTokenBuilder.buildToken(
+        appID,
+        appCertificate,
+        rtmUserId,
+        expireTime
+      );
+
       return helper.success(res, "Token generated successfully", {
         token: token,
+        rtcToken: token,
+        rtmToken: rtmToken,
+        rtmUserId: rtmUserId,
         channelName: channelName,
         uid: uid,
         roleType: role === RtcRole.PUBLISHER ? 0 : 1,
@@ -74,7 +87,7 @@ module.exports = {
   },
 
   /**
-   * Renew / Refresh Agora RTC Token when previous token expires
+   * Renew / Refresh Agora RTC & RTM Tokens when previous token expires
    * Expected body parameters:
    *  - channelName (or channel_name / channel)
    *  - uid (number or 0)
@@ -121,7 +134,7 @@ module.exports = {
       const currentTime = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTime + expireTime;
 
-      // Build new Agora token
+      // Build new Agora RTC token
       const token = RtcTokenBuilder.buildTokenWithUid(
         appID,
         appCertificate,
@@ -130,6 +143,15 @@ module.exports = {
         role,
         privilegeExpireTime,
         privilegeExpireTime
+      );
+
+      // Build new Agora RTM token for live streaming chat
+      const rtmUserId = String(req.body.userId || (uid !== 0 ? uid : (req.auth ? req.auth.id : 0)));
+      const rtmToken = RtmTokenBuilder.buildToken(
+        appID,
+        appCertificate,
+        rtmUserId,
+        expireTime
       );
 
       // If publisher/creator renews token, also update active event in DB if it exists
@@ -146,6 +168,9 @@ module.exports = {
 
       return helper.success(res, "New Agora token generated successfully", {
         token: token,
+        rtcToken: token,
+        rtmToken: rtmToken,
+        rtmUserId: rtmUserId,
         channelName: channelName,
         uid: uid,
         roleType: role === RtcRole.PUBLISHER ? 0 : 1,
@@ -157,6 +182,54 @@ module.exports = {
     } catch (error) {
       console.log("renewToken error:", error);
       return helper.error(res, 'Error renewing Agora token');
+    }
+  },
+
+  /**
+   * Dedicated endpoint to generate / renew an Agora RTM Token
+   * Expected body parameters:
+   *  - userId (or uid)
+   *  - expireTime (optional, default 86400 seconds)
+   */
+  generateRtmToken: async (req, res) => {
+    try {
+      const appID = envfile.AGORA_APP_ID;
+      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
+
+      if (!appID || !appCertificate) {
+        return helper.failed(res, "Agora App ID and Certificate are missing in .env", {});
+      }
+
+      let userId = req.body.userId || req.body.uid || (req.auth ? req.auth.id : null);
+      if (userId === undefined || userId === null || userId === '') {
+        return helper.failed(res, "userId is required for RTM token");
+      }
+
+      let expireTime = req.body.expireTime;
+      if (!expireTime || isNaN(parseInt(expireTime, 10))) {
+        expireTime = 86400; // default 24 hours
+      } else {
+        expireTime = parseInt(expireTime, 10);
+      }
+
+      const rtmToken = RtmTokenBuilder.buildToken(
+        appID,
+        appCertificate,
+        String(userId),
+        expireTime
+      );
+
+      return helper.success(res, "RTM Token generated successfully", {
+        rtmToken: rtmToken,
+        token: rtmToken,
+        userId: String(userId),
+        appId: appID,
+        expireTime: expireTime
+      });
+
+    } catch (error) {
+      console.log("generateRtmToken error:", error);
+      return helper.error(res, 'Error generating Agora RTM token');
     }
   }
 };

@@ -3,7 +3,7 @@ const { Validator } = require('node-input-validator');
 const { Op } = require('sequelize');
 const db = require('../../models');
 const { events, users, services_categories, followers } = db;
-const { RtcTokenBuilder, RtcRole } = require('agora-token');
+const { RtcTokenBuilder, RtcRole, RtmTokenBuilder } = require('agora-token');
 
 const envfile = process.env;
 
@@ -83,7 +83,7 @@ module.exports = {
       const currentTime = Math.floor(Date.now() / 1000);
       const privilegeExpireTime = currentTime + expireTime;
 
-      // Build token with uid
+      // Build RTC token with uid
       const agoraToken = RtcTokenBuilder.buildTokenWithUid(
         appID,
         appCertificate,
@@ -92,6 +92,15 @@ module.exports = {
         role,
         privilegeExpireTime,
         privilegeExpireTime
+      );
+
+      // Build RTM token for live streaming real-time chat
+      const rtmUserId = String(uid && uid !== 0 ? uid : userId);
+      const rtmToken = RtmTokenBuilder.buildToken(
+        appID,
+        appCertificate,
+        rtmUserId,
+        expireTime
       );
 
       // Create new live event record
@@ -160,6 +169,9 @@ module.exports = {
       const responseData = {
         ...eventJson,
         token: agoraToken,
+        rtcToken: agoraToken,
+        rtmToken: rtmToken,
+        rtmUserId: rtmUserId,
         channelName: channelName,
         uid: uid,
         roleType: role === RtcRole.PUBLISHER ? 0 : 1,
@@ -302,9 +314,22 @@ module.exports = {
           : 0;
       }
       eventData.token = eventData.agoraToken;
+      eventData.rtcToken = eventData.agoraToken;
       eventData.channelName = eventData.agoraChannel;
       eventData.uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
       eventData.appId = eventData.agoraAppId || envfile.AGORA_APP_ID;
+
+      const appID = envfile.AGORA_APP_ID;
+      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
+      if (appID && appCertificate) {
+        try {
+          const rtmUserId = String(eventData.uid || userId);
+          eventData.rtmToken = RtmTokenBuilder.buildToken(appID, appCertificate, rtmUserId, 86400);
+          eventData.rtmUserId = rtmUserId;
+        } catch (rtmErr) {
+          console.log("Error generating RTM token in getMyLiveEvent:", rtmErr.message);
+        }
+      }
 
       return helper.success(res, "Current live event fetched successfully", eventData);
 
@@ -466,9 +491,19 @@ module.exports = {
               privilegeExpireTime,
               privilegeExpireTime
             );
+            const viewerRtmToken = RtmTokenBuilder.buildToken(
+              appID,
+              appCertificate,
+              String(currentUserId),
+              privilegeExpireTime
+            );
             eventData.viewerAgoraToken = viewerToken;
             eventData.viewerUid = viewerUid;
             eventData.token = viewerToken;
+            eventData.rtcToken = viewerToken;
+            eventData.rtmToken = viewerRtmToken;
+            eventData.viewerRtmToken = viewerRtmToken;
+            eventData.rtmUserId = String(currentUserId);
             eventData.channelName = eventData.agoraChannel;
             eventData.uid = viewerUid;
             eventData.appId = appID;
@@ -588,10 +623,26 @@ module.exports = {
           privilegeExpireTime
         );
 
+        const rtmUserId = String(uid && uid !== 0 ? uid : currentUserId);
+        let rtmToken = null;
+        try {
+          rtmToken = RtmTokenBuilder.buildToken(
+            appID,
+            appCertificate,
+            rtmUserId,
+            86400
+          );
+        } catch (rtmErr) {
+          console.log("Error building RTM token in getLiveEventDetail:", rtmErr.message);
+        }
+
         eventData.agoraToken = token;
         eventData.agoraUid = uid.toString();
         eventData.isHost = isHost;
         eventData.token = token;
+        eventData.rtcToken = token;
+        eventData.rtmToken = rtmToken;
+        eventData.rtmUserId = rtmUserId;
         eventData.channelName = eventData.agoraChannel;
         eventData.uid = uid;
         eventData.appId = appID;
