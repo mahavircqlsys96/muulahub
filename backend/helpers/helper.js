@@ -215,33 +215,35 @@ module.exports = {
       const cleanChannel = String(channelName || '').trim();
       const expireSeconds = parseInt(expire, 10) || 86400;
 
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpireTime = currentTimestamp + expireSeconds;
+
       const { RtcTokenBuilder, RtcRole } = require('agora-token');
       const agoraRole = (role === 'publisher' || role === 1 || role === 'PUBLISHER' || role === RtcRole.PUBLISHER)
         ? RtcRole.PUBLISHER
         : RtcRole.SUBSCRIBER;
 
-      // 1. Try RtcTokenBuilder2
+      // 1. Try RtcTokenBuilder with privilegeExpireTime
       let token = RtcTokenBuilder.buildTokenWithUid(
         cleanAppId,
         cleanCert,
         cleanChannel,
         uid || 0,
         agoraRole,
-        expireSeconds,
-        expireSeconds
+        privilegeExpireTime,
+        privilegeExpireTime
       );
 
       // 2. If empty string (failed build_check), fallback to RtcTokenBuilder v1
       if (!token) {
         const RtcTokenBuilderV1 = require('agora-token/src/RtcTokenBuilder').RtcTokenBuilder;
-        const expireTimestamp = Math.floor(Date.now() / 1000) + expireSeconds;
         token = RtcTokenBuilderV1.buildTokenWithUid(
           cleanAppId,
           cleanCert,
           cleanChannel,
           uid || 0,
           agoraRole,
-          expireTimestamp
+          privilegeExpireTime
         );
       }
 
@@ -251,15 +253,15 @@ module.exports = {
       try {
         const cleanAppId = String(appId || '').replace(/['"]/g, '').trim();
         const cleanCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+        const currentTimestamp = Math.floor(Date.now() / 1000);
         const RtcTokenBuilderV1 = require('agora-token/src/RtcTokenBuilder').RtcTokenBuilder;
-        const expireTimestamp = Math.floor(Date.now() / 1000) + 86400;
         return RtcTokenBuilderV1.buildTokenWithUid(
           cleanAppId,
           cleanCert,
           String(channelName).trim(),
           uid || 0,
           1,
-          expireTimestamp
+          currentTimestamp + 86400
         ) || '';
       } catch (_) {
         return '';
