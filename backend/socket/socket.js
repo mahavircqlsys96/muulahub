@@ -669,7 +669,7 @@ module.exports = function (io) {
           if (authRes && authRes.success && authRes.user) {
             return authRes.user;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
       const rawUserId = data && (data.userId || data.senderId);
       if (rawUserId) {
@@ -680,7 +680,7 @@ module.exports = function (io) {
             raw: true
           });
           if (u) return u;
-        } catch (_) {}
+        } catch (_) { }
       }
       return {
         id: rawUserId || 0,
@@ -703,8 +703,6 @@ module.exports = function (io) {
         socket.liveUser = liveUser;
 
         const roomSize = io.sockets.adapter.rooms.get(channelName)?.size || 1;
-
-        console.log(`📡 [Socket Live] User ${liveUser.id} (${liveUser.name}) joined channel: ${channelName}. Total viewers: ${roomSize}`);
 
         // Notify room
         const joinPayload = {
@@ -843,6 +841,32 @@ module.exports = function (io) {
     };
     socket.on('leaveLiveStream', handleLeaveChannel);
     socket.on('leaveChannel', handleLeaveChannel);
+
+    // 5. Get Active Viewers in Room
+    const handleGetViewers = async (data) => {
+      try {
+        const channel = data && (data.channelId || data.channelName || data.channel || socket.activeLiveChannel);
+        const channelName = String(channel || '').trim();
+        if (!channelName) return;
+
+        const sockets = await io.in(channelName).fetchSockets();
+        const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
+
+        const payload = {
+          channelId: channelName,
+          channelName: channelName,
+          viewerCount: sockets.length,
+          viewers: viewers
+        };
+
+        socket.emit('liveViewers', payload);
+        socket.emit('channelViewers', payload);
+      } catch (err) {
+        console.error('[Socket Live] Error in getViewers:', err);
+      }
+    };
+    socket.on('getViewers', handleGetViewers);
+    socket.on('getLiveViewers', handleGetViewers);
 
   });
 

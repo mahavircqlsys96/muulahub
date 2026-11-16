@@ -35,6 +35,40 @@ module.exports = (io) => {
   router.get('/getChannelUserCount', agoraController.getChannelUsers);
   router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
+  // Live Stream Connected Viewers (Real-Time Socket Room)
+  router.get('/getLiveViewers', async (req, res) => {
+    try {
+      const channel = req.query.channelId || req.query.channelName || req.query.channel;
+      if (!channel) return helper.failed(res, "channelId is required");
+      const channelName = String(channel).trim();
+      const sockets = await io.in(channelName).fetchSockets();
+      const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
+      return helper.success(res, "Live viewers fetched successfully", {
+        channelId: channelName,
+        viewerCount: sockets.length,
+        viewers: viewers
+      });
+    } catch (e) {
+      return helper.error(res, e.message);
+    }
+  });
+  router.post('/getLiveViewers', async (req, res) => {
+    try {
+      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel)) || req.query.channelId;
+      if (!channel) return helper.failed(res, "channelId is required");
+      const channelName = String(channel).trim();
+      const sockets = await io.in(channelName).fetchSockets();
+      const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
+      return helper.success(res, "Live viewers fetched successfully", {
+        channelId: channelName,
+        viewerCount: sockets.length,
+        viewers: viewers
+      });
+    } catch (e) {
+      return helper.error(res, e.message);
+    }
+  });
+
   // ─── Header Auth ───
   router.use(authenticateHeader);
   router.post('/signUp', authController.signUp);
@@ -167,13 +201,6 @@ module.exports = (io) => {
   router.get('/getNearbyLiveEvents', eventController.getNearbyLiveEvents);
   router.get('/getLiveEventDetail/:id', eventController.getLiveEventDetail);
   router.post('/getLiveEventDetail', eventController.getLiveEventDetail);
-
-  router.get('/testLivePush', eventController.testLivePush);
-  router.post('/testLivePush', eventController.testLivePush);
-  router.get('/getChannelUsers/:channelName?', agoraController.getChannelUsers);
-  router.post('/getChannelUsers', agoraController.getChannelUsers);
-  router.get('/getChannelUserCount', agoraController.getChannelUsers);
-  router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
   return router;
 };
