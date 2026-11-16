@@ -97,11 +97,17 @@ module.exports = (io) => {
   router.delete('/deletePost/:id', postsController.deletePost);
   router.post('/bookmarkPost', postsController.bookmarkPost);
   router.get('/getBookmarkedPosts', postsController.getBookmarkedPosts);
+  // Likes & Comments
   router.post('/likePost', postsController.likePost);
   router.post('/addComment', postsController.addComment);
+  router.post('/replyComment', postsController.addComment);
   router.get('/getComments', postsController.getComments);
   router.get('/getCommentReplies', postsController.getCommentReplies);
   router.post('/likeComment', postsController.likeComment);
+  router.post('/editComment', postsController.editComment);
+  router.put('/editComment/:id?', postsController.editComment);
+  router.delete('/deleteComment/:id', postsController.deleteComment);
+  router.post('/deleteComment', postsController.deleteComment);
   router.post('/reportPost', postsController.reportPost);
   router.post('/reportUser', postsController.reportUser);
   router.post('/createReport', postsController.createReport);

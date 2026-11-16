@@ -120,6 +120,10 @@ module.exports = (db) => {
     post_comments.belongsTo(posts, { foreignKey: 'postId', as: 'post' });
     posts.hasMany(post_comments, { foreignKey: 'postId', as: 'comments' });
   }
+  if (post_comments) {
+    post_comments.hasMany(post_comments, { foreignKey: 'commentId', as: 'replies' });
+    post_comments.belongsTo(post_comments, { foreignKey: 'commentId', as: 'parentComment' });
+  }
 
   // Comment Likes
   if (comment_likes && users) {

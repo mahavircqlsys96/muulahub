@@ -841,20 +841,42 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { postId, comment, commentId } = req.body;
+      const { postId, comment } = req.body;
+      const targetCommentId = req.body.commentId || req.body.parentCommentId || null;
       const userId = req.auth.id;
 
       const post = await posts.findOne({ where: { id: postId, status: 'active' } });
       if (!post) return helper.failed(res, 'Post not found');
 
+      let parentComment = null;
+      if (targetCommentId) {
+        parentComment = await post_comments.findOne({ where: { id: targetCommentId, postId } });
+        if (!parentComment) return helper.failed(res, 'Parent comment not found');
+      }
+
       const newComment = await post_comments.create({
         postId,
         userId,
-        comment,
-        ...(commentId && { commentId })
+        comment: comment.trim(),
+        ...(targetCommentId && { commentId: targetCommentId })
       });
 
-      if (post.userId !== userId) {
+      // Notification to parent comment author if replying
+      if (targetCommentId && parentComment) {
+        if (parentComment.userId !== userId) {
+          await notifications.create({
+            userId: parentComment.userId,
+            senderId: userId,
+            title: 'New Reply',
+            message: `${req.auth.name} replied to your comment`,
+            type: 'system',
+            referenceId: postId
+          });
+        }
+      }
+
+      // Notification to post author (if not self and not already notified as parent author)
+      if (post.userId !== userId && (!parentComment || parentComment.userId !== post.userId)) {
         await notifications.create({
           userId: post.userId,
           senderId: userId,
@@ -867,10 +889,34 @@ module.exports = {
 
       const commentWithUser = await post_comments.findOne({
         where: { id: newComment.id },
+        attributes: {
+          include: [
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM comment_likes
+                WHERE comment_likes.commentId = ${newComment.id}
+              )`),
+              "likeCount"
+            ],
+            [
+              sequelize.literal(`0`),
+              "isLiked"
+            ],
+            [
+              sequelize.literal(`0`),
+              "replyCount"
+            ]
+          ]
+        },
         include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }]
       });
 
-      return helper.success(res, 'Comment added', commentWithUser);
+      return helper.success(
+        res,
+        targetCommentId ? 'Reply added successfully' : 'Comment added successfully',
+        commentWithUser
+      );
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');
@@ -906,6 +952,14 @@ module.exports = {
                 AND comment_likes.userId = ${req.auth ? req.auth.id : 0}
               )`),
               "isLiked"
+            ],
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM post_comments AS replies
+                WHERE replies.commentId = post_comments.id
+              )`),
+              "replyCount"
             ]
           ]
         },
@@ -931,7 +985,7 @@ module.exports = {
 
   getCommentReplies: async (req, res) => {
     try {
-      const { commentId } = req.query;
+      const commentId = req.query.commentId || req.query.parentCommentId;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
       const offset = (page - 1) * limit;
@@ -958,6 +1012,14 @@ module.exports = {
                 AND comment_likes.userId = ${req.auth ? req.auth.id : 0}
               )`),
               "isLiked"
+            ],
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM post_comments AS replies
+                WHERE replies.commentId = post_comments.id
+              )`),
+              "replyCount"
             ]
           ]
         },
@@ -975,6 +1037,121 @@ module.exports = {
         totalPages: Math.ceil(count / limit),
         data: rows
       });
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  editComment: async (req, res) => {
+    try {
+      const commentId = req.body.commentId || req.params.id;
+      const { comment } = req.body;
+      const userId = req.auth.id;
+
+      const v = new Validator({ commentId, comment }, {
+        commentId: 'required',
+        comment: 'required|string'
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const existingComment = await post_comments.findOne({ where: { id: commentId } });
+      if (!existingComment) return helper.failed(res, 'Comment not found');
+
+      if (existingComment.userId !== userId) {
+        return helper.failed(res, 'You are not authorized to edit this comment', {}, 403);
+      }
+
+      await existingComment.update({ comment: String(comment).trim() });
+
+      const updated = await post_comments.findOne({
+        where: { id: commentId },
+        attributes: {
+          include: [
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM comment_likes
+                WHERE comment_likes.commentId = post_comments.id
+              )`),
+              "likeCount"
+            ],
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM comment_likes
+                WHERE comment_likes.commentId = post_comments.id
+                AND comment_likes.userId = ${userId}
+              )`),
+              "isLiked"
+            ],
+            [
+              sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM post_comments AS replies
+                WHERE replies.commentId = post_comments.id
+              )`),
+              "replyCount"
+            ]
+          ]
+        },
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }]
+      });
+
+      return helper.success(res, 'Comment updated successfully', updated);
+    } catch (error) {
+      console.log(error);
+      return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  deleteComment: async (req, res) => {
+    try {
+      const commentId = req.params.id || req.body.commentId;
+      const userId = req.auth.id;
+
+      if (!commentId) return helper.failed(res, 'commentId is required');
+
+      const existingComment = await post_comments.findOne({
+        where: { id: commentId },
+        include: [{ model: posts, as: 'post', attributes: ['id', 'userId'] }]
+      });
+      if (!existingComment) return helper.failed(res, 'Comment not found');
+
+      // Authorization: Comment author OR Post owner can delete
+      const isCommentOwner = existingComment.userId === userId;
+      const isPostOwner = existingComment.post && existingComment.post.userId === userId;
+
+      if (!isCommentOwner && !isPostOwner) {
+        return helper.failed(res, 'You are not authorized to delete this comment', {}, 403);
+      }
+
+      // Collect all child reply IDs if this was a parent comment
+      const childReplies = await post_comments.findAll({
+        where: { commentId: existingComment.id },
+        attributes: ['id'],
+        raw: true
+      });
+      const childIds = childReplies.map(r => r.id);
+      const allCommentIdsToDelete = [existingComment.id, ...childIds];
+
+      // Delete likes for all target comments
+      await comment_likes.destroy({
+        where: { commentId: { [sequelize.Op.in]: allCommentIdsToDelete } }
+      });
+
+      // Delete child replies
+      if (childIds.length > 0) {
+        await post_comments.destroy({
+          where: { id: { [sequelize.Op.in]: childIds } }
+        });
+      }
+
+      // Delete the comment itself
+      await existingComment.destroy();
+
+      return helper.success(res, 'Comment deleted successfully');
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');
