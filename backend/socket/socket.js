@@ -54,6 +54,14 @@ module.exports = function (io) {
         });
 
         if (check_user) {
+          socket.userId = check_user.id;
+          socket.userData = {
+            id: check_user.id,
+            name: check_user.name,
+            profileImage: check_user.profileImage
+          };
+          socket.liveUser = socket.userData;
+
           await users.update({
             isOnline: "online",
             socketId,
@@ -661,17 +669,47 @@ module.exports = function (io) {
        LIVE STREAMING REAL-TIME CHAT & REACTIONS (SOCKET.IO)
        ========================================================================== */
 
-    // Helper to resolve user details from token or userId
-    async function resolveLiveUser(data) {
-      if (data && data.token) {
+    // Global in-memory storage for active live channel viewers
+    if (!io.liveChannelViewers) {
+      io.liveChannelViewers = new Map();
+    }
+
+    // Helper to safely extract channelName from various payload formats
+    function extractChannel(data, sck) {
+      if (!data) {
+        return (sck && sck.activeLiveChannel) || '';
+      }
+      if (typeof data === 'string') {
+        const trimmed = data.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return String(parsed.channelName || parsed.channelId || parsed.channel || parsed.eventId || (sck && sck.activeLiveChannel) || '').trim();
+          } catch (_) { }
+        }
+        return trimmed;
+      }
+      if (typeof data === 'object') {
+        return String(data.channelName || data.channelId || data.channel || data.eventId || (sck && sck.activeLiveChannel) || '').trim();
+      }
+      return (sck && sck.activeLiveChannel) || '';
+    }
+
+    // Helper to resolve user details from token, userId or socket session
+    async function resolveLiveUser(data, sck) {
+      let parsed = data;
+      if (typeof data === 'string') {
+        try { parsed = JSON.parse(data); } catch (_) { parsed = {}; }
+      }
+      if (parsed && parsed.token) {
         try {
-          const authRes = await middleware.authenticateToken(data.token);
+          const authRes = await middleware.authenticateToken(parsed.token);
           if (authRes && authRes.success && authRes.user) {
             return authRes.user;
           }
         } catch (_) { }
       }
-      const rawUserId = data && (data.userId || data.senderId);
+      const rawUserId = (parsed && (parsed.userId || parsed.senderId || parsed.id)) || (sck && (sck.userId || (sck.userData && sck.userData.id)));
       if (rawUserId) {
         try {
           const u = await users.findOne({
@@ -684,27 +722,90 @@ module.exports = function (io) {
       }
       return {
         id: rawUserId || 0,
-        name: (data && (data.userName || data.senderName)) || 'Viewer',
-        profileImage: (data && data.senderImage) || ''
+        name: (parsed && (parsed.userName || parsed.senderName || parsed.name)) || (sck && sck.userData && sck.userData.name) || 'Viewer',
+        profileImage: (parsed && (parsed.senderImage || parsed.profileImage || parsed.image)) || (sck && sck.userData && sck.userData.profileImage) || ''
+      };
+    }
+
+    // Helper to compute deduplicated live viewers from both memory map and socket room
+    async function computeChannelViewers(channelName) {
+      if (!channelName) return { channelId: '', channelName: '', viewerCount: 0, viewers: [] };
+
+      const viewersMap = new Map(); // key -> viewer object
+
+      // 1. In-memory tracked viewers
+      if (io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
+        const memMap = io.liveChannelViewers.get(channelName);
+        for (const [k, v] of memMap.entries()) {
+          viewersMap.set(k, {
+            id: v.id || 0,
+            name: v.name || 'Viewer',
+            profileImage: v.profileImage || ''
+          });
+        }
+      }
+
+      // 2. Sockets currently in the room
+      try {
+        const sockets = await io.in(channelName).fetchSockets();
+        for (const s of sockets) {
+          const u = s.liveUser || (s.userData ? { id: s.userData.id, name: s.userData.name, profileImage: s.userData.profileImage } : null);
+          if (u) {
+            const key = u.id && u.id !== 0 ? `user_${u.id}` : `socket_${s.id}`;
+            viewersMap.set(key, {
+              id: u.id || 0,
+              name: u.name || 'Viewer',
+              profileImage: u.profileImage || ''
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Socket Live] Error fetching sockets:', err.message);
+      }
+
+      const viewersList = Array.from(viewersMap.values());
+      return {
+        channelId: channelName,
+        channelName: channelName,
+        viewerCount: viewersList.length,
+        viewers: viewersList
       };
     }
 
     // 1. Join Channel / Live Room
     const handleJoinChannel = async (data) => {
       try {
-        const channel = data && (data.channelId || data.channelName || data.channel || data.eventId);
-        const channelName = String(channel || '').trim();
-        if (!channelName) return;
+        const channelName = extractChannel(data, socket);
+        if (!channelName) {
+          console.warn('[Socket Live] Join ignored: empty channelName');
+          return;
+        }
 
-        socket.join(channelName);
+        await socket.join(channelName);
         socket.activeLiveChannel = channelName;
 
-        const liveUser = await resolveLiveUser(data);
+        const liveUser = await resolveLiveUser(data, socket);
         socket.liveUser = liveUser;
 
-        const roomSize = io.sockets.adapter.rooms.get(channelName)?.size || 1;
+        // Track in memory map
+        if (!io.liveChannelViewers.has(channelName)) {
+          io.liveChannelViewers.set(channelName, new Map());
+        }
+        const channelMap = io.liveChannelViewers.get(channelName);
+        const viewerKey = liveUser.id && liveUser.id !== 0 ? `user_${liveUser.id}` : `socket_${socket.id}`;
+        channelMap.set(viewerKey, {
+          id: liveUser.id || 0,
+          name: liveUser.name || 'Viewer',
+          profileImage: liveUser.profileImage || '',
+          socketId: socket.id,
+          joinedAt: Date.now()
+        });
 
-        // Notify room
+        const viewersPayload = await computeChannelViewers(channelName);
+
+        console.log(`👤 [Socket Live] User "${liveUser.name}" (id: ${liveUser.id}) joined room: ${channelName}. Total viewers: ${viewersPayload.viewerCount}`);
+
+        // Notify other viewers in the room
         const joinPayload = {
           channelId: channelName,
           channelName: channelName,
@@ -713,20 +814,32 @@ module.exports = function (io) {
             name: liveUser.name,
             profileImage: liveUser.profileImage
           },
-          viewerCount: roomSize
+          viewerCount: viewersPayload.viewerCount
         };
         socket.to(channelName).emit('userJoinedLiveStream', joinPayload);
         socket.to(channelName).emit('userJoinedChannel', joinPayload);
+        socket.to(channelName).emit('userJoinedRoom', joinPayload);
 
         // Acknowledge to joining user
         const ackPayload = {
           code: 200,
           channelId: channelName,
           channelName: channelName,
-          viewerCount: roomSize
+          viewerCount: viewersPayload.viewerCount,
+          viewers: viewersPayload.viewers
         };
         socket.emit('liveStreamJoined', ackPayload);
         socket.emit('channelJoined', ackPayload);
+
+        // Broadcast updated viewers list to the entire channel
+        io.to(channelName).emit('getViewers', viewersPayload);
+        io.to(channelName).emit('liveViewers', viewersPayload);
+        io.to(channelName).emit('channelViewers', viewersPayload);
+        io.to(channelName).emit('viewerCount', {
+          channelId: channelName,
+          channelName: channelName,
+          viewerCount: viewersPayload.viewerCount
+        });
 
       } catch (err) {
         console.error('[Socket Live] Error in joinChannel:', err);
@@ -734,23 +847,31 @@ module.exports = function (io) {
     };
     socket.on('joinLiveStream', handleJoinChannel);
     socket.on('joinChannel', handleJoinChannel);
+    socket.on('joinRoom', handleJoinChannel);
+    socket.on('joinLive', handleJoinChannel);
+    socket.on('join', handleJoinChannel);
+    socket.on('join_channel', handleJoinChannel);
+    socket.on('join_live_stream', handleJoinChannel);
 
     // 2. Send Real-Time Message to Channel
     const handleSendMessage = async (data) => {
       try {
-        const channel = data && (data.channelId || data.channelName || data.channel || socket.activeLiveChannel);
-        const channelName = String(channel || '').trim();
+        let parsed = data;
+        if (typeof data === 'string') {
+          try { parsed = JSON.parse(data); } catch (_) { parsed = {}; }
+        }
+        const channelName = extractChannel(parsed, socket);
         if (!channelName) {
           socket.emit('sendMessageError', { message: 'channelId is required' });
           return;
         }
 
-        const messageText = data && (data.message || data.text || data.comment);
+        const messageText = parsed && (parsed.message || parsed.text || parsed.comment);
         if (!messageText || String(messageText).trim() === '') {
           return;
         }
 
-        const liveUser = socket.liveUser || await resolveLiveUser(data);
+        const liveUser = socket.liveUser || await resolveLiveUser(parsed, socket);
 
         const commentPayload = {
           id: uuidv4(),
@@ -763,7 +884,7 @@ module.exports = function (io) {
           senderName: liveUser.name || 'Viewer',
           senderImage: liveUser.profileImage || '',
           message: String(messageText).trim(),
-          type: (data && data.type) || 'text',
+          type: (parsed && parsed.type) || 'text',
           createdAt: new Date().toISOString()
         };
 
@@ -781,15 +902,21 @@ module.exports = function (io) {
     };
     socket.on('sendLiveMessage', handleSendMessage);
     socket.on('sendChannelMessage', handleSendMessage);
+    socket.on('sendMessage', handleSendMessage);
+    socket.on('commentLive', handleSendMessage);
 
     // 3. Send Live Stream Reaction (e.g. Heart / Like / Gift)
     socket.on('sendLiveReaction', async (data) => {
       try {
-        const channelName = data && (data.channelName || data.channel || socket.activeLiveChannel);
+        let parsed = data;
+        if (typeof data === 'string') {
+          try { parsed = JSON.parse(data); } catch (_) { parsed = {}; }
+        }
+        const channelName = extractChannel(parsed, socket);
         if (!channelName) return;
 
-        const liveUser = socket.liveUser || await resolveLiveUser(data);
-        const reactionType = (data && (data.reaction || data.type)) || 'heart';
+        const liveUser = socket.liveUser || await resolveLiveUser(parsed, socket);
+        const reactionType = (parsed && (parsed.reaction || parsed.type)) || 'heart';
 
         const reactionPayload = {
           channelName: channelName,
@@ -803,6 +930,7 @@ module.exports = function (io) {
 
         // Broadcast reaction to room
         io.to(channelName).emit('newLiveReaction', reactionPayload);
+        io.to(channelName).emit('liveReaction', reactionPayload);
 
       } catch (err) {
         console.error('[Socket Live] Error in sendLiveReaction:', err);
@@ -812,24 +940,47 @@ module.exports = function (io) {
     // 4. Leave Channel / Live Room
     const handleLeaveChannel = async (data) => {
       try {
-        const channel = (data && (data.channelId || data.channelName || data.channel)) || socket.activeLiveChannel;
-        const channelName = String(channel || '').trim();
+        const channelName = extractChannel(data, socket);
         if (!channelName) return;
 
         socket.leave(channelName);
-        const liveUser = socket.liveUser || await resolveLiveUser(data);
-        const roomSize = io.sockets.adapter.rooms.get(channelName)?.size || 0;
+        const liveUser = socket.liveUser || await resolveLiveUser(data, socket);
 
-        console.log(`👋 [Socket Live] User ${liveUser.id} left room: ${channelName}. Remaining: ${roomSize}`);
+        // Remove from memory map
+        if (io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
+          const channelMap = io.liveChannelViewers.get(channelName);
+          if (liveUser && liveUser.id) {
+            channelMap.delete(`user_${liveUser.id}`);
+          }
+          channelMap.delete(`socket_${socket.id}`);
+          if (channelMap.size === 0) {
+            io.liveChannelViewers.delete(channelName);
+          }
+        }
+
+        const viewersPayload = await computeChannelViewers(channelName);
+
+        console.log(`👋 [Socket Live] User "${liveUser.name}" (id: ${liveUser.id}) left room: ${channelName}. Remaining viewers: ${viewersPayload.viewerCount}`);
 
         const leavePayload = {
           channelId: channelName,
           channelName: channelName,
           userId: liveUser.id,
-          viewerCount: roomSize
+          viewerCount: viewersPayload.viewerCount
         };
         io.to(channelName).emit('userLeftLiveStream', leavePayload);
         io.to(channelName).emit('userLeftChannel', leavePayload);
+        io.to(channelName).emit('userLeftRoom', leavePayload);
+
+        // Broadcast updated viewers list
+        io.to(channelName).emit('getViewers', viewersPayload);
+        io.to(channelName).emit('liveViewers', viewersPayload);
+        io.to(channelName).emit('channelViewers', viewersPayload);
+        io.to(channelName).emit('viewerCount', {
+          channelId: channelName,
+          channelName: channelName,
+          viewerCount: viewersPayload.viewerCount
+        });
 
         if (socket.activeLiveChannel === channelName) {
           socket.activeLiveChannel = null;
@@ -841,32 +992,36 @@ module.exports = function (io) {
     };
     socket.on('leaveLiveStream', handleLeaveChannel);
     socket.on('leaveChannel', handleLeaveChannel);
+    socket.on('leaveRoom', handleLeaveChannel);
+    socket.on('leaveLive', handleLeaveChannel);
 
     // 5. Get Active Viewers in Room
     const handleGetViewers = async (data) => {
       try {
-        const channel = data.channelName
-        const channelName = String(channel || '').trim();
+        const channelName = extractChannel(data, socket);
         if (!channelName) return;
 
-        const sockets = await io.in(channelName).fetchSockets();
-        const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
-
-        const payload = {
-          channelId: channelName,
-          channelName: channelName,
-          viewerCount: sockets.length,
-          viewers: viewers
-        };
+        const payload = await computeChannelViewers(channelName);
 
         socket.emit('getViewers', payload);
+        socket.emit('getLiveViewers', payload);
+        socket.emit('liveViewers', payload);
         socket.emit('channelViewers', payload);
+        socket.emit('viewerCount', {
+          channelId: channelName,
+          channelName: channelName,
+          viewerCount: payload.viewerCount
+        });
+
       } catch (err) {
         console.error('[Socket Live] Error in getViewers:', err);
       }
     };
     socket.on('getViewers', handleGetViewers);
     socket.on('getLiveViewers', handleGetViewers);
+    socket.on('channelViewers', handleGetViewers);
+    socket.on('liveViewers', handleGetViewers);
+    socket.on('get_viewers', handleGetViewers);
 
   });
 

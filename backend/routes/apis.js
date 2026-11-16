@@ -35,35 +35,153 @@ module.exports = (io) => {
   router.get('/getChannelUserCount', agoraController.getChannelUsers);
   router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
-  // Live Stream Connected Viewers (Real-Time Socket Room)
+  // Live Stream Connected Viewers (Real-Time Socket & In-Memory Room)
+  async function computeApiLiveViewers(channelName) {
+    if (!channelName) return { channelId: '', channelName: '', viewerCount: 0, viewers: [] };
+    const viewersMap = new Map();
+
+    if (io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
+      const memMap = io.liveChannelViewers.get(channelName);
+      for (const [k, v] of memMap.entries()) {
+        viewersMap.set(k, {
+          id: v.id || 0,
+          name: v.name || 'Viewer',
+          profileImage: v.profileImage || ''
+        });
+      }
+    }
+
+    try {
+      const sockets = await io.in(channelName).fetchSockets();
+      for (const s of sockets) {
+        const u = s.liveUser || (s.userData ? { id: s.userData.id, name: s.userData.name, profileImage: s.userData.profileImage } : null);
+        if (u) {
+          const key = u.id && u.id !== 0 ? `user_${u.id}` : `socket_${s.id}`;
+          viewersMap.set(key, {
+            id: u.id || 0,
+            name: u.name || 'Viewer',
+            profileImage: u.profileImage || ''
+          });
+        }
+      }
+    } catch (_) {}
+
+    const viewersList = Array.from(viewersMap.values());
+    return {
+      channelId: channelName,
+      channelName: channelName,
+      viewerCount: viewersList.length,
+      viewers: viewersList
+    };
+  }
+
   router.get('/getLiveViewers', async (req, res) => {
     try {
-      const channel = req.query.channelId || req.query.channelName || req.query.channel;
+      const channel = req.query.channelId || req.query.channelName || req.query.channel || req.query.eventId;
       if (!channel) return helper.failed(res, "channelId is required");
       const channelName = String(channel).trim();
-      const sockets = await io.in(channelName).fetchSockets();
-      const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
-      return helper.success(res, "Live viewers fetched successfully", {
-        channelId: channelName,
-        viewerCount: sockets.length,
-        viewers: viewers
-      });
+      const payload = await computeApiLiveViewers(channelName);
+      return helper.success(res, "Live viewers fetched successfully", payload);
     } catch (e) {
       return helper.error(res, e.message);
     }
   });
+
   router.post('/getLiveViewers', async (req, res) => {
     try {
-      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel)) || req.query.channelId;
+      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId)) || req.query.channelId || req.query.channelName;
       if (!channel) return helper.failed(res, "channelId is required");
       const channelName = String(channel).trim();
-      const sockets = await io.in(channelName).fetchSockets();
-      const viewers = sockets.map(s => s.liveUser || { id: 0, name: 'Viewer', profileImage: '' });
-      return helper.success(res, "Live viewers fetched successfully", {
-        channelId: channelName,
-        viewerCount: sockets.length,
-        viewers: viewers
+      const payload = await computeApiLiveViewers(channelName);
+      return helper.success(res, "Live viewers fetched successfully", payload);
+    } catch (e) {
+      return helper.error(res, e.message);
+    }
+  });
+
+  // REST API: Join Live Event (Fallback / Direct REST tracking)
+  router.post('/joinLiveEvent', async (req, res) => {
+    try {
+      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId));
+      if (!channel) return helper.failed(res, "channelName or channelId is required");
+      const channelName = String(channel).trim();
+
+      const rawUserId = req.body && (req.body.userId || req.body.senderId || req.body.id);
+      let userName = (req.body && (req.body.userName || req.body.name)) || 'Viewer';
+      let userImage = (req.body && (req.body.userImage || req.body.profileImage || req.body.image)) || '';
+
+      if (rawUserId) {
+        try {
+          const dbUser = await require('../models').users.findOne({
+            where: { id: rawUserId },
+            attributes: ['id', 'name', 'profileImage'],
+            raw: true
+          });
+          if (dbUser) {
+            userName = dbUser.name || userName;
+            userImage = dbUser.profileImage || userImage;
+          }
+        } catch (_) {}
+      }
+
+      if (!io.liveChannelViewers) io.liveChannelViewers = new Map();
+      if (!io.liveChannelViewers.has(channelName)) {
+        io.liveChannelViewers.set(channelName, new Map());
+      }
+      const channelMap = io.liveChannelViewers.get(channelName);
+      const viewerKey = rawUserId ? `user_${rawUserId}` : `rest_${Date.now()}`;
+      channelMap.set(viewerKey, {
+        id: rawUserId ? parseInt(rawUserId, 10) : 0,
+        name: userName,
+        profileImage: userImage,
+        joinedAt: Date.now()
       });
+
+      const payload = await computeApiLiveViewers(channelName);
+
+      // Broadcast update to real-time socket room
+      io.to(channelName).emit('getViewers', payload);
+      io.to(channelName).emit('liveViewers', payload);
+      io.to(channelName).emit('channelViewers', payload);
+      io.to(channelName).emit('userJoinedLiveStream', {
+        channelId: channelName,
+        channelName: channelName,
+        user: { id: rawUserId || 0, name: userName, profileImage: userImage },
+        viewerCount: payload.viewerCount
+      });
+
+      return helper.success(res, "Joined live event successfully", payload);
+    } catch (e) {
+      return helper.error(res, e.message);
+    }
+  });
+
+  // REST API: Leave Live Event
+  router.post('/leaveLiveEvent', async (req, res) => {
+    try {
+      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId));
+      if (!channel) return helper.failed(res, "channelName or channelId is required");
+      const channelName = String(channel).trim();
+
+      const rawUserId = req.body && (req.body.userId || req.body.senderId || req.body.id);
+      if (rawUserId && io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
+        io.liveChannelViewers.get(channelName).delete(`user_${rawUserId}`);
+      }
+
+      const payload = await computeApiLiveViewers(channelName);
+
+      // Broadcast update to real-time socket room
+      io.to(channelName).emit('getViewers', payload);
+      io.to(channelName).emit('liveViewers', payload);
+      io.to(channelName).emit('channelViewers', payload);
+      io.to(channelName).emit('userLeftLiveStream', {
+        channelId: channelName,
+        channelName: channelName,
+        userId: rawUserId || 0,
+        viewerCount: payload.viewerCount
+      });
+
+      return helper.success(res, "Left live event successfully", payload);
     } catch (e) {
       return helper.error(res, e.message);
     }
