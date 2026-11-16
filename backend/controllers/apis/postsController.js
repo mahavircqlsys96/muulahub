@@ -269,7 +269,7 @@ module.exports = {
       const categoryId = req.query.categoryId;
 
       let whereClause = {
-        status: "active",
+        status: { [sequelize.Op.ne]: "deleted" },
         type: "publish",
       };
 
@@ -380,7 +380,7 @@ module.exports = {
       const post = await posts.findOne({
         where: {
           id,
-          status: "active",
+          status: { [sequelize.Op.ne]: "deleted" },
         },
 
         attributes: {
@@ -486,7 +486,7 @@ module.exports = {
       const post = await posts.findOne({
         where: {
           id,
-          status: "active",
+          status: { [sequelize.Op.ne]: "deleted" },
         },
 
         attributes: {
@@ -1316,8 +1316,6 @@ module.exports = {
         reason: req.body.reason
       });
 
-      await posts.update({ status: 'reported' }, { where: { id: req.body.postId } });
-
       return helper.success(res, 'Post reported successfully');
     } catch (error) {
       console.log(error);
@@ -1366,10 +1364,6 @@ module.exports = {
         reason: req.body.reason,
         status: 'pending'
       });
-
-      if (req.body.reportType === 'post') {
-        await posts.update({ status: 'reported' }, { where: { id: req.body.referenceId } });
-      }
 
       return helper.success(res, 'Report submitted successfully', report);
     } catch (error) {
