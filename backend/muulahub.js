@@ -27,6 +27,7 @@ const io = new Server(http, {
 });
 
 app.set("io", io);
+global.io = io;
 
 io.on("connection", (socket) => {
   socket.on("join_admin", () => {

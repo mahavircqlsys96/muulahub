@@ -317,6 +317,23 @@ module.exports = {
         { where: { userId, status: 'start' } }
       );
 
+      // Notify real-time socket room that live stream has ended
+      if (global.io && event.agoraChannel) {
+        global.io.to(event.agoraChannel).emit('liveStreamEnded', {
+          channelName: event.agoraChannel,
+          channelId: event.agoraChannel,
+          eventId: event.id
+        });
+        global.io.to(event.agoraChannel).emit('eventEnded', {
+          channelName: event.agoraChannel,
+          channelId: event.agoraChannel,
+          eventId: event.id
+        });
+        if (global.io.liveChannelViewers) {
+          global.io.liveChannelViewers.delete(event.agoraChannel);
+        }
+      }
+
       return helper.success(res, "Event streaming stopped successfully", event);
 
     } catch (error) {
@@ -439,6 +456,13 @@ module.exports = {
       eventData.channelName = eventData.agoraChannel;
       eventData.uid = uid;
       eventData.appId = resolvedAppId;
+
+      // Attach viewer count to eventData
+      const viewersPayload = await helper.getLiveChannelViewers(eventData.agoraChannel);
+      eventData.viewerCount = viewersPayload.viewerCount;
+      eventData.totalViewers = viewersPayload.viewerCount;
+      eventData.views = viewersPayload.viewerCount;
+      eventData.viewers = viewersPayload.viewers;
 
       // Keep active event token fresh in DB
       if (freshRtcToken && currentEvent.agoraToken !== freshRtcToken) {
@@ -632,6 +656,14 @@ module.exports = {
           eventData.distanceKm = parseFloat(eventData.distance).toFixed(2);
         }
 
+        // Attach viewer count from active memory/sockets
+        const activeViewers = (global.io && global.io.liveChannelViewers && eventData.agoraChannel && global.io.liveChannelViewers.get(eventData.agoraChannel))
+          ? global.io.liveChannelViewers.get(eventData.agoraChannel).size
+          : 0;
+        eventData.viewerCount = activeViewers;
+        eventData.totalViewers = activeViewers;
+        eventData.views = activeViewers;
+
         return eventData;
       });
 
@@ -756,6 +788,13 @@ module.exports = {
         eventData.uid = uid;
         eventData.appId = resolvedAppId;
       }
+
+      // Attach viewer count to eventData
+      const viewersPayload = await helper.getLiveChannelViewers(eventData.agoraChannel);
+      eventData.viewerCount = viewersPayload.viewerCount;
+      eventData.totalViewers = viewersPayload.viewerCount;
+      eventData.views = viewersPayload.viewerCount;
+      eventData.viewers = viewersPayload.viewers;
 
       return helper.success(res, "Live event details fetched successfully", eventData);
 

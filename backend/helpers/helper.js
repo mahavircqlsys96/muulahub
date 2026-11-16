@@ -635,11 +635,51 @@ module.exports = {
     return obj;
   },
 
+  /**
+   * Get active live channel viewers count & list from Socket.IO & memory
+   */
+  getLiveChannelViewers: async (channelName) => {
+    if (!channelName) return { channelId: '', channelName: '', viewerCount: 0, totalViewers: 0, views: 0, viewers: [] };
+    const cleanChannel = String(channelName).trim();
+    const viewersMap = new Map();
 
+    const io = global.io;
+    if (io) {
+      if (io.liveChannelViewers && io.liveChannelViewers.has(cleanChannel)) {
+        const memMap = io.liveChannelViewers.get(cleanChannel);
+        for (const [k, v] of memMap.entries()) {
+          viewersMap.set(k, {
+            id: v.id || 0,
+            name: v.name || 'Viewer',
+            profileImage: v.profileImage || ''
+          });
+        }
+      }
 
+      try {
+        const sockets = await io.in(cleanChannel).fetchSockets();
+        for (const s of sockets) {
+          const u = s.liveUser || (s.userData ? { id: s.userData.id, name: s.userData.name, profileImage: s.userData.profileImage } : null);
+          if (u) {
+            const key = u.id && u.id !== 0 ? `user_${u.id}` : `socket_${s.id}`;
+            viewersMap.set(key, {
+              id: u.id || 0,
+              name: u.name || 'Viewer',
+              profileImage: u.profileImage || ''
+            });
+          }
+        }
+      } catch (_) {}
+    }
 
-
-
-
-
+    const viewersList = Array.from(viewersMap.values());
+    return {
+      channelId: cleanChannel,
+      channelName: cleanChannel,
+      viewerCount: viewersList.length,
+      totalViewers: viewersList.length,
+      views: viewersList.length,
+      viewers: viewersList
+    };
+  }
 }

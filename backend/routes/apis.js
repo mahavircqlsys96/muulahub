@@ -1,5 +1,6 @@
 var express = require('express');
 var router = express.Router();
+const helper = require("../helpers/helper");
 const authenticateHeader = require('../middleware/authMiddleware').authenticateHeader;
 const authenticateJWT = require('../middleware/authMiddleware').authenticateJWT;
 const optionalAuthenticateJWT = require('../middleware/authMiddleware').optionalAuthenticateJWT;
@@ -36,8 +37,25 @@ module.exports = (io) => {
   router.post('/getChannelUserCount', agoraController.getChannelUsers);
 
   // Live Stream Connected Viewers (Real-Time Socket & In-Memory Room)
+  async function resolveChannelName(input) {
+    if (!input) return '';
+    const str = String(input).trim();
+    if (str.startsWith('event_')) return str;
+    const numId = parseInt(str, 10);
+    if (!isNaN(numId) && numId > 0) {
+      try {
+        const ev = await require('../models').events.findOne({
+          where: { id: numId },
+          attributes: ['agoraChannel']
+        });
+        if (ev && ev.agoraChannel) return ev.agoraChannel;
+      } catch (_) { }
+    }
+    return str;
+  }
+
   async function computeApiLiveViewers(channelName) {
-    if (!channelName) return { channelId: '', channelName: '', viewerCount: 0, viewers: [] };
+    if (!channelName) return { channelId: '', channelName: '', viewerCount: 0, totalViewers: 0, views: 0, viewers: [] };
     const viewersMap = new Map();
 
     if (io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
@@ -64,22 +82,25 @@ module.exports = (io) => {
           });
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     const viewersList = Array.from(viewersMap.values());
     return {
       channelId: channelName,
       channelName: channelName,
       viewerCount: viewersList.length,
+      totalViewers: viewersList.length,
+      views: viewersList.length,
       viewers: viewersList
     };
   }
 
-  router.get('/getLiveViewers', async (req, res) => {
+  // Get Live Viewers / View Count API
+  router.all(['/getLiveViewers', '/getViewCount', '/getEventViewers'], async (req, res) => {
     try {
-      const channel = req.query.channelId || req.query.channelName || req.query.channel || req.query.eventId;
-      if (!channel) return helper.failed(res, "channelId is required");
-      const channelName = String(channel).trim();
+      const channelInput = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId)) || req.query.channelId || req.query.channelName || req.query.channel || req.query.eventId;
+      if (!channelInput) return helper.failed(res, "channelName or eventId is required");
+      const channelName = await resolveChannelName(channelInput);
       const payload = await computeApiLiveViewers(channelName);
       return helper.success(res, "Live viewers fetched successfully", payload);
     } catch (e) {
@@ -87,28 +108,16 @@ module.exports = (io) => {
     }
   });
 
-  router.post('/getLiveViewers', async (req, res) => {
+  // REST API: Join Live Event (Marks user as viewer & broadcasts to socket room)
+  router.all(['/joinLiveEvent', '/joinEvent'], async (req, res) => {
     try {
-      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId)) || req.query.channelId || req.query.channelName;
-      if (!channel) return helper.failed(res, "channelId is required");
-      const channelName = String(channel).trim();
-      const payload = await computeApiLiveViewers(channelName);
-      return helper.success(res, "Live viewers fetched successfully", payload);
-    } catch (e) {
-      return helper.error(res, e.message);
-    }
-  });
+      const channelInput = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId)) || req.query.channelId || req.query.channelName || req.query.channel || req.query.eventId;
+      if (!channelInput) return helper.failed(res, "channelName or eventId is required");
+      const channelName = await resolveChannelName(channelInput);
 
-  // REST API: Join Live Event (Fallback / Direct REST tracking)
-  router.post('/joinLiveEvent', async (req, res) => {
-    try {
-      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId));
-      if (!channel) return helper.failed(res, "channelName or channelId is required");
-      const channelName = String(channel).trim();
-
-      const rawUserId = req.body && (req.body.userId || req.body.senderId || req.body.id);
-      let userName = (req.body && (req.body.userName || req.body.name)) || 'Viewer';
-      let userImage = (req.body && (req.body.userImage || req.body.profileImage || req.body.image)) || '';
+      const rawUserId = (req.body && (req.body.userId || req.body.senderId || req.body.id)) || req.query.userId || (req.auth ? req.auth.id : null);
+      let userName = (req.body && (req.body.userName || req.body.name)) || req.query.userName || 'Viewer';
+      let userImage = (req.body && (req.body.userImage || req.body.profileImage || req.body.image)) || req.query.userImage || '';
 
       if (rawUserId) {
         try {
@@ -121,7 +130,7 @@ module.exports = (io) => {
             userName = dbUser.name || userName;
             userImage = dbUser.profileImage || userImage;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       if (!io.liveChannelViewers) io.liveChannelViewers = new Map();
@@ -143,10 +152,17 @@ module.exports = (io) => {
       io.to(channelName).emit('getViewers', payload);
       io.to(channelName).emit('liveViewers', payload);
       io.to(channelName).emit('channelViewers', payload);
+      io.to(channelName).emit('viewerCount', {
+        channelId: channelName,
+        channelName: channelName,
+        viewerCount: payload.viewerCount,
+        totalViewers: payload.viewerCount,
+        views: payload.viewerCount
+      });
       io.to(channelName).emit('userJoinedLiveStream', {
         channelId: channelName,
         channelName: channelName,
-        user: { id: rawUserId || 0, name: userName, profileImage: userImage },
+        user: { id: rawUserId ? parseInt(rawUserId, 10) : 0, name: userName, profileImage: userImage },
         viewerCount: payload.viewerCount
       });
 
@@ -156,14 +172,14 @@ module.exports = (io) => {
     }
   });
 
-  // REST API: Leave Live Event
-  router.post('/leaveLiveEvent', async (req, res) => {
+  // REST API: Leave Live Event (Removes user from viewer list & broadcasts to socket room)
+  router.all(['/leaveLiveEvent', '/leaveEvent'], async (req, res) => {
     try {
-      const channel = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId));
-      if (!channel) return helper.failed(res, "channelName or channelId is required");
-      const channelName = String(channel).trim();
+      const channelInput = (req.body && (req.body.channelId || req.body.channelName || req.body.channel || req.body.eventId)) || req.query.channelId || req.query.channelName || req.query.channel || req.query.eventId;
+      if (!channelInput) return helper.failed(res, "channelName or eventId is required");
+      const channelName = await resolveChannelName(channelInput);
 
-      const rawUserId = req.body && (req.body.userId || req.body.senderId || req.body.id);
+      const rawUserId = (req.body && (req.body.userId || req.body.senderId || req.body.id)) || req.query.userId || (req.auth ? req.auth.id : null);
       if (rawUserId && io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
         io.liveChannelViewers.get(channelName).delete(`user_${rawUserId}`);
       }
@@ -174,10 +190,17 @@ module.exports = (io) => {
       io.to(channelName).emit('getViewers', payload);
       io.to(channelName).emit('liveViewers', payload);
       io.to(channelName).emit('channelViewers', payload);
+      io.to(channelName).emit('viewerCount', {
+        channelId: channelName,
+        channelName: channelName,
+        viewerCount: payload.viewerCount,
+        totalViewers: payload.viewerCount,
+        views: payload.viewerCount
+      });
       io.to(channelName).emit('userLeftLiveStream', {
         channelId: channelName,
         channelName: channelName,
-        userId: rawUserId || 0,
+        userId: rawUserId ? parseInt(rawUserId, 10) : 0,
         viewerCount: payload.viewerCount
       });
 
