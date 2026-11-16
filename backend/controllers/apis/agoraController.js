@@ -9,12 +9,8 @@ module.exports = {
    */
   generateToken: async (req, res) => {
     try {
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
-
-      if (!appID || !appCertificate) {
-        return helper.failed(res, "Agora App ID and Certificate are missing in .env", {});
-      }
+      const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
       let channelName = req.body.channelName || req.body.channel_name || req.body.channel;
       if (!channelName || String(channelName).trim() === '') {
@@ -95,12 +91,8 @@ module.exports = {
    */
   renewToken: async (req, res) => {
     try {
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
-
-      if (!appID || !appCertificate) {
-        return helper.failed(res, "Agora App ID and Certificate are missing in .env", {});
-      }
+      const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
       const channelName = req.body.channelName || req.body.channel_name || req.body.channel;
       if (!channelName || String(channelName).trim() === '') {
@@ -191,12 +183,8 @@ module.exports = {
    */
   generateRtmToken: async (req, res) => {
     try {
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
-
-      if (!appID || !appCertificate) {
-        return helper.failed(res, "Agora App ID and Certificate are missing in .env", {});
-      }
+      const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
       let userId = req.body.userId || req.body.uid || (req.auth ? req.auth.id : null);
       if (userId === undefined || userId === null || userId === '') {

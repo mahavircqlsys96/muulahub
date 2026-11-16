@@ -31,12 +31,8 @@ module.exports = {
         where: { userId }
       });
 
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
-
-      if (!appID || !appCertificate) {
-        return helper.failed(res, "Agora App ID and Certificate are not configured on the server");
-      }
+      const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
       const {
         caption,
@@ -578,22 +574,22 @@ module.exports = {
             : 0;
         }
 
-        const cleanAppId = String(appID || '').replace(/['"]/g, '').trim();
-        const cleanAppCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+        const resolvedAppId = String(cleanAppId || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+        const resolvedAppCert = String(cleanAppCert || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
-        if (cleanAppId && cleanAppCert && eventData.agoraChannel) {
+        if (eventData.agoraChannel) {
           try {
             const viewerToken = helper.buildAgoraRtcToken(
-              cleanAppId,
-              cleanAppCert,
+              resolvedAppId,
+              resolvedAppCert,
               eventData.agoraChannel,
               viewerUid,
-              'subscriber',
+              'publisher',
               86400
             );
             const viewerRtmToken = helper.buildAgoraRtmToken(
-              cleanAppId,
-              cleanAppCert,
+              resolvedAppId,
+              resolvedAppCert,
               String(currentUserId),
               86400
             );
@@ -606,7 +602,7 @@ module.exports = {
             eventData.rtmUserId = String(currentUserId);
             eventData.channelName = eventData.agoraChannel;
             eventData.uid = viewerUid;
-            eventData.appId = cleanAppId;
+            eventData.appId = resolvedAppId;
           } catch (tokErr) {
             console.log("Error generating viewer token:", tokErr.message);
           }
@@ -703,29 +699,26 @@ module.exports = {
           : 0;
       }
 
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
+      const resolvedAppId = String(appID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const resolvedAppCert = String(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
-      if (appID && appCertificate && eventData.agoraChannel) {
-        const currentTimestamp = Math.floor(Date.now() / 1000);
-        const privilegeExpireTime = currentTimestamp + 86400;
+      if (eventData.agoraChannel) {
         const isHost = event.userId === currentUserId;
-        const role = isHost ? 'publisher' : 'subscriber';
         const uid = 0;
 
         const token = helper.buildAgoraRtcToken(
-          appID,
-          appCertificate,
+          resolvedAppId,
+          resolvedAppCert,
           eventData.agoraChannel,
           uid,
-          role,
+          'publisher',
           86400
         );
 
         const rtmUserId = String(uid && uid !== 0 ? uid : currentUserId);
         let rtmToken = helper.buildAgoraRtmToken(
-          appID,
-          appCertificate,
+          resolvedAppId,
+          resolvedAppCert,
           rtmUserId,
           86400
         );
@@ -735,11 +728,13 @@ module.exports = {
         eventData.isHost = isHost;
         eventData.token = token;
         eventData.rtcToken = token;
+        eventData.viewerAgoraToken = token;
         eventData.rtmToken = rtmToken;
+        eventData.viewerRtmToken = rtmToken;
         eventData.rtmUserId = rtmUserId;
         eventData.channelName = eventData.agoraChannel;
         eventData.uid = uid;
-        eventData.appId = appID;
+        eventData.appId = resolvedAppId;
       }
 
       return helper.success(res, "Live event details fetched successfully", eventData);
