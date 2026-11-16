@@ -50,10 +50,21 @@ module.exports = {
 
       const webhookSecret = process.env.MUX_WEBHOOK_SECRET;
 
+      // Extract raw body as string (Mux SDK requires raw UTF-8 string)
+      const rawPayload = Buffer.isBuffer(req.rawBody)
+        ? req.rawBody.toString('utf8')
+        : (typeof req.rawBody === 'string' ? req.rawBody : (req.body ? JSON.stringify(req.body) : ''));
+
       let event;
       try {
-        // req.rawBody was populated by our express.json middleware
-        event = Mux.Webhooks.verifySignature(req.rawBody, signature, webhookSecret);
+        if (webhookSecret && mux.webhooks && typeof mux.webhooks.unwrap === 'function') {
+          event = await mux.webhooks.unwrap(rawPayload, req.headers, webhookSecret);
+        } else if (webhookSecret && mux.webhooks && typeof mux.webhooks.verifySignature === 'function') {
+          await mux.webhooks.verifySignature(rawPayload, req.headers, webhookSecret);
+          event = typeof rawPayload === 'string' && rawPayload ? JSON.parse(rawPayload) : req.body;
+        } else {
+          event = typeof rawPayload === 'string' && rawPayload ? JSON.parse(rawPayload) : req.body;
+        }
       } catch (err) {
         console.error("Webhook signature verification failed:", err);
         return helper.failed(res, "Invalid signature", {}, 400);
