@@ -574,8 +574,8 @@ module.exports = {
             : 0;
         }
 
-        const resolvedAppId = String(cleanAppId || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-        const resolvedAppCert = String(cleanAppCert || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+        const resolvedAppId = String(appID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+        const resolvedAppCert = String(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
         if (eventData.agoraChannel) {
           try {
