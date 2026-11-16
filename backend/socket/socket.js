@@ -845,7 +845,7 @@ module.exports = function (io) {
     // 5. Get Active Viewers in Room
     const handleGetViewers = async (data) => {
       try {
-        const channel = data && (data.channelId || data.channelName || data.channel || socket.activeLiveChannel);
+        const channel = data.channelName
         const channelName = String(channel || '').trim();
         if (!channelName) return;
 
@@ -859,7 +859,7 @@ module.exports = function (io) {
           viewers: viewers
         };
 
-        socket.emit('liveViewers', payload);
+        socket.emit('getViewers', payload);
         socket.emit('channelViewers', payload);
       } catch (err) {
         console.error('[Socket Live] Error in getViewers:', err);
