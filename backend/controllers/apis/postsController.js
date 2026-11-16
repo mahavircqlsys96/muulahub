@@ -576,6 +576,7 @@ module.exports = {
           {
             model: post_comments,
             as: "comments",
+            where: { commentId: null },
             required: false,
             attributes: {
               include: [
@@ -616,10 +617,56 @@ module.exports = {
         return helper.failed(res, "Post not found");
       }
 
+      const postJson = post.toJSON ? post.toJSON() : post;
+      if (postJson.comments && postJson.comments.length > 0) {
+        const parentIds = postJson.comments.map(c => c.id);
+        const allReplies = await post_comments.findAll({
+          where: {
+            postId: id,
+            commentId: { [sequelize.Op.in]: parentIds }
+          },
+          attributes: {
+            include: [
+              [
+                sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM comment_likes
+                  WHERE comment_likes.commentId = post_comments.id
+                )`),
+                "likeCount"
+              ],
+              [
+                sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM comment_likes
+                  WHERE comment_likes.commentId = post_comments.id
+                  AND comment_likes.userId = ${req.auth ? req.auth.id : 0}
+                )`),
+                "isLiked"
+              ]
+            ]
+          },
+          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+          order: [['createdAt', 'ASC']]
+        });
+
+        const repliesMap = {};
+        for (const r of allReplies) {
+          if (!repliesMap[r.commentId]) repliesMap[r.commentId] = [];
+          repliesMap[r.commentId].push(r);
+        }
+
+        postJson.comments = postJson.comments.map(c => ({
+          ...c,
+          replyCount: (repliesMap[c.id] || []).length,
+          replies: repliesMap[c.id] || []
+        }));
+      }
+
       return helper.success(
         res,
         "Post fetched successfully",
-        post
+        postJson
       );
     } catch (error) {
       console.log(error);
@@ -912,10 +959,13 @@ module.exports = {
         include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }]
       });
 
+      const responseComment = commentWithUser ? (commentWithUser.toJSON ? commentWithUser.toJSON() : commentWithUser) : {};
+      responseComment.replies = [];
+
       return helper.success(
         res,
         targetCommentId ? 'Reply added successfully' : 'Comment added successfully',
-        commentWithUser
+        responseComment
       );
     } catch (error) {
       console.log(error);
@@ -929,6 +979,7 @@ module.exports = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 20;
       const offset = (page - 1) * limit;
+      const currentUserId = req.auth ? req.auth.id : 0;
 
       if (!postId) return helper.failed(res, 'postId is required');
 
@@ -949,15 +1000,15 @@ module.exports = {
                 SELECT COUNT(*)
                 FROM comment_likes
                 WHERE comment_likes.commentId = post_comments.id
-                AND comment_likes.userId = ${req.auth ? req.auth.id : 0}
+                AND comment_likes.userId = ${currentUserId}
               )`),
               "isLiked"
             ],
             [
               sequelize.literal(`(
                 SELECT COUNT(*)
-                FROM post_comments AS replies
-                WHERE replies.commentId = post_comments.id
+                FROM post_comments AS replies_count
+                WHERE replies_count.commentId = post_comments.id
               )`),
               "replyCount"
             ]
@@ -970,12 +1021,61 @@ module.exports = {
         distinct: true
       });
 
+      // Fetch all replies for these parent comments and embed as inner array
+      let formattedRows = [];
+      if (rows && rows.length > 0) {
+        const parentIds = rows.map(r => r.id);
+        const allReplies = await post_comments.findAll({
+          where: {
+            postId,
+            commentId: { [sequelize.Op.in]: parentIds }
+          },
+          attributes: {
+            include: [
+              [
+                sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM comment_likes
+                  WHERE comment_likes.commentId = post_comments.id
+                )`),
+                "likeCount"
+              ],
+              [
+                sequelize.literal(`(
+                  SELECT COUNT(*)
+                  FROM comment_likes
+                  WHERE comment_likes.commentId = post_comments.id
+                  AND comment_likes.userId = ${currentUserId}
+                )`),
+                "isLiked"
+              ]
+            ]
+          },
+          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+          order: [['createdAt', 'ASC']]
+        });
+
+        // Group replies by parent commentId
+        const repliesByParentId = {};
+        for (const reply of allReplies) {
+          const pId = reply.commentId;
+          if (!repliesByParentId[pId]) repliesByParentId[pId] = [];
+          repliesByParentId[pId].push(reply);
+        }
+
+        formattedRows = rows.map(c => {
+          const item = c.toJSON ? c.toJSON() : c;
+          item.replies = repliesByParentId[c.id] || [];
+          return item;
+        });
+      }
+
       return helper.success(res, 'Comments fetched', {
         total: count,
         page,
         limit,
         totalPages: Math.ceil(count / limit),
-        data: rows
+        data: formattedRows
       });
     } catch (error) {
       console.log(error);
