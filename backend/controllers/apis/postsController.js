@@ -868,8 +868,28 @@ module.exports = {
           title: 'New Like',
           message: `${req.auth.name} liked your post`,
           type: 'system',
+          notificationType: 'push',
           referenceId: postId
         });
+
+        const postAuthor = await users.findOne({
+          where: { id: post.userId },
+          attributes: ['id', 'deviceToken', 'name']
+        });
+
+        if (postAuthor && postAuthor.deviceToken && postAuthor.deviceToken.trim().length > 20) {
+          helper.sendPushNotification({
+            token: postAuthor.deviceToken.trim(),
+            title: 'New Like',
+            body: `${req.auth.name} liked your post`,
+            type: 'post_like',
+            post_id: String(postId),
+            postId: String(postId),
+            sender_id: String(userId),
+            sender_name: req.auth.name,
+            sender_image: req.auth.profileImage || ''
+          }).catch(err => console.log("Like post push error:", err.message));
+        }
       }
 
       return helper.success(res, 'Post liked');
@@ -911,27 +931,71 @@ module.exports = {
       // Notification to parent comment author if replying
       if (targetCommentId && parentComment) {
         if (parentComment.userId !== userId) {
+          const parentAuthor = await users.findOne({
+            where: { id: parentComment.userId },
+            attributes: ['id', 'deviceToken', 'name']
+          });
+
           await notifications.create({
             userId: parentComment.userId,
             senderId: userId,
             title: 'New Reply',
-            message: `${req.auth.name} replied to your comment`,
+            message: `${req.auth.name} replied to your comment: "${comment.trim().substring(0, 80)}"`,
             type: 'system',
+            notificationType: 'push',
             referenceId: postId
           });
+
+          if (parentAuthor && parentAuthor.deviceToken && parentAuthor.deviceToken.trim().length > 20) {
+            helper.sendPushNotification({
+              token: parentAuthor.deviceToken.trim(),
+              title: 'New Reply',
+              body: `${req.auth.name} replied to your comment: "${comment.trim().substring(0, 80)}"`,
+              type: 'post_reply',
+              post_id: String(postId),
+              postId: String(postId),
+              comment_id: String(newComment.id),
+              commentId: String(newComment.id),
+              sender_id: String(userId),
+              sender_name: req.auth.name,
+              sender_image: req.auth.profileImage || ''
+            }).catch(err => console.log("Reply push error:", err.message));
+          }
         }
       }
 
       // Notification to post author (if not self and not already notified as parent author)
       if (post.userId !== userId && (!parentComment || parentComment.userId !== post.userId)) {
+        const postAuthor = await users.findOne({
+          where: { id: post.userId },
+          attributes: ['id', 'deviceToken', 'name']
+        });
+
         await notifications.create({
           userId: post.userId,
           senderId: userId,
           title: 'New Comment',
-          message: `${req.auth.name} commented on your post`,
+          message: `${req.auth.name} commented on your post: "${comment.trim().substring(0, 80)}"`,
           type: 'system',
+          notificationType: 'push',
           referenceId: postId
         });
+
+        if (postAuthor && postAuthor.deviceToken && postAuthor.deviceToken.trim().length > 20) {
+          helper.sendPushNotification({
+            token: postAuthor.deviceToken.trim(),
+            title: 'New Comment',
+            body: `${req.auth.name} commented on your post: "${comment.trim().substring(0, 80)}"`,
+            type: 'post_comment',
+            post_id: String(postId),
+            postId: String(postId),
+            comment_id: String(newComment.id),
+            commentId: String(newComment.id),
+            sender_id: String(userId),
+            sender_name: req.auth.name,
+            sender_image: req.auth.profileImage || ''
+          }).catch(err => console.log("Comment push error:", err.message));
+        }
       }
 
       const commentWithUser = await post_comments.findOne({
@@ -1289,8 +1353,30 @@ module.exports = {
           title: 'New Like on Comment',
           message: `${req.auth.name} liked your comment`,
           type: 'system',
+          notificationType: 'push',
           referenceId: comment.postId
         });
+
+        const commentAuthor = await users.findOne({
+          where: { id: comment.userId },
+          attributes: ['id', 'deviceToken', 'name']
+        });
+
+        if (commentAuthor && commentAuthor.deviceToken && commentAuthor.deviceToken.trim().length > 20) {
+          helper.sendPushNotification({
+            token: commentAuthor.deviceToken.trim(),
+            title: 'New Like on Comment',
+            body: `${req.auth.name} liked your comment`,
+            type: 'comment_like',
+            post_id: String(comment.postId),
+            postId: String(comment.postId),
+            comment_id: String(commentId),
+            commentId: String(commentId),
+            sender_id: String(userId),
+            sender_name: req.auth.name,
+            sender_image: req.auth.profileImage || ''
+          }).catch(err => console.log("Like comment push error:", err.message));
+        }
       }
 
       return helper.success(res, 'Comment liked');

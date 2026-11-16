@@ -198,21 +198,44 @@ module.exports = {
             ? `${creatorName} is streaming live: "${caption}". Tap to join!`
             : `${creatorName} has started a live video stream. Tap to join and watch!`;
 
-          // Find all non-blocked users who have a deviceToken (including creator so testing on 1 device works)
+          // Exclude the creator (self-user) so creator NEVER receives their own live push notification
+          const creatorUser = await users.findOne({
+            where: { id: userId },
+            attributes: ['id', 'deviceToken']
+          });
+          const creatorDeviceToken = creatorUser && creatorUser.deviceToken ? creatorUser.deviceToken.trim() : null;
+
+          let recipientWhere = {
+            id: { [Op.ne]: userId },
+            status: { [Op.ne]: 'blocked' },
+            deviceToken: {
+              [Op.and]: [
+                { [Op.ne]: null },
+                { [Op.ne]: '' }
+              ]
+            }
+          };
+
+          if (available === 'followersOnly') {
+            const followerRows = await followers.findAll({
+              where: { followingId: userId },
+              attributes: ['followerId']
+            });
+            const followerIds = followerRows.map(f => f.followerId);
+            recipientWhere.id = {
+              [Op.and]: [
+                { [Op.in]: followerIds },
+                { [Op.ne]: userId }
+              ]
+            };
+          }
+
           const recipients = await users.findAll({
-            where: {
-              status: { [Op.ne]: 'blocked' },
-              deviceToken: {
-                [Op.and]: [
-                  { [Op.ne]: null },
-                  { [Op.ne]: '' }
-                ]
-              }
-            },
+            where: recipientWhere,
             attributes: ['id', 'deviceToken', 'name', 'status']
           });
 
-          console.log(`📡 [createEvent Push] Event ID: ${newEvent.id}, Host: ${creatorName} (${userId}). Total recipients found: ${recipients.length}`);
+          console.log(`📡 [createEvent Push] Event ID: ${newEvent.id}, Host: ${creatorName} (${userId}). Total other recipients: ${recipients.length}`);
 
           if (recipients && recipients.length > 0) {
             // 1. Create in-app notification records in DB
@@ -235,11 +258,11 @@ module.exports = {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
             }
 
-            // 2. Send push notifications to recipients using helper.sendPushNotification
+            // 2. Send push notifications to recipients (strictly excluding creator's device token)
             const validTokens = [...new Set(
               recipients
-                .map(u => u.deviceToken)
-                .filter(tok => tok && typeof tok === 'string' && tok.trim() !== '')
+                .map(u => u.deviceToken ? u.deviceToken.trim() : null)
+                .filter(tok => tok && tok.length > 20 && tok !== creatorDeviceToken)
             )];
 
             console.log(`📡 [createEvent Push] Sending push to ${validTokens.length} devices via sendPushNotification...`);

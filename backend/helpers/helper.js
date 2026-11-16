@@ -230,7 +230,25 @@ module.exports = {
       // Always grant publisher permissions (Role.PUBLISHER = 1) so both hosts & viewers can join without errInvalidToken
       const agoraRole = 1; // PUBLISHER
 
-      // Strategy 1: RtcTokenBuilder2 (AccessToken2 / Token007)
+      // Strategy 1: Direct AccessToken2 (Token007) with integer issueTs (fixes Node.js 16+ float writeUInt32LE crash)
+      try {
+        const { AccessToken2, ServiceRtc } = require('agora-token/src/AccessToken2');
+        const token = new AccessToken2(cleanAppId, cleanCert, currentTimestamp, expireSeconds);
+        const serviceRtc = new ServiceRtc(cleanChannel, numericUid === 0 ? '' : `${numericUid}`);
+        serviceRtc.add_privilege(ServiceRtc.kPrivilegeJoinChannel, expireSeconds);
+        serviceRtc.add_privilege(ServiceRtc.kPrivilegePublishAudioStream, expireSeconds);
+        serviceRtc.add_privilege(ServiceRtc.kPrivilegePublishVideoStream, expireSeconds);
+        serviceRtc.add_privilege(ServiceRtc.kPrivilegePublishDataStream, expireSeconds);
+        token.add_service(serviceRtc);
+        const built = token.build();
+        if (built && typeof built === 'string' && built.trim().length > 15) {
+          return built.trim();
+        }
+      } catch (e0) {
+        console.error("AccessToken2 direct RTC generation error:", e0.message);
+      }
+
+      // Strategy 2: RtcTokenBuilder2 (AccessToken2 / Token007)
       try {
         const { RtcTokenBuilder } = require('agora-token');
         if (RtcTokenBuilder && typeof RtcTokenBuilder.buildTokenWithUid === 'function') {
@@ -251,7 +269,7 @@ module.exports = {
         console.error("RtcTokenBuilder2 generation error:", e1.message);
       }
 
-      // Strategy 2: RtcTokenBuilder v1 (AccessToken / Token006)
+      // Strategy 3: RtcTokenBuilder v1 (AccessToken / Token006)
       try {
         const RtcTokenBuilderV1 = require('agora-token/src/RtcTokenBuilder').RtcTokenBuilder;
         if (RtcTokenBuilderV1 && typeof RtcTokenBuilderV1.buildTokenWithUid === 'function') {
@@ -310,10 +328,10 @@ module.exports = {
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + expireSeconds;
 
-      // Strategy 1: AccessToken2 with RTM 1.x and RTM 2.x services
+      // Strategy 1: Direct AccessToken2 with integer issueTs (fixes Node.js 16+ float writeUInt32LE crash)
       try {
         const { AccessToken2, ServiceRtm, ServiceRtm2 } = require('agora-token/src/AccessToken2');
-        const token = new AccessToken2(cleanAppId, cleanCert, 0, expireSeconds);
+        const token = new AccessToken2(cleanAppId, cleanCert, currentTimestamp, expireSeconds);
 
         const serviceRtm = new ServiceRtm(cleanUserId);
         serviceRtm.add_privilege(ServiceRtm.kPrivilegeLogin, expireSeconds);
@@ -327,8 +345,8 @@ module.exports = {
         if (built && typeof built === 'string' && built.trim().length > 15) {
           return built.trim();
         }
-      } catch (e1) {
-        console.error("AccessToken2 RTM generation error:", e1.message);
+      } catch (e0) {
+        console.error("AccessToken2 direct RTM generation error:", e0.message);
       }
 
       // Strategy 2: Classic RtmTokenBuilder (v1)
@@ -363,6 +381,10 @@ module.exports = {
           currentTimestamp + 86400
         ) || '';
       } catch (_) {
+        return '';
+      }
+    }
+  },
         return '';
       }
     }
