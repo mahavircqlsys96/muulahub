@@ -407,22 +407,42 @@ module.exports = {
           ? parseInt(eventData.user.totalReview, 10)
           : 0;
       }
-      eventData.token = eventData.agoraToken;
-      eventData.rtcToken = eventData.agoraToken;
-      eventData.channelName = eventData.agoraChannel;
-      eventData.uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
-      eventData.appId = eventData.agoraAppId || envfile.AGORA_APP_ID;
+      const resolvedAppId = String(envfile.AGORA_APP_ID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
+      const resolvedAppCert = String(envfile.AGORA_APP_CERTIFICATE || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
-      const appID = envfile.AGORA_APP_ID;
-      const appCertificate = envfile.AGORA_APP_CERTIFICATE;
-      if (appID && appCertificate) {
-        try {
-          const rtmUserId = String(eventData.uid || userId);
-          eventData.rtmToken = helper.buildAgoraRtmToken(appID, appCertificate, rtmUserId, 86400);
-          eventData.rtmUserId = rtmUserId;
-        } catch (rtmErr) {
-          console.log("Error generating RTM token in getMyLiveEvent:", rtmErr.message);
-        }
+      const uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
+      const rtmUserId = String(uid && uid !== 0 ? uid : userId);
+
+      const freshRtcToken = helper.buildAgoraRtcToken(
+        resolvedAppId,
+        resolvedAppCert,
+        eventData.agoraChannel,
+        uid,
+        'publisher',
+        86400
+      );
+
+      const freshRtmToken = helper.buildAgoraRtmToken(
+        resolvedAppId,
+        resolvedAppCert,
+        rtmUserId,
+        86400
+      );
+
+      eventData.token = freshRtcToken;
+      eventData.rtcToken = freshRtcToken;
+      eventData.agoraToken = freshRtcToken;
+      eventData.viewerAgoraToken = freshRtcToken;
+      eventData.rtmToken = freshRtmToken;
+      eventData.viewerRtmToken = freshRtmToken;
+      eventData.rtmUserId = rtmUserId;
+      eventData.channelName = eventData.agoraChannel;
+      eventData.uid = uid;
+      eventData.appId = resolvedAppId;
+
+      // Keep active event token fresh in DB
+      if (freshRtcToken && currentEvent.agoraToken !== freshRtcToken) {
+        currentEvent.update({ agoraToken: freshRtcToken }).catch(() => {});
       }
 
       return helper.success(res, "Current live event fetched successfully", eventData);
