@@ -206,28 +206,107 @@ module.exports = {
   },
 
   /**
+   * Build Agora RTC Token safely with fallback and quote sanitization
+   */
+  buildAgoraRtcToken: (appId, appCertificate, channelName, uid = 0, role = 'subscriber', expire = 86400) => {
+    try {
+      const cleanAppId = String(appId || '').replace(/['"]/g, '').trim();
+      const cleanCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+      const cleanChannel = String(channelName || '').trim();
+      const expireSeconds = parseInt(expire, 10) || 86400;
+
+      const { RtcTokenBuilder, RtcRole } = require('agora-token');
+      const agoraRole = (role === 'publisher' || role === 1 || role === 'PUBLISHER' || role === RtcRole.PUBLISHER)
+        ? RtcRole.PUBLISHER
+        : RtcRole.SUBSCRIBER;
+
+      // 1. Try RtcTokenBuilder2
+      let token = RtcTokenBuilder.buildTokenWithUid(
+        cleanAppId,
+        cleanCert,
+        cleanChannel,
+        uid || 0,
+        agoraRole,
+        expireSeconds,
+        expireSeconds
+      );
+
+      // 2. If empty string (failed build_check), fallback to RtcTokenBuilder v1
+      if (!token) {
+        const RtcTokenBuilderV1 = require('agora-token/src/RtcTokenBuilder').RtcTokenBuilder;
+        const expireTimestamp = Math.floor(Date.now() / 1000) + expireSeconds;
+        token = RtcTokenBuilderV1.buildTokenWithUid(
+          cleanAppId,
+          cleanCert,
+          cleanChannel,
+          uid || 0,
+          agoraRole,
+          expireTimestamp
+        );
+      }
+
+      return token || '';
+    } catch (err) {
+      console.error("buildAgoraRtcToken error:", err.message);
+      try {
+        const cleanAppId = String(appId || '').replace(/['"]/g, '').trim();
+        const cleanCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+        const RtcTokenBuilderV1 = require('agora-token/src/RtcTokenBuilder').RtcTokenBuilder;
+        const expireTimestamp = Math.floor(Date.now() / 1000) + 86400;
+        return RtcTokenBuilderV1.buildTokenWithUid(
+          cleanAppId,
+          cleanCert,
+          String(channelName).trim(),
+          uid || 0,
+          1,
+          expireTimestamp
+        ) || '';
+      } catch (_) {
+        return '';
+      }
+    }
+  },
+
+  /**
    * Build Agora RTM Token supporting both RTM 1.x (ServiceRtm) and RTM 2.x (ServiceRtm2 / Signaling)
    */
   buildAgoraRtmToken: (appId, appCertificate, userId, expire = 86400) => {
     try {
+      const cleanAppId = String(appId || '').replace(/['"]/g, '').trim();
+      const cleanCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+      const expireSeconds = parseInt(expire, 10) || 86400;
+
       const { AccessToken2, ServiceRtm, ServiceRtm2 } = require('agora-token/src/AccessToken2');
-      const token = new AccessToken2(appId, appCertificate, null, expire);
+      const token = new AccessToken2(cleanAppId, cleanCert, null, expireSeconds);
 
       // Add RTM 1.x Service (service type 2)
       const serviceRtm = new ServiceRtm(String(userId));
-      serviceRtm.add_privilege(ServiceRtm.kPrivilegeLogin, expire);
+      serviceRtm.add_privilege(ServiceRtm.kPrivilegeLogin, expireSeconds);
       token.add_service(serviceRtm);
 
       // Add RTM 2.x / Signaling Service (service type 8)
       const serviceRtm2 = new ServiceRtm2(String(userId));
-      serviceRtm2.add_privilege(ServiceRtm2.kPrivilegeLogin, expire);
+      serviceRtm2.add_privilege(ServiceRtm2.kPrivilegeLogin, expireSeconds);
       token.add_service(serviceRtm2);
 
-      return token.build();
+      const built = token.build();
+      if (built && built.trim() !== '') {
+        return built;
+      }
+
+      // If AccessToken2 returned empty string, fallback to classic RtmTokenBuilder
+      const { RtmTokenBuilder } = require('agora-token');
+      return RtmTokenBuilder.buildToken(cleanAppId, cleanCert, String(userId), expireSeconds) || '';
     } catch (err) {
       console.error("buildAgoraRtmToken error, fallback to RtmTokenBuilder:", err.message);
-      const { RtmTokenBuilder } = require('agora-token');
-      return RtmTokenBuilder.buildToken(appId, appCertificate, String(userId), expire);
+      try {
+        const cleanAppId = String(appId || '').replace(/['"]/g, '').trim();
+        const cleanCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+        const { RtmTokenBuilder } = require('agora-token');
+        return RtmTokenBuilder.buildToken(cleanAppId, cleanCert, String(userId), expire) || '';
+      } catch (_) {
+        return '';
+      }
     }
   },
 

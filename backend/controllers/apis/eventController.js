@@ -84,14 +84,13 @@ module.exports = {
       const privilegeExpireTime = currentTime + expireTime;
 
       // Build RTC token with uid
-      const agoraToken = RtcTokenBuilder.buildTokenWithUid(
+      const agoraToken = helper.buildAgoraRtcToken(
         appID,
         appCertificate,
         channelName,
         uid,
         role,
-        privilegeExpireTime,
-        privilegeExpireTime
+        expireTime
       );
 
       // Build RTM token for live streaming real-time chat (supports RTM 1.x & RTM 2.x)
@@ -579,22 +578,24 @@ module.exports = {
             : 0;
         }
 
-        if (appID && appCertificate && eventData.agoraChannel) {
+        const cleanAppId = String(appID || '').replace(/['"]/g, '').trim();
+        const cleanAppCert = String(appCertificate || '').replace(/['"]/g, '').trim();
+
+        if (cleanAppId && cleanAppCert && eventData.agoraChannel) {
           try {
-            const viewerToken = RtcTokenBuilder.buildTokenWithUid(
-              appID,
-              appCertificate,
+            const viewerToken = helper.buildAgoraRtcToken(
+              cleanAppId,
+              cleanAppCert,
               eventData.agoraChannel,
               viewerUid,
-              RtcRole.SUBSCRIBER,
-              privilegeExpireTime,
-              privilegeExpireTime
+              'subscriber',
+              86400
             );
             const viewerRtmToken = helper.buildAgoraRtmToken(
-              appID,
-              appCertificate,
+              cleanAppId,
+              cleanAppCert,
               String(currentUserId),
-              privilegeExpireTime
+              86400
             );
             eventData.viewerAgoraToken = viewerToken;
             eventData.viewerUid = viewerUid;
@@ -605,7 +606,7 @@ module.exports = {
             eventData.rtmUserId = String(currentUserId);
             eventData.channelName = eventData.agoraChannel;
             eventData.uid = viewerUid;
-            eventData.appId = appID;
+            eventData.appId = cleanAppId;
           } catch (tokErr) {
             console.log("Error generating viewer token:", tokErr.message);
           }
@@ -709,31 +710,25 @@ module.exports = {
         const currentTimestamp = Math.floor(Date.now() / 1000);
         const privilegeExpireTime = currentTimestamp + 86400;
         const isHost = event.userId === currentUserId;
-        const role = isHost ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+        const role = isHost ? 'publisher' : 'subscriber';
         const uid = 0;
 
-        const token = RtcTokenBuilder.buildTokenWithUid(
+        const token = helper.buildAgoraRtcToken(
           appID,
           appCertificate,
           eventData.agoraChannel,
           uid,
           role,
-          privilegeExpireTime,
-          privilegeExpireTime
+          86400
         );
 
         const rtmUserId = String(uid && uid !== 0 ? uid : currentUserId);
-        let rtmToken = null;
-        try {
-          rtmToken = helper.buildAgoraRtmToken(
-            appID,
-            appCertificate,
-            rtmUserId,
-            86400
-          );
-        } catch (rtmErr) {
-          console.log("Error building RTM token in getLiveEventDetail:", rtmErr.message);
-        }
+        let rtmToken = helper.buildAgoraRtmToken(
+          appID,
+          appCertificate,
+          rtmUserId,
+          86400
+        );
 
         eventData.agoraToken = token;
         eventData.agoraUid = uid.toString();

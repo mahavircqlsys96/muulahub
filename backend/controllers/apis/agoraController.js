@@ -48,14 +48,13 @@ module.exports = {
       const privilegeExpireTime = currentTime + expireTime;
 
       // RTC Token (audio/video streaming)
-      const token = RtcTokenBuilder.buildTokenWithUid(
+      const token = helper.buildAgoraRtcToken(
         appID,
         appCertificate,
         channelName,
         uid,
-        role,
-        privilegeExpireTime,
-        privilegeExpireTime
+        role === RtcRole.PUBLISHER ? 'publisher' : 'subscriber',
+        expireTime
       );
 
       // RTM Token (real-time chat/messaging during live stream - supports RTM 1.x & RTM 2.x)
@@ -135,14 +134,13 @@ module.exports = {
       const privilegeExpireTime = currentTime + expireTime;
 
       // Build new Agora RTC token
-      const token = RtcTokenBuilder.buildTokenWithUid(
+      const token = helper.buildAgoraRtcToken(
         appID,
         appCertificate,
         channelName,
         uid,
-        role,
-        privilegeExpireTime,
-        privilegeExpireTime
+        role === RtcRole.PUBLISHER ? 'publisher' : 'subscriber',
+        expireTime
       );
 
       // Build new Agora RTM token for live streaming chat (supports RTM 1.x & RTM 2.x)
