@@ -370,6 +370,221 @@ module.exports = {
   },
 
   /**
+   * Viewer joins active live event (Increases viewer count & broadcasts in real time)
+   * Body / Query:
+   *  - eventId or channelName (or channelId / channel)
+   *  - userId (optional)
+   */
+  joinEvent: async (req, res) => {
+    try {
+      const channelInput = (req.body && (req.body.channelName || req.body.channelId || req.body.channel || req.body.eventId)) || req.query.channelName || req.query.channelId || req.query.channel || req.query.eventId;
+      if (!channelInput) {
+        return helper.failed(res, "channelName or eventId is required");
+      }
+
+      let channelName = String(channelInput).trim();
+      let eventId = null;
+
+      if (!channelName.startsWith('event_')) {
+        const numId = parseInt(channelName, 10);
+        if (!isNaN(numId) && numId > 0) {
+          const ev = await events.findOne({ where: { id: numId }, attributes: ['id', 'agoraChannel'] });
+          if (ev) {
+            eventId = ev.id;
+            channelName = ev.agoraChannel || channelName;
+          }
+        }
+      } else {
+        const match = channelName.match(/^event_(\d+)_/);
+        if (match) eventId = parseInt(match[1], 10);
+      }
+
+      const rawUserId = (req.body && (req.body.userId || req.body.senderId || req.body.id)) || req.query.userId || (req.auth ? req.auth.id : null);
+      let userName = (req.body && (req.body.userName || req.body.name)) || req.query.userName || 'Viewer';
+      let userImage = (req.body && (req.body.userImage || req.body.profileImage || req.body.image)) || req.query.userImage || '';
+
+      if (rawUserId) {
+        try {
+          const dbUser = await users.findOne({
+            where: { id: rawUserId },
+            attributes: ['id', 'name', 'profileImage'],
+            raw: true
+          });
+          if (dbUser) {
+            userName = dbUser.name || userName;
+            userImage = dbUser.profileImage || userImage;
+          }
+        } catch (_) {}
+      }
+
+      const io = global.io;
+      if (io) {
+        if (!io.liveChannelViewers) io.liveChannelViewers = new Map();
+        if (!io.liveChannelViewers.has(channelName)) {
+          io.liveChannelViewers.set(channelName, new Map());
+        }
+        const channelMap = io.liveChannelViewers.get(channelName);
+        const viewerKey = rawUserId ? `user_${rawUserId}` : `guest_${Date.now()}`;
+        channelMap.set(viewerKey, {
+          id: rawUserId ? parseInt(rawUserId, 10) : 0,
+          name: userName,
+          profileImage: userImage,
+          joinedAt: Date.now()
+        });
+      }
+
+      const viewersPayload = await helper.getLiveChannelViewers(channelName);
+
+      // Real-time broadcast to all viewers in this live stream
+      if (io) {
+        io.to(channelName).emit('getViewers', viewersPayload);
+        io.to(channelName).emit('liveViewers', viewersPayload);
+        io.to(channelName).emit('channelViewers', viewersPayload);
+        io.to(channelName).emit('viewerCount', {
+          channelId: channelName,
+          channelName: channelName,
+          eventId: eventId,
+          viewerCount: viewersPayload.viewerCount,
+          totalViewers: viewersPayload.viewerCount,
+          views: viewersPayload.viewerCount
+        });
+        io.to(channelName).emit('userJoinedLiveStream', {
+          channelId: channelName,
+          channelName: channelName,
+          eventId: eventId,
+          user: { id: rawUserId ? parseInt(rawUserId, 10) : 0, name: userName, profileImage: userImage },
+          viewerCount: viewersPayload.viewerCount
+        });
+      }
+
+      return helper.success(res, "Joined live event successfully. Viewer count increased.", {
+        eventId,
+        ...viewersPayload
+      });
+
+    } catch (error) {
+      console.log("joinEvent error:", error);
+      return helper.error(res, "Something went wrong while joining live event: " + error.message);
+    }
+  },
+
+  /**
+   * Viewer leaves active live event (Decreases viewer count & broadcasts in real time)
+   * Body / Query:
+   *  - eventId or channelName (or channelId / channel)
+   *  - userId (optional)
+   */
+  leaveEvent: async (req, res) => {
+    try {
+      const channelInput = (req.body && (req.body.channelName || req.body.channelId || req.body.channel || req.body.eventId)) || req.query.channelName || req.query.channelId || req.query.channel || req.query.eventId;
+      if (!channelInput) {
+        return helper.failed(res, "channelName or eventId is required");
+      }
+
+      let channelName = String(channelInput).trim();
+      let eventId = null;
+
+      if (!channelName.startsWith('event_')) {
+        const numId = parseInt(channelName, 10);
+        if (!isNaN(numId) && numId > 0) {
+          const ev = await events.findOne({ where: { id: numId }, attributes: ['id', 'agoraChannel'] });
+          if (ev) {
+            eventId = ev.id;
+            channelName = ev.agoraChannel || channelName;
+          }
+        }
+      } else {
+        const match = channelName.match(/^event_(\d+)_/);
+        if (match) eventId = parseInt(match[1], 10);
+      }
+
+      const rawUserId = (req.body && (req.body.userId || req.body.senderId || req.body.id)) || req.query.userId || (req.auth ? req.auth.id : null);
+
+      const io = global.io;
+      if (io && io.liveChannelViewers && io.liveChannelViewers.has(channelName)) {
+        const channelMap = io.liveChannelViewers.get(channelName);
+        if (rawUserId) {
+          channelMap.delete(`user_${rawUserId}`);
+        } else {
+          const firstKey = channelMap.keys().next().value;
+          if (firstKey) channelMap.delete(firstKey);
+        }
+      }
+
+      const viewersPayload = await helper.getLiveChannelViewers(channelName);
+
+      // Real-time broadcast to all viewers in this live stream
+      if (io) {
+        io.to(channelName).emit('getViewers', viewersPayload);
+        io.to(channelName).emit('liveViewers', viewersPayload);
+        io.to(channelName).emit('channelViewers', viewersPayload);
+        io.to(channelName).emit('viewerCount', {
+          channelId: channelName,
+          channelName: channelName,
+          eventId: eventId,
+          viewerCount: viewersPayload.viewerCount,
+          totalViewers: viewersPayload.viewerCount,
+          views: viewersPayload.viewerCount
+        });
+        io.to(channelName).emit('userLeftLiveStream', {
+          channelId: channelName,
+          channelName: channelName,
+          eventId: eventId,
+          userId: rawUserId ? parseInt(rawUserId, 10) : 0,
+          viewerCount: viewersPayload.viewerCount
+        });
+      }
+
+      return helper.success(res, "Left live event successfully. Viewer count decreased.", {
+        eventId,
+        ...viewersPayload
+      });
+
+    } catch (error) {
+      console.log("leaveEvent error:", error);
+      return helper.error(res, "Something went wrong while leaving live event: " + error.message);
+    }
+  },
+
+  /**
+   * Get active viewers & viewer count for an event
+   */
+  getViewers: async (req, res) => {
+    try {
+      const channelInput = (req.body && (req.body.channelName || req.body.channelId || req.body.channel || req.body.eventId)) || req.query.channelName || req.query.channelId || req.query.channel || req.query.eventId;
+      if (!channelInput) {
+        return helper.failed(res, "channelName or eventId is required");
+      }
+
+      let channelName = String(channelInput).trim();
+      let eventId = null;
+
+      if (!channelName.startsWith('event_')) {
+        const numId = parseInt(channelName, 10);
+        if (!isNaN(numId) && numId > 0) {
+          const ev = await events.findOne({ where: { id: numId }, attributes: ['id', 'agoraChannel'] });
+          if (ev) {
+            eventId = ev.id;
+            channelName = ev.agoraChannel || channelName;
+          }
+        }
+      } else {
+        const match = channelName.match(/^event_(\d+)_/);
+        if (match) eventId = parseInt(match[1], 10);
+      }
+
+      const viewersPayload = await helper.getLiveChannelViewers(channelName);
+      return helper.success(res, "Live viewers fetched successfully", {
+        eventId,
+        ...viewersPayload
+      });
+    } catch (error) {
+      console.log("getViewers error:", error);
+      return helper.error(res, "Something went wrong while fetching viewers: " + error.message);
+    }
+  },
+
+  /**
    * Get Current Live Event for Authenticated User
    */
   getMyLiveEvent: async (req, res) => {
