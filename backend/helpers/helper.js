@@ -102,8 +102,8 @@ module.exports = {
         image
       } = notificationData;
 
-      if (!token) {
-        console.log("⚠️ Push skipped: Token missing");
+      if (!token || typeof token !== 'string' || token.trim().length < 30) {
+        console.log("⚠️ Push skipped: Token missing, invalid, or too short:", token);
         return false;
       }
 
@@ -185,7 +185,22 @@ module.exports = {
       return true;
 
     } catch (err) {
-      console.error("❌ Push Error:", err.message || err);
+      const errMsg = err.message || String(err);
+      console.error("❌ Push Error:", errMsg);
+
+      // Auto-cleanup stale/invalid device tokens in DB so subsequent pushes succeed cleanly
+      if (
+        errMsg.includes('not a valid FCM registration token') ||
+        errMsg.includes('NotRegistered') ||
+        err.code === 'messaging/registration-token-not-registered' ||
+        err.code === 'messaging/invalid-registration-token'
+      ) {
+        try {
+          const db = require('../models');
+          db.users.update({ deviceToken: null }, { where: { deviceToken: token } }).catch(() => {});
+          console.log(`🧹 [Push Clean] Cleared invalid/unregistered deviceToken from DB: ${token.substring(0, 20)}...`);
+        } catch (_) {}
+      }
       return false;
     }
   },
