@@ -606,6 +606,16 @@ module.exports = {
       const user = await users.findOne({ where: { id: userId } });
       if (!user) return helper.failed(res, "User not found");
 
+      // Dynamic currency sent from frontend, fallback to booking currency, user profile currency, or 'usd'
+      let reqCurrency = (req.body && req.body.currency) || (req.query && req.query.currency);
+      if (!reqCurrency && bookingId) {
+        const existingBooking = await bookings.findOne({ where: { id: bookingId }, attributes: ['currency'] });
+        if (existingBooking && existingBooking.currency) {
+          reqCurrency = existingBooking.currency;
+        }
+      }
+      const currency = String(reqCurrency || (user && user.currency) || 'usd').toLowerCase().trim();
+
       // Ensure customerId exists
       let customerId = user.customerId;
       if (!customerId) {
@@ -619,7 +629,7 @@ module.exports = {
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
-        currency: 'usd',
+        currency: currency,
         customer: customerId,
         payment_method_types: ['card'],
       });
@@ -629,6 +639,10 @@ module.exports = {
         if (!bookingId) return helper.failed(res, "bookingId is required for type 1");
         const booking = await bookings.findOne({ where: { id: bookingId } });
         if (!booking) return helper.failed(res, "Booking not found");
+
+        if (currency) {
+          await booking.update({ currency });
+        }
 
         const adminCommission = parseFloat(((ADMIN_COMMISSION_PERCENT / 100) * amount).toFixed(2));
         const providerAmount = parseFloat((amount - adminCommission).toFixed(2));
@@ -666,7 +680,7 @@ module.exports = {
         customer: customerId,
         publishableKey: envfile.stripe_publish_key,
         transactionId: paymentIntent.id,
-        currency: paymentIntent.currency,
+        currency: paymentIntent.currency || currency,
         country: "US"
       };
 
@@ -674,7 +688,8 @@ module.exports = {
         paymentResponse,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        customerId
+        customerId,
+        currency: paymentIntent.currency || currency
       });
 
     } catch (error) {
