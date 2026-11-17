@@ -3,7 +3,7 @@ const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op, fn, col } = require('sequelize');
 const db = require('../../models');
-const { users, services, bookings, posts, followers, notifications, post_media, services_categories, portfolio_images, wallet_transactions, search_appearances, bank_accounts, payments, withdrawal_requests } = db;
+const { users, services, bookings, posts, followers, notifications, post_media, services_categories, portfolio_images, wallet_transactions, search_appearances, bank_accounts, payments, withdrawal_requests, events } = db;
 
 module.exports = {
 
@@ -867,6 +867,241 @@ module.exports = {
     } catch (error) {
       console.log("deleteBankAccount error:", error);
       return helper.error(res, 'Something went wrong');
+    }
+  },
+
+  /**
+   * Global Search API - Searches posts, providers/users, categories, and live events
+   * Accessible by both guests and authenticated users
+   */
+  search: async (req, res) => {
+    try {
+      const searchKey = (req.query.searchKey || req.query.q || req.query.query || req.query.search || (req.body && (req.body.searchKey || req.body.q || req.body.query)) || "").trim();
+      const type = (req.query.type || (req.body && req.body.type) || "all").toLowerCase();
+      const page = parseInt(req.query.page || (req.body && req.body.page)) || 1;
+      const limit = parseInt(req.query.limit || (req.body && req.body.limit)) || 20;
+      const offset = (page - 1) * limit;
+      const currentUserId = req.auth ? req.auth.id : (req.user ? req.user.id : 0);
+
+      let results = {};
+
+      // 1. Search Posts
+      if (type === 'all' || type === 'posts') {
+        let postWhere = {
+          status: 'active',
+          type: 'publish'
+        };
+
+        if (searchKey) {
+          postWhere[Op.or] = [
+            { caption: { [Op.like]: `%${searchKey}%` } },
+            { hashtags: { [Op.like]: `%${searchKey}%` } }
+          ];
+        }
+
+        const { count: postCount, rows: foundPosts } = await posts.findAndCountAll({
+          where: postWhere,
+          attributes: {
+            include: [
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*) FROM post_likes WHERE post_likes.postId = posts.id
+                )`),
+                "likeCount"
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*) FROM post_comments WHERE post_comments.postId = posts.id
+                )`),
+                "commentCount"
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*) FROM post_likes WHERE post_likes.postId = posts.id AND post_likes.userId = ${currentUserId}
+                )`),
+                "isLiked"
+              ],
+              [
+                db.sequelize.literal(`(
+                  SELECT COUNT(*) FROM bookmarks WHERE bookmarks.postId = posts.id AND bookmarks.userId = ${currentUserId}
+                )`),
+                "isBookmarked"
+              ]
+            ]
+          },
+          include: [
+            {
+              model: users,
+              as: 'user',
+              attributes: ['id', 'name', 'userName', 'profileImage', 'isProvider']
+            },
+            {
+              model: post_media,
+              as: "postMedia",
+              attributes: ["id", "mediaUrl", "type", "thumbnail"],
+              required: false
+            },
+            {
+              model: services_categories,
+              as: 'category',
+              attributes: ["id", "categoryName", "image"],
+              required: false
+            }
+          ],
+          order: [['createdAt', 'DESC']],
+          limit: type === 'posts' ? limit : 10,
+          offset: type === 'posts' ? offset : 0,
+          distinct: true
+        });
+
+        results.posts = {
+          total: postCount,
+          data: foundPosts
+        };
+
+        // Record search appearances for providers in search results
+        if (searchKey && foundPosts && foundPosts.length > 0) {
+          const appearances = foundPosts.map(p => ({
+            postId: p.id,
+            providerId: p.user ? p.user.id : p.userId,
+            searchKey: searchKey
+          }));
+          search_appearances.bulkCreate(appearances).catch(() => {});
+        }
+      }
+
+      // 2. Search Providers / Users
+      if (type === 'all' || type === 'providers' || type === 'users') {
+        let userWhere = {
+          status: 'active',
+          role: 'user'
+        };
+
+        if (type === 'providers') {
+          userWhere.isProvider = 1;
+        }
+
+        if (searchKey) {
+          userWhere[Op.or] = [
+            { name: { [Op.like]: `%${searchKey}%` } },
+            { userName: { [Op.like]: `%${searchKey}%` } },
+            { email: { [Op.like]: `%${searchKey}%` } }
+          ];
+        }
+
+        const { count: userCount, rows: foundUsers } = await users.findAndCountAll({
+          where: userWhere,
+          attributes: [
+            'id', 'name', 'userName', 'email', 'profileImage', 'isProvider', 'providerStatus', 'hourlyPrice', 'latitude', 'longitude',
+            [
+              db.sequelize.literal(`(
+                SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+                FROM rating
+                WHERE rating.providerId = users.id
+              )`),
+              'providerAvgRating'
+            ],
+            [
+              db.sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM rating
+                WHERE rating.providerId = users.id
+              )`),
+              'totalReview'
+            ],
+            [
+              db.sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM followers
+                WHERE followers.followingId = users.id AND followers.followerId = ${currentUserId}
+              )`),
+              'isFollowing'
+            ]
+          ],
+          limit: (type === 'providers' || type === 'users') ? limit : 10,
+          offset: (type === 'providers' || type === 'users') ? offset : 0,
+          order: [['name', 'ASC']]
+        });
+
+        if (type === 'providers') {
+          results.providers = { total: userCount, data: foundUsers };
+        } else if (type === 'users') {
+          results.users = { total: userCount, data: foundUsers };
+        } else {
+          results.providers = { total: userCount, data: foundUsers };
+        }
+      }
+
+      // 3. Search Categories
+      if (type === 'all' || type === 'categories') {
+        let catWhere = {};
+        if (searchKey) {
+          catWhere.categoryName = { [Op.like]: `%${searchKey}%` };
+        }
+
+        const foundCategories = await services_categories.findAll({
+          where: catWhere,
+          attributes: ['id', 'categoryName', 'image'],
+          limit: type === 'categories' ? limit : 10,
+          offset: type === 'categories' ? offset : 0,
+          order: [['categoryName', 'ASC']]
+        });
+
+        results.categories = {
+          total: foundCategories.length,
+          data: foundCategories
+        };
+      }
+
+      // 4. Search Live Events
+      if (type === 'all' || type === 'live' || type === 'events') {
+        let liveWhere = {
+          status: 'start',
+          [Op.or]: [{ available: 'everyone' }, { available: null }]
+        };
+
+        if (searchKey) {
+          liveWhere[Op.and] = [
+            {
+              [Op.or]: [
+                { caption: { [Op.like]: `%${searchKey}%` } },
+                { description: { [Op.like]: `%${searchKey}%` } }
+              ]
+            }
+          ];
+        }
+
+        const foundEvents = await (db.events || events).findAll({
+          where: liveWhere,
+          include: [
+            {
+              model: users,
+              as: 'user',
+              attributes: ['id', 'name', 'profileImage']
+            }
+          ],
+          limit: (type === 'live' || type === 'events') ? limit : 10,
+          offset: (type === 'live' || type === 'events') ? offset : 0,
+          order: [['id', 'DESC']]
+        });
+
+        results.liveEvents = {
+          total: foundEvents.length,
+          data: foundEvents
+        };
+      }
+
+      return helper.success(res, "Search results fetched successfully", {
+        searchKey,
+        type,
+        page,
+        limit,
+        ...results
+      });
+
+    } catch (error) {
+      console.log("search error:", error);
+      return helper.error(res, "Something went wrong while searching: " + error.message);
     }
   },
 

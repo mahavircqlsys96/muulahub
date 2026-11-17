@@ -308,6 +308,16 @@ module.exports = {
             [
               db.sequelize.literal(`(
               SELECT COUNT(*)
+              FROM post_likes
+              WHERE post_likes.postId = posts.id
+              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
+            )`),
+              "isLiked",
+            ],
+
+            [
+              db.sequelize.literal(`(
+              SELECT COUNT(*)
               FROM bookmarks
               WHERE bookmarks.postId = posts.id
               AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
@@ -375,7 +385,11 @@ module.exports = {
   },
   getPostDetail: async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id || (req.body && req.body.postId) || req.query.postId || req.query.id;
+
+      if (!id) {
+        return helper.failed(res, "Post ID is required");
+      }
 
       const post = await posts.findOne({
         where: {
@@ -417,7 +431,7 @@ module.exports = {
               SELECT COUNT(*)
               FROM post_likes
               WHERE post_likes.postId = posts.id
-              AND post_likes.userId = ${req.auth.id}
+              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
             )`),
               "isLiked",
             ],
@@ -481,7 +495,11 @@ module.exports = {
 
   getPostDetailWithComments: async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id || (req.body && req.body.postId) || req.query.postId || req.query.id;
+
+      if (!id) {
+        return helper.failed(res, "Post ID is required");
+      }
 
       const post = await posts.findOne({
         where: {
@@ -1347,15 +1365,15 @@ module.exports = {
       await comment_likes.create({ commentId, userId });
 
       if (comment.userId !== userId) {
-        await notifications.create({
-          userId: comment.userId,
-          senderId: userId,
-          title: 'New Like on Comment',
-          message: `${req.auth.name} liked your comment`,
-          type: 'system',
-          notificationType: 'push',
-          referenceId: comment.postId
-        });
+        // await notifications.create({
+        //   userId: comment.userId,
+        //   senderId: userId,
+        //   title: 'New Like on Comment',
+        //   message: `${req.auth.name} liked your comment`,
+        //   type: 'system',
+        //   notificationType: 'push',
+        //   referenceId: comment.postId
+        // });
 
         const commentAuthor = await users.findOne({
           where: { id: comment.userId },

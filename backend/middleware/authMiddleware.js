@@ -97,42 +97,58 @@ module.exports = {
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         req.auth = null;
+        req.user = null;
         return next();
       }
 
       const token = authHeader.split(" ")[1];
+      if (!token || token.trim() === "" || token === "null" || token === "undefined") {
+        req.auth = null;
+        req.user = null;
+        return next();
+      }
 
       let payload;
       try {
         payload = jwt.verify(token, ENV.crypto_key);
       } catch (err) {
         req.auth = null;
+        req.user = null;
         return next();
       }
 
       const userId = payload?.data?.id;
       const loginTime = payload?.data?.loginTime;
+      const isGuestToken = payload?.data?.isGuest;
 
-      if (!userId || !loginTime) {
+      if (!userId) {
         req.auth = null;
+        req.user = null;
         return next();
       }
 
+      let userWhere = {
+        id: userId,
+        status: "active"
+      };
+
+      if (!isGuestToken && loginTime) {
+        userWhere.loginTime = loginTime;
+      }
+
       const user = await db.users.findOne({
-        where: {
-          id: userId,
-          loginTime: loginTime,
-          status: "active"
-        },
+        where: userWhere,
         raw: true
       });
 
       req.auth = user || null;
+      req.user = user || null;
       next();
 
     } catch (error) {
-      console.log(error);
+      console.log("optionalAuthenticateJWT error:", error);
       req.auth = null;
+      req.user = null;
       next();
     }
   },

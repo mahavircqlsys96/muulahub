@@ -163,6 +163,90 @@ module.exports = {
       return helper.error(res, err);
     }
   },
+
+  /**
+   * Guest Login API - Allows users to browse and interact without credentials
+   */
+  guestLogin: async (req, res) => {
+    try {
+      const deviceToken = (req.body && req.body.deviceToken) || req.query.deviceToken || null;
+      const deviceType = (req.body && req.body.deviceType) || req.query.deviceType || 'android';
+      const deviceId = (req.body && (req.body.deviceId || req.body.device_id)) || req.query.deviceId || req.query.device_id || null;
+      const latitude = (req.body && req.body.latitude) || req.query.latitude || null;
+      const longitude = (req.body && req.body.longitude) || req.query.longitude || null;
+
+      const loginTime = helper.unixTimestamp();
+      let user = null;
+
+      // Check if a guest user already exists for this device ID or device token
+      if (deviceId || deviceToken) {
+        let whereOr = [];
+        if (deviceId) whereOr.push({ socialId: `guest_${deviceId}` });
+        if (deviceToken) whereOr.push({ deviceToken: deviceToken });
+
+        user = await users.findOne({
+          where: {
+            [Op.or]: whereOr,
+            status: 'active'
+          }
+        });
+      }
+
+      if (user) {
+        await user.update({
+          loginTime,
+          deviceToken: deviceToken || user.deviceToken,
+          deviceType: deviceType || user.deviceType,
+          latitude: latitude !== null ? latitude : user.latitude,
+          longitude: longitude !== null ? longitude : user.longitude
+        });
+      } else {
+        const uniqueSuffix = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const guestEmail = `guest_${uniqueSuffix}@muulahub.com`;
+        const guestUserName = `guest_${uniqueSuffix.slice(-6)}`;
+
+        user = await users.create({
+          name: 'Guest User',
+          userName: guestUserName,
+          email: guestEmail,
+          role: 'user',
+          isProvider: 0,
+          status: 'active',
+          loginType: 'email',
+          socialId: deviceId ? `guest_${deviceId}` : null,
+          loginTime,
+          deviceToken,
+          deviceType,
+          latitude,
+          longitude
+        });
+      }
+
+      const token = jwt.sign(
+        {
+          data: {
+            id: user.id,
+            loginTime,
+            isGuest: true
+          }
+        },
+        envfile.crypto_key,
+        { expiresIn: "365d" }
+      );
+
+      const userJson = user.toJSON();
+      userJson.isGuest = true;
+
+      return helper.success(res, "Guest login successful", {
+        ...userJson,
+        token
+      });
+
+    } catch (err) {
+      console.log("guestLogin error:", err);
+      return helper.error(res, err.message || "Failed to perform guest login");
+    }
+  },
   updateDeviceToken: async (req, res) => {
     try {
       const v = new Validator(req.body, {

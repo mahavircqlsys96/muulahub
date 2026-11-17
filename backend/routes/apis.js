@@ -45,12 +45,23 @@ module.exports = (io) => {
   router.use(authenticateHeader);
   router.post('/signUp', authController.signUp);
   router.post('/login', authController.login);
+  router.post('/guestLogin', authController.guestLogin);
+  router.get('/guestLogin', authController.guestLogin);
   router.post('/forgotPassword', authController.forgotPassword);
   router.post('/socialLogin', authController.socialLogin);
   router.get('/categoryList', authController.categoryList);
-  // ─── Optional JWT Auth ───
-  router.get('/home', optionalAuthenticateJWT, userController.home);
-  router.get('/filterPosts', optionalAuthenticateJWT, userController.filterPosts);
+
+  // ─── Optional JWT Auth (Guests & Authenticated Users) ───
+  router.all(['/home'], optionalAuthenticateJWT, userController.home);
+  router.all(['/filterPosts'], optionalAuthenticateJWT, userController.filterPosts);
+  router.all(['/getNearbyLiveEvents'], optionalAuthenticateJWT, eventController.getNearbyLiveEvents);
+  router.all(['/getLiveEventDetail/:id', '/getLiveEventDetail'], optionalAuthenticateJWT, eventController.getLiveEventDetail);
+  router.all(['/getPosts'], optionalAuthenticateJWT, postsController.getPosts);
+  router.all(['/getPostDetail/:id', '/getPostDetail'], optionalAuthenticateJWT, postsController.getPostDetail);
+  router.all(['/getPostDetailWithComments/:id', '/getPostDetailWithComments'], optionalAuthenticateJWT, postsController.getPostDetailWithComments);
+  router.all(['/search', '/globalSearch'], optionalAuthenticateJWT, userController.search);
+  router.all(['/getProvidersList'], optionalAuthenticateJWT, providerController.getProvidersList);
+  router.all(['/providerDetail/:id', '/providerDetail'], optionalAuthenticateJWT, providerController.providerDetail);
 
   // ─── JWT Auth ───
   router.use(authenticateJWT);
@@ -90,16 +101,11 @@ module.exports = (io) => {
   // Provider
 
   router.get('/getProviderProfile', providerController.getProviderProfile);
-  router.get('/getProvidersList', providerController.getProvidersList);
-  router.get('/providerDetail/:id', providerController.providerDetail);
   router.post('/addProviderCategory', providerController.addProviderCategory);
   router.get('/getProviderInsights', providerController.getProviderInsights);
 
   // Posts
   router.post('/createPost', postsController.createPost);
-  router.get('/getPosts', postsController.getPosts);
-  router.get('/getPostDetail/:id', postsController.getPostDetail);
-  router.get('/getPostDetailWithComments/:id', postsController.getPostDetailWithComments);
   router.delete('/deletePost/:id', postsController.deletePost);
   router.post('/bookmarkPost', postsController.bookmarkPost);
   router.get('/getBookmarkedPosts', postsController.getBookmarkedPosts);
@@ -179,9 +185,6 @@ module.exports = (io) => {
   router.delete('/deleteEvent', eventController.deleteEvent);
   router.post('/deleteEvent', eventController.deleteEvent);
   router.get('/getMyLiveEvent', eventController.getMyLiveEvent);
-  router.get('/getNearbyLiveEvents', eventController.getNearbyLiveEvents);
-  router.get('/getLiveEventDetail/:id', eventController.getLiveEventDetail);
-  router.post('/getLiveEventDetail', eventController.getLiveEventDetail);
 
   return router;
 };

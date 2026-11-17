@@ -252,7 +252,7 @@ module.exports = {
                 createdAt: new Date(),
                 updatedAt: new Date()
               }));
-              await notifications.bulkCreate(notificationsData);
+              // await notifications.bulkCreate(notificationsData);
               console.log(`✅ [createEvent Push] Created ${notificationsData.length} in-app notification records in DB.`);
             } catch (dbNotifErr) {
               console.log("Note: Could not bulk create notifications in DB:", dbNotifErr.message);
@@ -437,7 +437,7 @@ module.exports = {
             userName = dbUser.name || userName;
             userImage = dbUser.profileImage || userImage;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const io = global.io;
@@ -704,7 +704,7 @@ module.exports = {
 
       // Keep active event token fresh in DB
       if (freshRtcToken && currentEvent.agoraToken !== freshRtcToken) {
-        currentEvent.update({ agoraToken: freshRtcToken }).catch(() => {});
+        currentEvent.update({ agoraToken: freshRtcToken }).catch(() => { });
       }
 
       return helper.success(res, "Current live event fetched successfully", eventData);
@@ -720,7 +720,7 @@ module.exports = {
    */
   getNearbyLiveEvents: async (req, res) => {
     try {
-      const currentUserId = req.auth.id;
+      const currentUserId = req.auth ? req.auth.id : (req.user ? req.user.id : 0);
 
       const appID = envfile.AGORA_APP_ID;
       const appCertificate = envfile.AGORA_APP_CERTIFICATE;
@@ -733,7 +733,7 @@ module.exports = {
       let reqLng = req.query.longitude ? parseFloat(req.query.longitude) : null;
       const radiusKm = req.query.radius ? parseFloat(req.query.radius) : null;
 
-      if (!reqLat || !reqLng) {
+      if ((!reqLat || !reqLng) && currentUserId > 0) {
         const currentUser = await users.findOne({
           where: { id: currentUserId },
           attributes: ['latitude', 'longitude']
@@ -744,30 +744,36 @@ module.exports = {
         }
       }
 
-      const followings = await followers.findAll({
-        where: { followerId: currentUserId },
-        attributes: ['followingId']
-      });
-      const followingIds = followings.map(f => f.followingId);
+      let followingIds = [];
+      if (currentUserId > 0) {
+        const followings = await followers.findAll({
+          where: { followerId: currentUserId },
+          attributes: ['followingId']
+        });
+        followingIds = followings.map(f => f.followingId);
+      }
 
       const privacyCondition = {
         [Op.or]: [
           { available: 'everyone' },
           { available: null },
-          {
+          ...(currentUserId > 0 ? [{
             [Op.and]: [
               { available: 'followersOnly' },
               { userId: { [Op.in]: followingIds } }
             ]
-          }
+          }] : [])
         ]
       };
 
       const whereCondition = {
-        userId: { [Op.ne]: currentUserId },
         status: 'start',
         ...privacyCondition
       };
+
+      if (currentUserId > 0) {
+        whereCondition.userId = { [Op.ne]: currentUserId };
+      }
 
       if (req.query.categoryId) {
         whereCondition.categoryId = req.query.categoryId;
@@ -869,10 +875,11 @@ module.exports = {
               'publisher',
               86400
             );
+            const effectiveRtmUserId = String(currentUserId || `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
             const viewerRtmToken = helper.buildAgoraRtmToken(
               resolvedAppId,
               resolvedAppCert,
-              String(currentUserId),
+              effectiveRtmUserId,
               86400
             );
             eventData.viewerAgoraToken = viewerToken;
@@ -881,7 +888,7 @@ module.exports = {
             eventData.rtcToken = viewerToken;
             eventData.rtmToken = viewerRtmToken;
             eventData.viewerRtmToken = viewerRtmToken;
-            eventData.rtmUserId = String(currentUserId);
+            eventData.rtmUserId = effectiveRtmUserId;
             eventData.channelName = eventData.agoraChannel;
             eventData.uid = viewerUid;
             eventData.appId = resolvedAppId;
@@ -925,8 +932,8 @@ module.exports = {
    */
   getLiveEventDetail: async (req, res) => {
     try {
-      const currentUserId = req.auth.id;
-      const eventId = req.params.id || req.body.eventId;
+      const currentUserId = req.auth ? req.auth.id : (req.user ? req.user.id : 0);
+      const eventId = req.params.id || (req.body && req.body.eventId) || req.query.eventId || req.query.id;
 
       if (!eventId) {
         return helper.failed(res, "Event ID is required");
@@ -971,6 +978,9 @@ module.exports = {
       }
 
       if (event.available === 'followersOnly' && event.userId !== currentUserId) {
+        if (!currentUserId) {
+          return helper.failed(res, "This live event is only available to followers of the host. Please log in to watch.");
+        }
         const isFollowing = await followers.findOne({
           where: { followerId: currentUserId, followingId: event.userId }
         });
@@ -993,7 +1003,7 @@ module.exports = {
       const resolvedAppCert = String(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
 
       if (eventData.agoraChannel) {
-        const isHost = event.userId === currentUserId;
+        const isHost = currentUserId > 0 && event.userId === currentUserId;
         const uid = 0;
 
         const token = helper.buildAgoraRtcToken(
@@ -1005,7 +1015,7 @@ module.exports = {
           86400
         );
 
-        const rtmUserId = String(uid && uid !== 0 ? uid : currentUserId);
+        const rtmUserId = String(uid && uid !== 0 ? uid : (currentUserId || `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}`));
         let rtmToken = helper.buildAgoraRtmToken(
           resolvedAppId,
           resolvedAppCert,

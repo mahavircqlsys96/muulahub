@@ -197,9 +197,9 @@ module.exports = {
       ) {
         try {
           const db = require('../models');
-          db.users.update({ deviceToken: null }, { where: { deviceToken: token } }).catch(() => {});
+          db.users.update({ deviceToken: null }, { where: { deviceToken: token } }).catch(() => { });
           console.log(`🧹 [Push Clean] Cleared invalid/unregistered deviceToken from DB: ${token.substring(0, 20)}...`);
-        } catch (_) {}
+        } catch (_) { }
       }
       return false;
     }
@@ -381,10 +381,6 @@ module.exports = {
           currentTimestamp + 86400
         ) || '';
       } catch (_) {
-        return '';
-      }
-    }
-  },
         return '';
       }
     }
@@ -691,7 +687,7 @@ module.exports = {
             });
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const viewersList = Array.from(viewersMap.values());
