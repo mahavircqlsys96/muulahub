@@ -61,6 +61,7 @@ module.exports = (io) => {
   router.all(['/getPostDetailWithComments/:id', '/getPostDetailWithComments'], optionalAuthenticateJWT, postsController.getPostDetailWithComments);
   router.all(['/search', '/globalSearch'], optionalAuthenticateJWT, userController.search);
   router.all(['/getProvidersList'], optionalAuthenticateJWT, providerController.getProvidersList);
+  router.all(['/getProviderProfile'], optionalAuthenticateJWT, providerController.getProviderProfile);
   router.all(['/providerDetail/:id', '/providerDetail'], optionalAuthenticateJWT, providerController.providerDetail);
 
   // ─── JWT Auth ───
@@ -99,8 +100,6 @@ module.exports = (io) => {
   router.put('/updateLocation', userController.updateLocation);
   router.get('/getLocation', userController.getLocation);
   // Provider
-
-  router.get('/getProviderProfile', providerController.getProviderProfile);
   router.post('/addProviderCategory', providerController.addProviderCategory);
   router.get('/getProviderInsights', providerController.getProviderInsights);
 
@@ -134,6 +133,7 @@ module.exports = (io) => {
   router.post('/acceptRejectRequestProvider', bookingController.acceptRejectRequestProvider);
   router.post('/acceptRejectRequestUser', bookingController.acceptRejectRequestUser);
   router.post('/payBooking', bookingController.payBooking);
+
   router.post('/stripe_status_update', bookingController.stripe_status_update);
   router.get('/getUserBookings', bookingController.getUserBookings);
   router.get('/getUserPendingBookings', bookingController.getUserPendingBookings);

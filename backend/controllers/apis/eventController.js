@@ -26,10 +26,11 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      // Delete any previous created event(s) for this user so a new one can always be created
-      await events.destroy({
-        where: { userId }
-      });
+      // Stop any previously active live event(s) for this user so only one is live at a time
+      await events.update(
+        { status: 'stop' },
+        { where: { userId, status: 'start' } }
+      );
 
       const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
       const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();

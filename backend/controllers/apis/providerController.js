@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const db = require('../../models');
 const sequelize = require("sequelize");
 
-const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images, user_categories, posts, post_media, profile_views, search_appearances } = db;
+const { users, services, services_categories, provider_verifications, bookings, notifications, portfolio_images, user_categories, posts, post_media, profile_views, search_appearances, events } = db;
 
 users.hasMany(portfolio_images, { foreignKey: 'providerId', as: 'portfolioImages' });
 // portfolio_images.belongsTo(users, { foreignKey: 'providerId', as: 'provider' });
@@ -155,9 +155,28 @@ module.exports = {
         order: [['createdAt', 'DESC']]
       });
 
+      const completedLiveEvents = await events.findAll({
+        where: {
+          userId: provider.id,
+          status: 'stop'
+        },
+        include: [
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ['id', 'categoryName', 'image'],
+            required: false
+          }
+        ],
+        order: [['id', 'DESC']],
+        limit: 10
+      });
+
       const obj = provider.toJSON();
       obj.categories = categoryData;
       obj.posts = userPosts;
+      obj.completedLiveEvents = completedLiveEvents;
+      obj.liveEvents = completedLiveEvents;
 
       return helper.success(
         res,
@@ -388,7 +407,29 @@ module.exports = {
       if (!findProvider) {
         return helper.failed(res, "Provider not found");
       }
-      return helper.success(res, "Provider detail fetched successfully", findProvider);
+
+      const completedLiveEvents = await events.findAll({
+        where: {
+          userId: findProvider.id,
+          status: 'stop'
+        },
+        include: [
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ['id', 'categoryName', 'image'],
+            required: false
+          }
+        ],
+        order: [['id', 'DESC']],
+        limit: 10
+      });
+
+      const providerData = findProvider.toJSON();
+      providerData.completedLiveEvents = completedLiveEvents;
+      providerData.liveEvents = completedLiveEvents;
+
+      return helper.success(res, "Provider detail fetched successfully", providerData);
     } catch (error) {
       console.log("providerDetail error:", error);
       return helper.error(res, 'Something went wrong');
