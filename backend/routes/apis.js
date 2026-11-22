@@ -88,6 +88,9 @@ module.exports = (io) => {
   router.put('/editProfile', authController.editProfile);
   router.post('/makeCategoryPrimary', authController.makeCategoryPrimary);
   router.post('/updateCategories', authController.updateCategories);
+  router.post('/updateCurrency', authController.updateCurrency);
+  router.put('/updateCurrency', authController.updateCurrency);
+  router.patch('/updateCurrency', authController.updateCurrency);
   router.post('/addBankDetails', userController.addBankDetails);
   router.get('/getBankList', userController.getBankList);
   router.delete('/deleteBankAccount/:bankId', userController.deleteBankAccount);

@@ -606,15 +606,27 @@ module.exports = {
       const user = await users.findOne({ where: { id: userId } });
       if (!user) return helper.failed(res, "User not found");
 
-      // Dynamic currency sent from frontend, fallback to booking currency, user profile currency, or 'usd'
-      let reqCurrency = (req.body && req.body.currency) || (req.query && req.query.currency);
-      if (!reqCurrency && bookingId) {
-        const existingBooking = await bookings.findOne({ where: { id: bookingId }, attributes: ['currency'] });
-        if (existingBooking && existingBooking.currency) {
-          reqCurrency = existingBooking.currency;
+      // In payment API: Get currency primarily from users table as required
+      let currency = (user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined')
+        ? String(user.currency).toLowerCase().trim()
+        : null;
+
+      // If users table does not have currency set yet, fallback to frontend input, booking currency, or 'usd'
+      if (!currency) {
+        let reqCurrency = (req.body && req.body.currency) || (req.query && req.query.currency);
+        if (!reqCurrency && bookingId) {
+          const existingBooking = await bookings.findOne({ where: { id: bookingId }, attributes: ['currency'] });
+          if (existingBooking && existingBooking.currency) {
+            reqCurrency = existingBooking.currency;
+          }
+        }
+        currency = String(reqCurrency || 'usd').toLowerCase().trim();
+
+        // Persist into users table if user did not have a currency set
+        if (reqCurrency) {
+          await user.update({ currency });
         }
       }
-      const currency = String(reqCurrency || (user && user.currency) || 'usd').toLowerCase().trim();
 
       // Ensure customerId exists
       let customerId = user.customerId;

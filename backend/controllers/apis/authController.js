@@ -891,7 +891,12 @@ module.exports = {
       if (hourlyPrice) updateData.hourlyPrice = hourlyPrice;
       if (bio) updateData.bio = bio;
       if (profileImage) updateData.profileImage = profileImage;
-      if (currency) updateData.currency = currency;
+      if (currency) {
+        const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined';
+        if (!hasExistingCurrency) {
+          updateData.currency = String(currency).toLowerCase().trim();
+        }
+      }
 
       /* =========================
          Update User
@@ -969,6 +974,51 @@ module.exports = {
       return helper.error(res, error);
     }
   },
+  /**
+   * Update Currency in Users table
+   * Rule: Can ONLY be updated when current currency is empty or null.
+   * Once set, currency cannot be changed.
+   */
+  updateCurrency: async (req, res) => {
+    try {
+      const v = new Validator(req.body, {
+        currency: "required|string"
+      });
+      const errors = await helper.checkValidation(v);
+      if (errors) return helper.failed(res, errors);
+
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id) || req.body.userId;
+      if (!userId) {
+        return helper.failed(res, "Authentication or userId is required");
+      }
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) {
+        return helper.failed(res, "User not found");
+      }
+
+      // Check if user already has a currency set
+      const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined';
+      if (hasExistingCurrency) {
+        return helper.failed(res, "Currency is already set and cannot be changed", {
+          currency: user.currency
+        });
+      }
+
+      const cleanCurrency = String(req.body.currency).toLowerCase().trim();
+      await user.update({ currency: cleanCurrency });
+
+      return helper.success(res, "Currency updated successfully", {
+        userId: user.id,
+        currency: cleanCurrency
+      });
+
+    } catch (err) {
+      console.log("updateCurrency error:", err);
+      return helper.error(res, err.message || "Failed to update currency");
+    }
+  },
+
   makeCategoryPrimary: async (req, res) => {
     try {
       const v = new Validator(req.body, {
