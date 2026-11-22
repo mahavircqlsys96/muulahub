@@ -1000,7 +1000,8 @@ module.exports = {
       // Check if user already has a currency set
       const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined';
       if (hasExistingCurrency) {
-        return helper.failed(res, "Currency is already set and cannot be changed", {
+        return helper.success(res, "Currency is already set", {
+          userId: user.id,
           currency: user.currency
         });
       }
