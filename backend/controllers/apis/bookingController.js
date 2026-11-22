@@ -124,6 +124,11 @@ module.exports = {
       const category = await services_categories.findOne({ where: { id: categoryId } });
       if (!category) return helper.failed(res, 'Category not found or not available');
 
+      const authUser = await users.findOne({ where: { id: userId } });
+      const finalCurrency = (currency && String(currency).trim() !== '' && currency !== 'null')
+        ? String(currency).toLowerCase().trim()
+        : (authUser && authUser.currency ? String(authUser.currency).toLowerCase().trim() : 'usd');
+
       const bookingNumber = 'BK' + Date.now() + Math.floor(Math.random() * 1000);
 
       const booking = await bookings.create({
@@ -140,7 +145,7 @@ module.exports = {
         location, latitude, longitude,
         notes,
         video: videoUrl, thumbnail: thumbnailUrl,
-        currency
+        currency: finalCurrency
       });
 
       if (images && Array.isArray(images) && images.length > 0) {
@@ -867,13 +872,13 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'profileImage', 'phone']
+            attributes: ['id', 'name', 'profileImage', 'phone', 'currency']
           },
           {
             model: users,
             as: 'provider',
             attributes: [
-              'id', 'name', 'profileImage',
+              'id', 'name', 'profileImage', 'currency',
               [
                 db.sequelize.literal(`(
                   SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -895,8 +900,16 @@ module.exports = {
         offset
       });
 
+      const formattedBookings = findBookings.map(b => {
+        const item = b.toJSON();
+        item.currency = (item.currency && String(item.currency).trim() !== '' && item.currency !== 'null')
+          ? String(item.currency).toLowerCase().trim()
+          : ((item.user && item.user.currency) || (item.provider && item.provider.currency) || 'usd');
+        return item;
+      });
+
       return helper.success(res, 'Bookings fetched', {
-        data: findBookings,
+        data: formattedBookings,
         pagination: {
           page,
           limit,
@@ -934,13 +947,13 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'profileImage', 'phone']
+            attributes: ['id', 'name', 'profileImage', 'phone', 'currency']
           },
           {
             model: users,
             as: 'provider',
             attributes: [
-              'id', 'name', 'profileImage',
+              'id', 'name', 'profileImage', 'currency',
               [
                 db.sequelize.literal(`(
                   SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -962,8 +975,16 @@ module.exports = {
         offset
       });
 
+      const formattedBookings = findBookings.map(b => {
+        const item = b.toJSON();
+        item.currency = (item.currency && String(item.currency).trim() !== '' && item.currency !== 'null')
+          ? String(item.currency).toLowerCase().trim()
+          : ((item.user && item.user.currency) || (item.provider && item.provider.currency) || 'usd');
+        return item;
+      });
+
       return helper.success(res, 'Bookings fetched', {
-        data: findBookings,
+        data: formattedBookings,
         pagination: {
           page,
           limit,
@@ -1004,13 +1025,13 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'profileImage', 'phone']
+            attributes: ['id', 'name', 'profileImage', 'phone', 'currency']
           },
           {
             model: users,
             as: 'provider',
             attributes: [
-              'id', 'name', 'profileImage',
+              'id', 'name', 'profileImage', 'currency',
               [
                 db.sequelize.literal(`(
                   SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -1032,8 +1053,16 @@ module.exports = {
         offset
       });
 
+      const formattedBookings = findBookings.map(b => {
+        const item = b.toJSON();
+        item.currency = (item.currency && String(item.currency).trim() !== '' && item.currency !== 'null')
+          ? String(item.currency).toLowerCase().trim()
+          : ((item.user && item.user.currency) || (item.provider && item.provider.currency) || 'usd');
+        return item;
+      });
+
       return helper.success(res, 'Bookings fetched', {
-        data: findBookings,
+        data: formattedBookings,
         pagination: {
           page,
           limit,
@@ -1116,13 +1145,13 @@ module.exports = {
           {
             model: users,
             as: 'user',
-            attributes: ['id', 'name', 'profileImage', 'phone']
+            attributes: ['id', 'name', 'profileImage', 'phone', 'currency']
           },
           {
             model: users,
             as: 'provider',
             attributes: [
-              'id', 'name', 'profileImage',
+              'id', 'name', 'profileImage', 'currency',
               [
                 db.sequelize.literal(`(
                   SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -1145,12 +1174,20 @@ module.exports = {
         distinct: true
       });
 
+      const formattedRows = rows.map(b => {
+        const item = b.toJSON();
+        item.currency = (item.currency && String(item.currency).trim() !== '' && item.currency !== 'null')
+          ? String(item.currency).toLowerCase().trim()
+          : ((item.user && item.user.currency) || (item.provider && item.provider.currency) || 'usd');
+        return item;
+      });
+
       return helper.success(res, 'Provider bookings fetched', {
         total: count,
         page,
         limit,
         totalPages: Math.ceil(count / limit),
-        data: rows
+        data: formattedRows
       });
 
     } catch (error) {
@@ -1171,8 +1208,8 @@ module.exports = {
         },
         include: [
           { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'] },
-          { model: users, as: 'user', attributes: ['id', 'name', 'profileImage', 'phone', 'email'] },
-          { model: users, as: 'provider', attributes: ['id', 'name', 'profileImage', 'phone'] },
+          { model: users, as: 'user', attributes: ['id', 'name', 'profileImage', 'phone', 'email', 'currency'] },
+          { model: users, as: 'provider', attributes: ['id', 'name', 'profileImage', 'phone', 'currency'] },
           { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'] },
           {
             model: rating,
@@ -1187,7 +1224,25 @@ module.exports = {
 
       const payment = await payments.findOne({ where: { bookingId: id } });
 
-      return helper.success(res, 'Booking detail fetched', { ...booking.toJSON(), payment });
+      const bookingData = booking.toJSON();
+
+      // Resolve currency: booking currency -> user currency -> provider currency -> default 'usd'
+      const resolvedCurrency = (bookingData.currency && String(bookingData.currency).trim() !== '' && bookingData.currency !== 'null' && bookingData.currency !== 'undefined')
+        ? String(bookingData.currency).toLowerCase().trim()
+        : ((bookingData.user && bookingData.user.currency && String(bookingData.user.currency).trim() !== '' && bookingData.user.currency !== 'null')
+          ? String(bookingData.user.currency).toLowerCase().trim()
+          : ((bookingData.provider && bookingData.provider.currency && String(bookingData.provider.currency).trim() !== '' && bookingData.provider.currency !== 'null')
+            ? String(bookingData.provider.currency).toLowerCase().trim()
+            : 'usd'));
+
+      bookingData.currency = resolvedCurrency;
+
+      // Backfill booking record if missing currency in database
+      if (!booking.currency && resolvedCurrency) {
+        booking.update({ currency: resolvedCurrency }).catch(err => console.log("Backfill booking currency error:", err));
+      }
+
+      return helper.success(res, 'Booking detail fetched', { ...bookingData, payment });
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');
