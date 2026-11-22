@@ -1268,7 +1268,6 @@ module.exports = {
   },
   socialLogin: async (req, res) => {
     try {
-
       console.log(req.body, "SOCIAL LOGIN BODY");
 
       const v = new Validator(req.body, {
@@ -1277,7 +1276,6 @@ module.exports = {
       });
 
       const errorsResponse = await helper.checkValidation(v);
-
       if (errorsResponse) {
         return helper.failed(res, errorsResponse);
       }
@@ -1290,78 +1288,87 @@ module.exports = {
         countryCode,
         phone,
         deviceToken,
+        deviceType,
         profileImage,
         referCode,
         currency
       } = req.body;
 
+      const cleanSocialId = String(socialId).trim();
+      const cleanEmail = email && typeof email === 'string' && email.trim() !== ''
+        ? email.trim().toLowerCase()
+        : null;
+
       const loginTime = helper.unixTimestamp();
-
       let isSignup = false;
-
       const role = "user";
 
-      /* =======================
-         Find Existing User
-      ======================= */
+      /* ========================================================
+         1. Find Existing User by (socialId, loginType) or Email
+         (Include soft-deleted accounts using paranoid: false)
+      ======================================================== */
       let user = await users.findOne({
         where: {
-          socialId,
-          loginType,
-          role,
-          deletedAt: null,
+          socialId: cleanSocialId,
+          loginType: loginType
         },
+        paranoid: false
       });
 
-      /* =======================
-         Block Inactive User
-      ======================= */
-      if (user && user.status !== "active") {
-        return helper.failed(
-          res,
-          "Your account is not active. Please contact admin."
-        );
-      }
-
-      /* =======================
-         Link Existing Email User
-      ======================= */
-      if (!user && email) {
-
-        const existingUser = await users.findOne({
-          where: {
-            email,
-            role,
-            deletedAt: null,
-          },
+      // If not found by socialId, check if account exists with this email
+      if (!user && cleanEmail) {
+        user = await users.findOne({
+          where: { email: cleanEmail },
+          paranoid: false
         });
-
-        if (existingUser) {
-
-          if (existingUser.status !== "active") {
-            return helper.failed(
-              res,
-              "Your account is not active. Please contact admin."
-            );
-          }
-
-          user = existingUser;
-
-          await user.update({
-            socialId,
-            loginType,
-            loginTime,
-            deviceToken: deviceToken,
-            ...(profileImage && { profileImage }),
-          });
-        }
       }
 
-      /* =======================
-         Create New User
-      ======================= */
-      if (!user) {
+      /* ========================================================
+         2. Existing Account Found: Reactivate/Link & Update
+      ======================================================== */
+      if (user) {
+        // If account was soft-deleted, restore it
+        if (user.deletedAt) {
+          await user.restore();
+        }
 
+        // If explicitly blocked by admin
+        if (user.status === "blocked") {
+          return helper.failed(
+            res,
+            "Your account is blocked. Please contact admin."
+          );
+        }
+
+        let updateData = {
+          socialId: cleanSocialId,
+          loginType,
+          loginTime,
+          status: "active",
+          deletedAt: null
+        };
+
+        if (deviceToken) updateData.deviceToken = deviceToken;
+        if (deviceType) updateData.deviceType = deviceType;
+        if (profileImage && !user.profileImage) updateData.profileImage = profileImage;
+        if (name && !user.name) updateData.name = name;
+        if (countryCode && !user.countryCode) updateData.countryCode = countryCode;
+        if (phone && !user.phone) updateData.phone = phone;
+
+        // Set currency only if not already set on user record
+        if (currency) {
+          const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null';
+          if (!hasExistingCurrency) {
+            updateData.currency = String(currency).toLowerCase().trim();
+          }
+        }
+
+        await user.update(updateData);
+
+      } else {
+        /* ========================================================
+           3. Create New User (No existing socialId or email)
+        ======================================================== */
         isSignup = true;
 
         let referredByUserId = null;
@@ -1373,70 +1380,37 @@ module.exports = {
           referredByUserId = referrer.id;
         }
 
-        let oldUser = await users.findOne({
-          where: {
-            socialId,
-            loginType,
-            role,
-          },
-          paranoid: false,
-        });
-
-        if (!oldUser && email) {
-          oldUser = await users.findOne({
-            where: {
-              email,
-              role,
-            },
-            paranoid: false,
-          });
-        }
-
-        const finalName = name || oldUser?.name || null;
-
-        const finalEmail = email || oldUser?.email || null;
-
-        const finalImage =
-          profileImage ||
-          oldUser?.profileImage ||
-          null;
-
         const generatedReferralCode = 'MH' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const cleanCurrency = currency ? String(currency).toLowerCase().trim() : 'usd';
 
         user = await users.create({
-          name: finalName,
-          email: finalEmail,
+          name: name || null,
+          email: cleanEmail || null,
           phone: phone || null,
           countryCode: countryCode || null,
           role,
-          profileImage: finalImage,
-          socialId,
+          profileImage: profileImage || null,
+          socialId: cleanSocialId,
           loginType,
           loginTime,
-          deviceToken: deviceToken,
+          deviceToken: deviceToken || null,
+          deviceType: deviceType || null,
           status: "active",
-          isProfileComplte: 0, // Pending profile completion
+          isProfileComplete: 0,
           referralCode: generatedReferralCode,
           referredBy: referredByUserId,
-          currency: currency
-        });
-
-      } else {
-
-        await user.update({
-          loginTime,
-          deviceToken: deviceToken,
-          ...(profileImage && { profileImage }),
+          currency: cleanCurrency
         });
       }
 
-      /* =======================
-         Generate Token
-      ======================= */
+      /* ========================================================
+         4. Generate Token & Login History
+      ======================================================== */
       await login_histories.create({
         userId: user.id,
         loginTime: loginTime,
-        deviceToken: deviceToken,
+        deviceToken: deviceToken || null,
+        deviceType: deviceType || null,
         loginType: loginType
       });
 
@@ -1453,38 +1427,30 @@ module.exports = {
         }
       );
 
-      /* =======================
-         Refresh User Data
-      ======================= */
+      /* ========================================================
+         5. Refresh User Data & Return Response
+      ======================================================== */
       user = await users.findOne({
         where: { id: user.id },
       });
 
-      user = user.get({ plain: true });
+      const userPlain = user.get({ plain: true });
+      delete userPlain.password;
+      delete userPlain.otp;
 
-      delete user.password;
-      delete user.otp;
-
-      /* =======================
-         Final Response
-      ======================= */
       return helper.success(
         res,
-        isSignup
-          ? "Signup successful"
-          : "Login successful",
+        isSignup ? "Signup successful" : "Login successful",
         {
-          ...user,
+          ...userPlain,
           token,
           isSignup,
-          isProfileComplte: user.isProfileComplte || 0,
+          isProfileComplete: userPlain.isProfileComplete || 0,
         }
       );
 
     } catch (error) {
-
       console.error("Social Login Error:", error);
-
       return helper.error(res, error);
     }
   },
