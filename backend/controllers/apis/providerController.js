@@ -563,4 +563,343 @@ module.exports = {
     }
   },
 
+  /**
+   * Get Nearby Providers
+   * Filters:
+   * - Who declare provider (isProvider: 1 OR currentMode: 'provider' OR isProfileComplete: 2)
+   * - Filter by categoryId or categoryIds
+   * - Filter / Sort by rating (high_to_low, low_to_high, asc, desc)
+   * - Nearby location (latitude, longitude, radius in km)
+   */
+  nearbyProviders: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page || (req.body && req.body.page), 10) || 1;
+      const limit = parseInt(req.query.limit || (req.body && req.body.limit), 10) || 10;
+      const offset = (page - 1) * limit;
+
+      const currentUserId = (req.auth && req.auth.id) || (req.user && req.user.id) || 0;
+
+      // ==========================================
+      // 1. LOCATION (LATITUDE, LONGITUDE, RADIUS)
+      // ==========================================
+      let reqLat = req.query.latitude ? parseFloat(req.query.latitude) : (req.body && req.body.latitude ? parseFloat(req.body.latitude) : null);
+      let reqLng = req.query.longitude ? parseFloat(req.query.longitude) : (req.body && req.body.longitude ? parseFloat(req.body.longitude) : null);
+      const radiusKm = req.query.radius ? parseFloat(req.query.radius) : (req.body && req.body.radius ? parseFloat(req.body.radius) : null);
+
+      if ((!reqLat || !reqLng) && currentUserId > 0) {
+        const currentUser = await users.findOne({
+          where: { id: currentUserId },
+          attributes: ['latitude', 'longitude']
+        });
+        if (currentUser && currentUser.latitude && currentUser.longitude) {
+          reqLat = parseFloat(currentUser.latitude);
+          reqLng = parseFloat(currentUser.longitude);
+        }
+      }
+
+      const hasCoordinates = reqLat !== null && reqLng !== null && !isNaN(reqLat) && !isNaN(reqLng);
+
+      // Distance calculation query (Haversine formula in KM)
+      let distanceQuery = null;
+      let havingConditions = [];
+
+      if (hasCoordinates) {
+        distanceQuery = `
+          (CASE 
+            WHEN users.latitude IS NULL OR users.longitude IS NULL THEN 999999
+            ELSE (
+              6371 * acos(
+                LEAST(1.0, GREATEST(-1.0,
+                  cos(radians(${reqLat}))
+                  * cos(radians(users.latitude))
+                  * cos(radians(users.longitude) - radians(${reqLng}))
+                  + sin(radians(${reqLat}))
+                  * sin(radians(users.latitude))
+                ))
+              )
+            )
+          END)
+        `;
+
+        if (radiusKm && !isNaN(radiusKm) && radiusKm > 0) {
+          havingConditions.push(db.sequelize.literal(`distance <= ${radiusKm}`));
+        }
+      }
+
+      // ==========================================
+      // 2. BASE CONDITION: WHO DECLARES PROVIDER
+      // ==========================================
+      let whereCondition = {
+        status: 'active',
+        role: 'user',
+        [Op.or]: [
+          { isProvider: 1 },
+          { currentMode: 'provider' },
+          { isProfileComplete: 2 }
+        ]
+      };
+
+      // Exclude logged-in user from the list
+      if (currentUserId > 0) {
+        whereCondition.id = { [Op.ne]: currentUserId };
+      }
+
+      // Search keyword filter (name, userName, email)
+      const searchKey = req.query.search || req.query.searchKey || (req.body && (req.body.search || req.body.searchKey));
+      if (searchKey && typeof searchKey === 'string' && searchKey.trim()) {
+        const cleanSearch = searchKey.trim();
+        whereCondition[Op.and] = whereCondition[Op.and] || [];
+        whereCondition[Op.and].push({
+          [Op.or]: [
+            { name: { [Op.like]: `%${cleanSearch}%` } },
+            { userName: { [Op.like]: `%${cleanSearch}%` } },
+            { email: { [Op.like]: `%${cleanSearch}%` } }
+          ]
+        });
+      }
+
+      // ==========================================
+      // 3. CATEGORY FILTER (categoryId / categoryIds)
+      // ==========================================
+      let rawCategories = req.query.categoryId || req.query.categoryIds || req.query.categories || (req.body && (req.body.categoryId || req.body.categoryIds || req.body.categories));
+      let categoryFilterList = [];
+
+      if (rawCategories) {
+        if (Array.isArray(rawCategories)) {
+          categoryFilterList = rawCategories.map(c => parseInt(c, 10)).filter(c => !isNaN(c) && c > 0);
+        } else if (typeof rawCategories === 'string') {
+          categoryFilterList = rawCategories.split(',').map(c => parseInt(c.trim(), 10)).filter(c => !isNaN(c) && c > 0);
+        } else if (typeof rawCategories === 'number' && rawCategories > 0) {
+          categoryFilterList = [rawCategories];
+        }
+      }
+
+      if (categoryFilterList.length > 0) {
+        const providerCategoryMatches = await user_categories.findAll({
+          where: {
+            categoryId: { [Op.in]: categoryFilterList }
+          },
+          attributes: ['userId'],
+          raw: true
+        });
+
+        const matchedUserIds = [...new Set(providerCategoryMatches.map(p => p.userId))];
+
+        if (matchedUserIds.length === 0) {
+          return helper.success(res, "Nearby providers fetched successfully", {
+            providers: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+              hasNextPage: false
+            }
+          });
+        }
+
+        whereCondition.id = currentUserId > 0
+          ? { [Op.in]: matchedUserIds, [Op.ne]: currentUserId }
+          : { [Op.in]: matchedUserIds };
+      }
+
+      // ==========================================
+      // 4. RATING FILTER & SORTING
+      // ==========================================
+      const minRating = req.query.minRating || (req.body && req.body.minRating);
+      if (minRating && !isNaN(parseFloat(minRating))) {
+        havingConditions.push(db.sequelize.literal(`providerAvgRating >= ${parseFloat(minRating)}`));
+      }
+
+      const ratingSortParam = req.query.ratingSort || req.query.rating || (req.body && (req.body.ratingSort || req.body.rating));
+      const sortBy = req.query.sortBy || (req.body && req.body.sortBy);
+      const sortOrder = String(req.query.sortOrder || req.query.order || (req.body && (req.body.sortOrder || req.body.order)) || '').toUpperCase();
+
+      const isRatingSort = Boolean(
+        sortBy === 'rating' ||
+        ratingSortParam
+      );
+
+      let ratingDirection = 'DESC';
+      if (
+        ratingSortParam === 'low_to_high' ||
+        ratingSortParam === 'asc' ||
+        ratingSortParam === 'ASC' ||
+        sortOrder === 'ASC'
+      ) {
+        ratingDirection = 'ASC';
+      }
+
+      let order = [];
+      if (isRatingSort) {
+        order.push([db.sequelize.literal('providerAvgRating'), ratingDirection]);
+        if (hasCoordinates) {
+          order.push([db.sequelize.literal('distance'), 'ASC']);
+        }
+        order.push(['id', 'DESC']);
+      } else if (hasCoordinates) {
+        order.push([db.sequelize.literal('distance'), 'ASC']);
+        order.push([db.sequelize.literal('providerAvgRating'), 'DESC']);
+        order.push(['id', 'DESC']);
+      } else {
+        order.push([db.sequelize.literal('providerAvgRating'), 'DESC']);
+        order.push(['id', 'DESC']);
+      }
+
+      // ==========================================
+      // 5. QUERY PROVIDERS
+      // ==========================================
+      let attributes = [
+        'id',
+        'name',
+        'userName',
+        'email',
+        'phone',
+        'countryCode',
+        'profileImage',
+        'profileImageProvider',
+        'bio',
+        'about',
+        'hourlyPrice',
+        'currency',
+        'isProvider',
+        'providerStatus',
+        'currentMode',
+        'latitude',
+        'longitude',
+        'location',
+        [
+          db.sequelize.literal(`(
+            SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+            FROM rating
+            WHERE rating.providerId = users.id
+          )`),
+          "providerAvgRating"
+        ],
+        [
+          db.sequelize.literal(`(
+            SELECT COUNT(*)
+            FROM rating
+            WHERE rating.providerId = users.id
+          )`),
+          "totalReviews"
+        ]
+      ];
+
+      if (hasCoordinates) {
+        attributes.push([db.sequelize.literal(distanceQuery), "distance"]);
+      } else {
+        attributes.push([db.sequelize.literal("NULL"), "distance"]);
+      }
+
+      let havingClause = undefined;
+      if (havingConditions.length === 1) {
+        havingClause = havingConditions[0];
+      } else if (havingConditions.length > 1) {
+        havingClause = db.sequelize.and(...havingConditions);
+      }
+
+      const findProviders = await users.findAll({
+        where: whereCondition,
+        attributes,
+        group: ['users.id'],
+        having: havingClause,
+        order,
+        limit,
+        offset,
+        subQuery: false
+      });
+
+      // Total count query for pagination
+      const totalProviders = await users.findAll({
+        where: whereCondition,
+        attributes: [
+          'id',
+          [
+            db.sequelize.literal(`(
+              SELECT IFNULL(ROUND(AVG(rating), 1), 0)
+              FROM rating
+              WHERE rating.providerId = users.id
+            )`),
+            "providerAvgRating"
+          ],
+          ...(hasCoordinates ? [[db.sequelize.literal(distanceQuery), "distance"]] : [])
+        ],
+        group: ['users.id'],
+        having: havingClause,
+        subQuery: false
+      });
+      const totalCount = totalProviders.length;
+
+      // ==========================================
+      // 6. ATTACH FULL CATEGORIES FOR EACH PROVIDER
+      // ==========================================
+      const providerIds = findProviders.map(p => p.id);
+      let categoriesByProvider = {};
+
+      if (providerIds.length > 0) {
+        const allProviderCats = await user_categories.findAll({
+          where: {
+            userId: { [Op.in]: providerIds }
+          },
+          attributes: ['id', 'userId', 'categoryId', 'isPrimary'],
+          include: [
+            {
+              model: services_categories,
+              as: 'category',
+              attributes: ['id', 'categoryName', 'image']
+            }
+          ]
+        });
+
+        allProviderCats.forEach(catItem => {
+          if (!categoriesByProvider[catItem.userId]) {
+            categoriesByProvider[catItem.userId] = [];
+          }
+          categoriesByProvider[catItem.userId].push(catItem);
+        });
+      }
+
+      // Format response
+      const formattedProviders = findProviders.map(provider => {
+        const pObj = provider.toJSON();
+        pObj.providerAvgRating = parseFloat(pObj.providerAvgRating || 0);
+        pObj.totalReviews = parseInt(pObj.totalReviews || 0, 10);
+
+        if (pObj.distance !== null && pObj.distance !== undefined) {
+          const rawDist = parseFloat(pObj.distance);
+          pObj.distance = rawDist >= 999990 || isNaN(rawDist) ? null : Math.round(rawDist * 100) / 100;
+        } else {
+          pObj.distance = null;
+        }
+
+        const userCats = categoriesByProvider[pObj.id] || [];
+        pObj.userCategories = userCats;
+        pObj.categories = userCats.map(uc => ({
+          id: uc.category ? uc.category.id : uc.categoryId,
+          categoryName: uc.category ? uc.category.categoryName : null,
+          image: uc.category ? uc.category.image : null,
+          isPrimary: uc.isPrimary || 0
+        }));
+
+        return pObj;
+      });
+
+      return helper.success(res, "Nearby providers fetched successfully", {
+        providers: formattedProviders,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+          hasNextPage: page * limit < totalCount
+        }
+      });
+
+    } catch (error) {
+      console.log("nearbyProviders error:", error);
+      return helper.error(res, "Something went wrong while fetching nearby providers");
+    }
+  },
+
 };

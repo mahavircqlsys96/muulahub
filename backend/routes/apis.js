@@ -61,6 +61,7 @@ module.exports = (io) => {
   router.all(['/getPostDetailWithComments/:id', '/getPostDetailWithComments'], optionalAuthenticateJWT, postsController.getPostDetailWithComments);
   router.all(['/search', '/globalSearch'], optionalAuthenticateJWT, userController.search);
   router.all(['/getProvidersList'], optionalAuthenticateJWT, providerController.getProvidersList);
+  router.all(['/nearbyproviders', '/nearbyProviders', '/getNearbyProviders'], optionalAuthenticateJWT, providerController.nearbyProviders);
   router.all(['/getProviderProfile'], optionalAuthenticateJWT, providerController.getProviderProfile);
   router.all(['/providerDetail/:id', '/providerDetail'], optionalAuthenticateJWT, providerController.providerDetail);
 
