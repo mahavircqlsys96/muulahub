@@ -10,7 +10,7 @@ module.exports = {
   home: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 1000;
+      const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
 
       const searchKey = req.query.searchKey || "";
@@ -21,12 +21,92 @@ module.exports = {
         type: 'publish',
       };
 
-      if (req.auth) {
-        whereCondition.userId = { [Op.ne]: req.auth.id };
+      const currentUserId = (req.auth && req.auth.id) || (req.user && req.user.id) || 0;
+
+      if (currentUserId > 0) {
+        whereCondition.userId = { [Op.ne]: currentUserId };
       }
 
       if (categoryId) {
         whereCondition.categoryId = categoryId;
+      }
+
+      // ==========================================
+      // NEARBY CHECK (users.latitude, users.longitude, 100 miles)
+      // ==========================================
+      let reqLat = req.query.latitude ? parseFloat(req.query.latitude) : null;
+      let reqLng = req.query.longitude ? parseFloat(req.query.longitude) : null;
+      const maxDistanceMiles = req.query.radius ? parseFloat(req.query.radius) : (req.query.distance ? parseFloat(req.query.distance) : 100);
+
+      // If coordinates not sent in query, fetch from authenticated user's record
+      if ((!reqLat || !reqLng) && currentUserId > 0) {
+        const currentUser = await users.findOne({
+          where: { id: currentUserId },
+          attributes: ['latitude', 'longitude']
+        });
+        if (currentUser && currentUser.latitude && currentUser.longitude) {
+          reqLat = parseFloat(currentUser.latitude);
+          reqLng = parseFloat(currentUser.longitude);
+        }
+      }
+
+      const hasCoordinates = reqLat !== null && reqLng !== null && !isNaN(reqLat) && !isNaN(reqLng);
+      let nearbyProviderMap = {};
+
+      if (hasCoordinates) {
+        // Haversine formula in miles (using Earth radius = 3959 miles) on users table
+        const distanceFormula = `
+          (
+            3959 * acos(
+              LEAST(1.0, GREATEST(-1.0,
+                cos(radians(${reqLat}))
+                * cos(radians(users.latitude))
+                * cos(radians(users.longitude) - radians(${reqLng}))
+                + sin(radians(${reqLat}))
+                * sin(radians(users.latitude))
+              ))
+            )
+          )
+        `;
+
+        const nearbyProviders = await users.findAll({
+          where: {
+            isProvider: 1,
+            status: 'active',
+            latitude: { [Op.ne]: null },
+            longitude: { [Op.ne]: null },
+            [Op.and]: db.sequelize.where(db.sequelize.literal(distanceFormula), '<=', maxDistanceMiles)
+          },
+          attributes: [
+            'id',
+            [db.sequelize.literal(distanceFormula), 'distanceMiles']
+          ],
+          raw: true
+        });
+
+        nearbyProviders.forEach(p => {
+          nearbyProviderMap[p.id] = Math.round(parseFloat(p.distanceMiles) * 100) / 100;
+        });
+
+        const nearbyProviderIds = Object.keys(nearbyProviderMap);
+
+        // If no providers are within 100 miles, return empty list
+        if (nearbyProviderIds.length === 0) {
+          return helper.success(res, 'Home', {
+            posts: [],
+            pagination: {
+              page,
+              limit,
+              searchKey,
+              radiusMiles: maxDistanceMiles,
+              hasNextPage: false
+            }
+          });
+        }
+
+        whereCondition.userId = currentUserId > 0
+          ? { [Op.in]: nearbyProviderIds, [Op.ne]: currentUserId }
+          : { [Op.in]: nearbyProviderIds };
       }
 
       // ✅ Add search filter
@@ -73,7 +153,7 @@ module.exports = {
               SELECT COUNT(*)
               FROM post_likes
               WHERE post_likes.postId = posts.id
-              AND post_likes.userId = ${req.auth ? req.auth.id : 0}
+              AND post_likes.userId = ${currentUserId}
             )`),
               "isLiked",
             ],
@@ -82,7 +162,7 @@ module.exports = {
               SELECT COUNT(*)
               FROM bookmarks
               WHERE bookmarks.postId = posts.id
-              AND bookmarks.userId = ${req.auth ? req.auth.id : 0}
+              AND bookmarks.userId = ${currentUserId}
             )`),
               "isBookmarked",
             ],
@@ -95,7 +175,7 @@ module.exports = {
             as: 'user',
             where: { isProvider: 1 },
             attributes: [
-              'id', 'name', 'profileImage',
+              'id', 'name', 'profileImage', 'latitude', 'longitude',
               [
                 db.sequelize.literal(`(
                 SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -132,6 +212,34 @@ module.exports = {
         offset
       });
 
+      // Format posts and attach distance
+      let formattedPosts = findPosts.map(post => {
+        const postJson = post.toJSON();
+        const providerId = postJson.user ? postJson.user.id : postJson.userId;
+        const dist = hasCoordinates && nearbyProviderMap[providerId] !== undefined
+          ? nearbyProviderMap[providerId]
+          : null;
+
+        postJson.distance = dist;
+        postJson.distanceUnit = 'miles';
+
+        if (postJson.user) {
+          postJson.user.distance = dist;
+          postJson.user.distanceUnit = 'miles';
+        }
+
+        return postJson;
+      });
+
+      // If user explicitly asks for sorting by distance/nearby
+      if (req.query.sortBy === 'distance' || req.query.sortBy === 'nearby') {
+        formattedPosts.sort((a, b) => {
+          if (a.distance === null) return 1;
+          if (b.distance === null) return -1;
+          return a.distance - b.distance;
+        });
+      }
+
       // ✅ Save search appearances if searchKey is present
       if (searchKey.trim() && findPosts && findPosts.length > 0) {
         const searchAppearancesData = findPosts.map(post => {
@@ -145,11 +253,12 @@ module.exports = {
       }
 
       return helper.success(res, 'Home', {
-        posts: findPosts,
+        posts: formattedPosts,
         pagination: {
           page,
           limit,
           searchKey,
+          radiusMiles: maxDistanceMiles,
           hasNextPage: findPosts.length === limit
         }
       });
