@@ -339,8 +339,25 @@ module.exports = {
         offset
       });
 
+      const formattedList = findProviders.map(p => {
+        const pObj = p.toJSON ? p.toJSON() : p;
+        if (pObj.userCategories && Array.isArray(pObj.userCategories)) {
+          pObj.userCategories = pObj.userCategories.map(uc => {
+            const item = { ...uc };
+            const catData = item.category || item.categories || null;
+            item.categories = catData;
+            item.category = catData;
+            item.categoryName = catData ? catData.categoryName : null;
+            item.image = catData ? catData.image : null;
+            return item;
+          });
+          pObj.categories = pObj.userCategories;
+        }
+        return pObj;
+      });
+
       return helper.success(res, 'Providers list fetched successfully', {
-        providers: findProviders,
+        providers: formattedList,
         pagination: {
           page,
           limit,
@@ -428,6 +445,19 @@ module.exports = {
       const providerData = findProvider.toJSON();
       providerData.completedLiveEvents = completedLiveEvents;
       providerData.liveEvents = completedLiveEvents;
+
+      if (providerData.userCategories && Array.isArray(providerData.userCategories)) {
+        providerData.userCategories = providerData.userCategories.map(uc => {
+          const item = { ...uc };
+          const catData = item.category || item.categories || null;
+          item.categories = catData;
+          item.category = catData;
+          item.categoryName = catData ? catData.categoryName : null;
+          item.image = catData ? catData.image : null;
+          return item;
+        });
+        providerData.categories = providerData.userCategories;
+      }
 
       return helper.success(res, "Provider detail fetched successfully", providerData);
     } catch (error) {
@@ -815,10 +845,17 @@ module.exports = {
         });
 
         allProviderCats.forEach(catItem => {
-          if (!categoriesByProvider[catItem.userId]) {
-            categoriesByProvider[catItem.userId] = [];
+          const item = catItem.toJSON ? catItem.toJSON() : catItem;
+          const catData = item.category || item.categories || null;
+          item.categories = catData;
+          item.category = catData;
+          item.categoryName = catData ? catData.categoryName : null;
+          item.image = catData ? catData.image : null;
+
+          if (!categoriesByProvider[item.userId]) {
+            categoriesByProvider[item.userId] = [];
           }
-          categoriesByProvider[catItem.userId].push(catItem);
+          categoriesByProvider[item.userId].push(item);
         });
       }
 
@@ -836,13 +873,8 @@ module.exports = {
         }
 
         const userCats = categoriesByProvider[pObj.id] || [];
+        pObj.categories = userCats;
         pObj.userCategories = userCats;
-        pObj.categories = userCats.map(uc => ({
-          id: uc.category ? uc.category.id : uc.categoryId,
-          categoryName: uc.category ? uc.category.categoryName : null,
-          image: uc.category ? uc.category.image : null,
-          isPrimary: uc.isPrimary || 0
-        }));
 
         return pObj;
       });

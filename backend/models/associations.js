@@ -170,6 +170,7 @@ module.exports = (db) => {
   }
   if (user_categories && services_categories) {
     user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'category' });
+    user_categories.belongsTo(services_categories, { foreignKey: 'categoryId', as: 'categories' });
     services_categories.hasMany(user_categories, { foreignKey: 'categoryId', as: 'users' });
   }
 
