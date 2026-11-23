@@ -1219,7 +1219,7 @@ const UsersView = () => {
                 <TableHead
                   columns={[
                     'S No.',
-                    'Type',
+                    'Category',
                     'Title',
                     'Hashtags',
                     'Likes',
@@ -1252,11 +1252,28 @@ const UsersView = () => {
                           style={{
                             padding: '14px 16px',
                             fontSize: '13px',
-                            color: '#374151',
                           }}
-                          title={p.postType || ''}
+                          title={p.category?.categoryName || p.categoryName || ''}
                         >
-                          {p.postType || '—'}
+                          {p.category?.categoryName || p.categoryName ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              {p.category?.image && (
+                                <img
+                                  src={p.category.image.startsWith('http') ? p.category.image : `${imageBaseUrl}${p.category.image}`}
+                                  alt=""
+                                  style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover' }}
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              )}
+                              <span style={{ fontWeight: '500', color: '#111827' }}>
+                                {p.category?.categoryName || p.categoryName}
+                              </span>
+                            </div>
+                          ) : p.categoryId ? (
+                            <span style={{ color: '#6b7280' }}>Category #{p.categoryId}</span>
+                          ) : (
+                            <span style={{ color: '#9ca3af' }}>—</span>
+                          )}
                         </td>
                         <td
                           style={{
