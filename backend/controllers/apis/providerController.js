@@ -706,33 +706,28 @@ module.exports = {
       // ==========================================
       // 4. RATING FILTER & SORTING
       // ==========================================
-      const minRating = req.query.minRating || (req.body && req.body.minRating);
-      if (minRating && !isNaN(parseFloat(minRating))) {
-        havingConditions.push(db.sequelize.literal(`providerAvgRating >= ${parseFloat(minRating)}`));
+      const rawRating = req.query.rating !== undefined
+        ? req.query.rating
+        : (req.body && req.body.rating !== undefined
+          ? req.body.rating
+          : (req.query.minRating !== undefined ? req.query.minRating : (req.body && req.body.minRating)));
+
+      let filterRating = null;
+      if (rawRating !== undefined && rawRating !== null && String(rawRating).trim() !== '') {
+        const parsedRating = parseFloat(rawRating);
+        if (!isNaN(parsedRating) && parsedRating > 0) {
+          filterRating = parsedRating;
+          havingConditions.push(db.sequelize.literal(`providerAvgRating >= ${filterRating}`));
+        }
       }
 
-      const ratingSortParam = req.query.ratingSort || req.query.rating || (req.body && (req.body.ratingSort || req.body.rating));
       const sortBy = req.query.sortBy || (req.body && req.body.sortBy);
       const sortOrder = String(req.query.sortOrder || req.query.order || (req.body && (req.body.sortOrder || req.body.order)) || '').toUpperCase();
 
-      const isRatingSort = Boolean(
-        sortBy === 'rating' ||
-        ratingSortParam
-      );
-
-      let ratingDirection = 'DESC';
-      if (
-        ratingSortParam === 'low_to_high' ||
-        ratingSortParam === 'asc' ||
-        ratingSortParam === 'ASC' ||
-        sortOrder === 'ASC'
-      ) {
-        ratingDirection = 'ASC';
-      }
-
       let order = [];
-      if (isRatingSort) {
-        order.push([db.sequelize.literal('providerAvgRating'), ratingDirection]);
+      if (sortBy === 'rating') {
+        const ratingDir = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+        order.push([db.sequelize.literal('providerAvgRating'), ratingDir]);
         if (hasCoordinates) {
           order.push([db.sequelize.literal('distance'), 'ASC']);
         }
@@ -892,6 +887,7 @@ module.exports = {
           limit,
           total: totalCount,
           totalPages: Math.ceil(totalCount / limit),
+          rating: filterRating,
           hasNextPage: page * limit < totalCount
         }
       });
