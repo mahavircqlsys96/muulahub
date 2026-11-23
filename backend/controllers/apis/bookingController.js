@@ -232,21 +232,62 @@ module.exports = {
 
       await booking.update(updateData);
 
+      const providerUser = await users.findOne({ where: { id: userId }, attributes: ['id', 'name'] });
+      const customerUser = await users.findOne({ where: { id: booking.userId }, attributes: ['id', 'name'] });
+      const providerName = (providerUser && providerUser.name) || req.auth.name || 'Provider';
+      const customerName = (customerUser && customerUser.name) || 'Customer';
+
       if (isCounterOffer) {
+        // Push to User
         await sendBookingNotification(
           booking.userId,
           userId,
-          'Booking Counter Offer',
-          `Your booking #${booking.bookingNumber} received a counter offer.`,
+          'Booking Quote Received',
+          `You received a quote for booking #${booking.bookingNumber} from ${providerName}.`,
+          booking.id
+        );
+        // Push to Provider
+        await sendBookingNotification(
+          userId,
+          booking.userId,
+          'Quote Sent',
+          `Your quote for booking #${booking.bookingNumber} has been sent to ${customerName}.`,
           booking.id
         );
         return helper.success(res, 'Counter offer sent successfully', booking);
-      } else {
+      } else if (finalStatus === 'accepted') {
+        // Push to User
         await sendBookingNotification(
           booking.userId,
           userId,
-          'Booking ' + finalStatus,
-          `Your booking #${booking.bookingNumber} has been ` + finalStatus,
+          'Booking Accepted',
+          `Your booking #${booking.bookingNumber} has been accepted by ${providerName}.`,
+          booking.id
+        );
+        // Push to Provider
+        await sendBookingNotification(
+          userId,
+          booking.userId,
+          'Booking Accepted',
+          `You have accepted booking #${booking.bookingNumber} from ${customerName}.`,
+          booking.id
+        );
+        return helper.success(res, 'Booking accepted successfully', booking);
+      } else {
+        // Push to User
+        await sendBookingNotification(
+          booking.userId,
+          userId,
+          'Booking Declined',
+          `Your booking #${booking.bookingNumber} has been declined by ${providerName}.`,
+          booking.id
+        );
+        // Push to Provider
+        await sendBookingNotification(
+          userId,
+          booking.userId,
+          'Booking Declined',
+          `You have declined booking #${booking.bookingNumber} from ${customerName}.`,
           booking.id
         );
         return helper.success(res, 'Booking ' + finalStatus + ' successfully', booking);
@@ -301,11 +342,25 @@ module.exports = {
           counterStatus: 'rejected'
         });
 
+        const customerUser = await users.findOne({ where: { id: userId }, attributes: ['id', 'name'] });
+        const providerUser = await users.findOne({ where: { id: booking.providerId }, attributes: ['id', 'name'] });
+        const customerName = (customerUser && customerUser.name) || req.auth.name || 'User';
+        const providerName = (providerUser && providerUser.name) || 'Provider';
+
+        // Push to Provider
         await sendBookingNotification(
           booking.providerId,
           userId,
-          'Counter Offer Cancelled',
-          `Your counter offer for booking #${booking.bookingNumber} was rejected`,
+          'Booking Quote Declined',
+          `${customerName} has declined the quote for booking #${booking.bookingNumber}.`,
+          booking.id
+        );
+        // Push to User
+        await sendBookingNotification(
+          userId,
+          booking.providerId,
+          'Booking Quote Declined',
+          `You have declined the quote for booking #${booking.bookingNumber}.`,
           booking.id
         );
 
@@ -494,11 +549,25 @@ module.exports = {
         return helper.error(res, 'Payment or booking update failed');
       }
 
+      const customerUser = await users.findOne({ where: { id: userId }, attributes: ['id', 'name'] });
+      const providerUser = await users.findOne({ where: { id: booking.providerId }, attributes: ['id', 'name'] });
+      const customerName = (customerUser && customerUser.name) || req.auth.name || 'User';
+      const providerName = (providerUser && providerUser.name) || 'Provider';
+
+      // Push to Provider
       await sendBookingNotification(
         booking.providerId,
         userId,
-        'Counter Offer accepted',
-        `Your counter offer for booking #${booking.bookingNumber} was accepted`,
+        'Booking Accepted',
+        `${customerName} has accepted booking #${booking.bookingNumber}.`,
+        booking.id
+      );
+      // Push to User
+      await sendBookingNotification(
+        userId,
+        booking.providerId,
+        'Booking Accepted',
+        `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
         booking.id
       );
 
@@ -1277,14 +1346,25 @@ module.exports = {
 
       await booking.update(updateData);
 
-      let notifyUserId = booking.providerId === userId ? booking.userId : booking.providerId;
-      let notifyMsg = `Booking has started`;
+      const providerUser = await users.findOne({ where: { id: booking.providerId }, attributes: ['id', 'name'] });
+      const customerUser = await users.findOne({ where: { id: booking.userId }, attributes: ['id', 'name'] });
+      const providerName = (providerUser && providerUser.name) || 'Provider';
+      const customerName = (customerUser && customerUser.name) || 'Customer';
 
+      // Push to Customer
       await sendBookingNotification(
-        notifyUserId,
-        userId,
-        'Booking Update',
-        notifyMsg,
+        booking.userId,
+        booking.providerId,
+        'Booking Started',
+        `${providerName} has started booking #${booking.bookingNumber}.`,
+        bookingId
+      );
+      // Push to Provider
+      await sendBookingNotification(
+        booking.providerId,
+        booking.userId,
+        'Booking Started',
+        `You have started booking #${booking.bookingNumber} for ${customerName}.`,
         bookingId
       );
 
@@ -1324,14 +1404,25 @@ module.exports = {
 
       await booking.update(updateData);
 
-      let notifyUserId = booking.providerId === userId ? booking.userId : booking.providerId;
-      let notifyMsg = `Provider has started tracking for the booking`;
+      const providerUser = await users.findOne({ where: { id: booking.providerId }, attributes: ['id', 'name'] });
+      const customerUser = await users.findOne({ where: { id: booking.userId }, attributes: ['id', 'name'] });
+      const providerName = (providerUser && providerUser.name) || 'Provider';
+      const customerName = (customerUser && customerUser.name) || 'Customer';
 
+      // Push to Customer
       await sendBookingNotification(
-        notifyUserId,
-        userId,
-        'Booking Update',
-        notifyMsg,
+        booking.userId,
+        booking.providerId,
+        'Tracking Started',
+        `${providerName} has started tracking for booking #${booking.bookingNumber}.`,
+        bookingId
+      );
+      // Push to Provider
+      await sendBookingNotification(
+        booking.providerId,
+        booking.userId,
+        'Tracking Started',
+        `You have started tracking for booking #${booking.bookingNumber}.`,
         bookingId
       );
 
