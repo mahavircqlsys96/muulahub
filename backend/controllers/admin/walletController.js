@@ -35,14 +35,28 @@ module.exports = {
 
       const { count, rows } = await users.findAndCountAll({
         where: whereClause,
-        attributes: ['id', 'name', 'email', 'phone', 'role', 'isProvider', 'walletAmount', 'pendingAmount', 'withdrawnAmount', 'isWalletFrozen'],
+        attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'role', 'isProvider', 'walletAmount', 'pendingAmount', 'withdrawnAmount', 'isWalletFrozen', 'currency'],
         order: [['createdAt', 'DESC']],
         limit,
         offset
       });
 
+      const formattedRows = await Promise.all(rows.map(async (u) => {
+        const j = u.toJSON ? u.toJSON() : u;
+        if (!j.currency) {
+          const b = await db.bookings.findOne({
+            where: { [Op.or]: [{ userId: j.id }, { providerId: j.id }], currency: { [Op.ne]: null } },
+            attributes: ['currency'],
+            order: [['id', 'DESC']],
+            raw: true
+          });
+          if (b && b.currency) j.currency = String(b.currency).toLowerCase().trim();
+        }
+        return j;
+      }));
+
       return helper.success(res, 'Wallets fetched', {
-        list: rows,
+        list: formattedRows,
         total: count,
         currentPage: page,
         totalPages: Math.ceil(count / limit)

@@ -6,6 +6,7 @@ export const StatusBadge = ({ status, map }) => {
     approved: { bg: '#dcfce7', color: '#16a34a' },
     success: { bg: '#dcfce7', color: '#16a34a' },
     completed: { bg: '#dcfce7', color: '#16a34a' },
+    paid: { bg: '#dcfce7', color: '#16a34a' },
     pending: { bg: '#fef9c3', color: '#ca8a04' },
     rejected: { bg: '#fee2e2', color: '#dc2626' },
     failed: { bg: '#fee2e2', color: '#dc2626' },
@@ -14,9 +15,15 @@ export const StatusBadge = ({ status, map }) => {
     reported: { bg: '#fde8d8', color: '#c2410c' },
     deleted: { bg: '#f3f4f6', color: '#9ca3af' },
     accepted: { bg: '#dbeafe', color: '#1d4ed8' },
+    upcoming: { bg: '#e0e7ff', color: '#4338ca' },
+    ongoing: { bg: '#fef3c7', color: '#d97706' },
     inactive: { bg: '#f3f4f6', color: '#6b7280' },
+    'quote sent by host': { bg: '#ede9fe', color: '#7c3aed' },
+    'quote accepted': { bg: '#dcfce7', color: '#16a34a' },
+    'quote rejected': { bg: '#fee2e2', color: '#dc2626' },
   };
-  const style = (map && map[status]) || defaults[status] || { bg: '#f3f4f6', color: '#374151' };
+  const key = String(status || '').toLowerCase().trim();
+  const style = (map && (map[key] || map[status])) || defaults[key] || defaults[status] || { bg: '#f3f4f6', color: '#374151' };
   return (
     <span style={{
       padding: '3px 10px',

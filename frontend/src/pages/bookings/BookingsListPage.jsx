@@ -35,6 +35,9 @@ const BookingsListPage = () => {
     ongoing: { bg: '#fef3c7', color: '#d97706' },
     completed: { bg: '#dcfce7', color: '#16a34a' },
     cancelled: { bg: '#fee2e2', color: '#dc2626' },
+    'quote sent by host': { bg: '#ede9fe', color: '#7c3aed' },
+    'quote accepted': { bg: '#dcfce7', color: '#16a34a' },
+    'quote rejected': { bg: '#fee2e2', color: '#dc2626' },
   };
 
   const paymentColors = {
@@ -122,18 +125,29 @@ const BookingsListPage = () => {
                         <img
                           src={`${imageBaseUrl}${b.category.image}`}
                           alt=""
-                          style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover' }}
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       )}
-                      <span style={{ fontWeight: '500' }}>
-                        {b.category?.categoryName || b.categoryName || b.service?.title || '—'}
-                      </span>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#111827', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>{b.category?.categoryName || b.categoryName || '—'}</span>
+                          {b.bookingImages && b.bookingImages.length > 0 && (
+                            <span title={`${b.bookingImages.length} photo(s)`} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#6b7280', background: '#f3f4f6', padding: '1px 5px', borderRadius: '4px' }}>
+                              <i className="material-icons" style={{ fontSize: '11px' }}>photo_camera</i>
+                              {b.bookingImages.length}
+                            </span>
+                          )}
+                        </div>
+                        {b.service?.title && b.service?.title !== (b.category?.categoryName || b.categoryName) && (
+                          <div style={{ color: '#6b7280', fontSize: '11px' }}>{b.service.title}</div>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(b.bookingDate)}</td>
                   <td style={{ padding: '12px 16px', fontWeight: '600', color: '#111827', fontSize: '13px' }}>{formatCurrency(b.amount, b.currency)}</td>
-                  <td style={{ padding: '12px 16px' }}><StatusBadge status={b.bookingStatus} map={statusColors} /></td>
+                  <td style={{ padding: '12px 16px' }}><StatusBadge status={b.displayStatus || (b.counterStatus === 'pending' ? 'Quote sent by host' : b.bookingStatus)} map={statusColors} /></td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={b.paymentStatus} map={paymentColors} /></td>
                   <td style={{ padding: '12px 16px' }}>
                     <Link to={`/bookings/${b.id}`}>

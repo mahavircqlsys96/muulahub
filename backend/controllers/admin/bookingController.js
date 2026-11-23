@@ -2,7 +2,18 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
-const { users, services, services_categories, bookings, payments, notifications, wallet_transactions } = db;
+const { users, services, services_categories, bookings, payments, notifications, wallet_transactions, booking_images, rating } = db;
+
+const resolveBookingStatus = (b) => {
+  if (b.counterStatus === 'pending') {
+    return 'Quote sent by host';
+  } else if (b.counterStatus === 'accepted' && b.bookingStatus === 'pending') {
+    return 'Quote accepted';
+  } else if (b.counterStatus === 'rejected' && b.bookingStatus === 'pending') {
+    return 'Quote rejected';
+  }
+  return b.bookingStatus || 'pending';
+};
 
 module.exports = {
 
@@ -52,8 +63,8 @@ module.exports = {
       const { count, rows } = await bookings.findAndCountAll({
         where: whereClause,
         include: [
-          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage'] },
-          { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage'] },
+          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'currency'] },
+          { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'currency'] },
           { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false },
           {
             model: services,
@@ -63,7 +74,9 @@ module.exports = {
             include: [
               { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false }
             ]
-          }
+          },
+          { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'], required: false },
+          { model: rating, as: 'rating', attributes: ['id', 'rating', 'review'], required: false }
         ],
         order: [['createdAt', 'DESC']],
         limit,
@@ -71,15 +84,25 @@ module.exports = {
         distinct: true
       });
 
-      const formattedRows = rows.map((b) => {
+      const formattedRows = await Promise.all(rows.map(async (b) => {
         const j = b.toJSON ? b.toJSON() : b;
-        const cat = j.category || j.service?.category || null;
+        let cat = j.category || j.service?.category || null;
+        if (!cat && j.serviceId) {
+          cat = await services_categories.findOne({ where: { id: j.serviceId }, raw: true });
+        }
+        let srv = j.service;
+        if (!srv && j.serviceId) {
+          srv = await services.findOne({ where: { id: j.serviceId }, raw: true });
+        }
         return {
           ...j,
           category: cat,
-          categoryName: cat?.categoryName || j.service?.title || '—'
+          service: srv,
+          categoryName: cat?.categoryName || srv?.title || '—',
+          serviceTitle: srv?.title || cat?.categoryName || '—',
+          displayStatus: resolveBookingStatus(j)
         };
-      });
+      }));
 
       return helper.success(res, 'Bookings fetched', {
         list: formattedRows,
@@ -111,7 +134,9 @@ module.exports = {
             include: [
               { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false }
             ]
-          }
+          },
+          { model: booking_images, as: 'bookingImages', attributes: ['id', 'image'], required: false },
+          { model: rating, as: 'rating', attributes: ['id', 'rating', 'review', 'image', 'createdAt'], required: false }
         ]
       });
 
@@ -120,9 +145,19 @@ module.exports = {
       const payment = await payments.findOne({ where: { bookingId: id } });
 
       const j = booking.toJSON ? booking.toJSON() : booking;
-      const cat = j.category || j.service?.category || null;
+      let cat = j.category || j.service?.category || null;
+      if (!cat && j.serviceId) {
+        cat = await services_categories.findOne({ where: { id: j.serviceId }, raw: true });
+      }
+      let srv = j.service;
+      if (!srv && j.serviceId) {
+        srv = await services.findOne({ where: { id: j.serviceId }, raw: true });
+      }
       j.category = cat;
-      j.categoryName = cat?.categoryName || j.service?.title || '—';
+      j.service = srv;
+      j.categoryName = cat?.categoryName || srv?.title || '—';
+      j.serviceTitle = srv?.title || cat?.categoryName || '—';
+      j.displayStatus = resolveBookingStatus(j);
 
       return helper.success(res, 'Booking detail fetched', { ...j, payment });
     } catch (error) {

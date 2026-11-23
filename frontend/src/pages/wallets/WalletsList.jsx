@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import apiInstance from '../../utils/apiInstance';
-import { PageHeader, TableCard, TableHead, EmptyRow, LoadingRow, Pagination, StatusBadge, formatCurrency, SearchBar, ActionBtn } from '../../components/common/PageTable';
+import { PageHeader, TableCard, TableHead, EmptyRow, LoadingRow, Pagination, StatusBadge, formatCurrency, getCurrencySymbol, SearchBar, ActionBtn } from '../../components/common/PageTable';
 
 const WalletsList = () => {
   const [wallets, setWallets] = useState([]);
@@ -12,6 +12,7 @@ const WalletsList = () => {
   const [roleFilter, setRoleFilter] = useState(''); // '' = all, 'user', 'provider'
   
   const [updatingId, setUpdatingId] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [txType, setTxType] = useState('credit');
   const [txAmount, setTxAmount] = useState('');
   const [txDesc, setTxDesc] = useState('');
@@ -70,8 +71,9 @@ const WalletsList = () => {
     }
   };
 
-  const openTxModal = (userId) => {
-    setUpdatingId(userId);
+  const openTxModal = (user) => {
+    setUpdatingId(user.id);
+    setSelectedUser(user);
     setTxType('credit');
     setTxAmount('');
     setTxDesc('');
@@ -102,23 +104,33 @@ const WalletsList = () => {
       <TableCard>
         <div className="table-responsive">
           <table className="table mb-0" style={{ minWidth: '1000px' }}>
-            <TableHead columns={['ID', 'User/Provider', 'Role', 'Wallet Balance', 'Pending', 'Withdrawn', 'Status', 'Actions']} />
+            <TableHead columns={['ID', 'User/Provider', 'Role', 'Currency', 'Wallet Balance', 'Pending', 'Withdrawn', 'Status', 'Actions']} />
             <tbody>
-              {loading ? <LoadingRow cols={8} /> : wallets.length === 0 ? <EmptyRow cols={8} /> : wallets.map(w => (
+              {loading ? <LoadingRow cols={9} /> : wallets.length === 0 ? <EmptyRow cols={9} /> : wallets.map(w => (
                 <tr key={w.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '16px', verticalAlign: 'middle', color: '#6b7280', fontSize: '13px' }}>#{w.id}</td>
                   <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                     <div style={{ fontWeight: '500', color: '#111827', fontSize: '13px' }}>{w.name}</div>
                     <div style={{ color: '#9ca3af', fontSize: '12px' }}>{w.email}</div>
+                    {w.phone && (
+                      <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                        {w.countryCode ? `${w.countryCode} ` : ''}{w.phone}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                     <span style={{ fontSize: '12px', fontWeight: '500', color: w.isProvider ? '#ff4d6d' : '#3b82f6', background: w.isProvider ? '#ede9fe' : '#dbeafe', padding: '4px 8px', borderRadius: '6px' }}>
                       {w.isProvider ? 'Provider' : 'User'}
                     </span>
                   </td>
-                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '14px', fontWeight: '600', color: '#10b981' }}>{formatCurrency(w.walletAmount)}</td>
-                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '13px', color: '#f59e0b' }}>{formatCurrency(w.pendingAmount)}</td>
-                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '13px', color: '#6b7280' }}>{formatCurrency(w.withdrawnAmount)}</td>
+                  <td style={{ padding: '16px', verticalAlign: 'middle' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#374151', background: '#f3f4f6', padding: '3px 8px', borderRadius: '6px' }}>
+                      {w.currency ? `${w.currency.toUpperCase()} (${getCurrencySymbol(w.currency)})` : 'USD ($)'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '14px', fontWeight: '600', color: '#10b981' }}>{formatCurrency(w.walletAmount, w.currency)}</td>
+                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '13px', color: '#f59e0b' }}>{formatCurrency(w.pendingAmount, w.currency)}</td>
+                  <td style={{ padding: '16px', verticalAlign: 'middle', fontSize: '13px', color: '#6b7280' }}>{formatCurrency(w.withdrawnAmount, w.currency)}</td>
                   <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                     <span style={{ fontSize: '12px', fontWeight: '600', color: w.isWalletFrozen ? '#dc2626' : '#16a34a', background: w.isWalletFrozen ? '#fee2e2' : '#dcfce7', padding: '4px 8px', borderRadius: '6px' }}>
                       {w.isWalletFrozen ? 'Frozen' : 'Active'}
@@ -126,7 +138,7 @@ const WalletsList = () => {
                   </td>
                   <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                      <ActionBtn icon="account_balance_wallet" title="Credit/Debit" onClick={() => openTxModal(w.id)} color="#3b82f6" />
+                      <ActionBtn icon="account_balance_wallet" title="Credit/Debit" onClick={() => openTxModal(w)} color="#3b82f6" />
                       <ActionBtn icon={w.isWalletFrozen ? "lock_open" : "lock"} title={w.isWalletFrozen ? "Unfreeze" : "Freeze"} onClick={() => handleToggleFreeze(w.id)} color={w.isWalletFrozen ? "#16a34a" : "#dc2626"} />
                     </div>
                   </td>
@@ -142,7 +154,12 @@ const WalletsList = () => {
       {showTxModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1050 }}>
           <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '380px', maxWidth: '90%' }}>
-            <h5 style={{ marginTop: 0, marginBottom: '16px', fontWeight: '600' }}>Manual Transaction</h5>
+            <h5 style={{ marginTop: 0, marginBottom: '8px', fontWeight: '600' }}>
+              Manual Transaction ({selectedUser?.name || 'User'})
+            </h5>
+            <div style={{ marginBottom: '14px', fontSize: '12px', color: '#6b7280' }}>
+              Wallet Currency: <strong style={{ textTransform: 'uppercase', color: '#111827' }}>{selectedUser?.currency ? `${selectedUser.currency.toUpperCase()} (${getCurrencySymbol(selectedUser.currency)})` : 'USD ($)'}</strong>
+            </div>
             
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>Type</label>
@@ -157,7 +174,9 @@ const WalletsList = () => {
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>Amount</label>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#374151', fontWeight: '500' }}>
+                Amount ({getCurrencySymbol(selectedUser?.currency) || '$'})
+              </label>
               <input 
                 type="number"
                 value={txAmount}
