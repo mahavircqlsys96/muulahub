@@ -8,6 +8,7 @@ import {
   PageHeader, SearchBar, FilterSelect, TableCard, TableHead,
   Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency, getCurrencySymbol
 } from '../../components/common/PageTable';
+import { exportPaymentsToPdf } from '../../utils/pdfExport';
 
 const PaymentsList = () => {
   const dispatch = useDispatch();
@@ -17,6 +18,7 @@ const PaymentsList = () => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -36,6 +38,28 @@ const PaymentsList = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleExportPdf = async () => {
+    try {
+      setExporting(true);
+      toast.info('Generating Payments PDF report...');
+      const res = await apiInstance.get('/payments', {
+        params: { page: 1, limit: 2000, search, status }
+      });
+      const paymentList = res.data?.body?.list || data.list || [];
+      if (!paymentList.length) {
+        toast.warning('No payments found to export.');
+        return;
+      }
+      exportPaymentsToPdf(paymentList, { search, status, stats });
+      toast.success('Payments PDF exported successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export payments PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const statCards = [
     { label: 'Admin Revenue', value: formatCurrency(stats.adminRevenue, stats.primaryCurrency), color: '#ff4d6d' },
     { label: 'Provider Payout', value: formatCurrency(stats.providerPayout, stats.primaryCurrency), color: '#10b981' },
@@ -45,7 +69,38 @@ const PaymentsList = () => {
   return (
     <div>
       <ToastContainer position="top-right" autoClose={2500} />
-      <PageHeader title="Payments" subtitle={`${data.total} transactions`} />
+      <PageHeader
+        title="Payments"
+        subtitle={`${data.total} transactions`}
+        action={
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              background: exporting ? '#9ca3af' : 'linear-gradient(135deg, #f91942, #ff4d6d)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              boxShadow: exporting ? 'none' : '0 2px 8px rgba(249, 25, 66, 0.25)',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => !exporting && (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={e => !exporting && (e.currentTarget.style.opacity = '1')}
+          >
+            <i className="material-icons" style={{ fontSize: '18px' }}>
+              {exporting ? 'hourglass_top' : 'picture_as_pdf'}
+            </i>
+            <span>{exporting ? 'Exporting...' : 'Export PDF'}</span>
+          </button>
+        }
+      />
 
       <div className="row mb-4">
         {statCards.map(s => (

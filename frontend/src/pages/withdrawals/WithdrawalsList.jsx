@@ -7,6 +7,7 @@ import {
   PageHeader, FilterSelect, TableCard, TableHead, ActionBtn,
   Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency, PrimaryBtn
 } from '../../components/common/PageTable';
+import { exportWithdrawalsToPdf } from '../../utils/pdfExport';
 
 const WithdrawalsList = () => {
   const dispatch = useDispatch();
@@ -14,6 +15,7 @@ const WithdrawalsList = () => {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [modal, setModal] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -31,6 +33,28 @@ const WithdrawalsList = () => {
   }, [dispatch, page, status]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExportPdf = async () => {
+    try {
+      setExporting(true);
+      toast.info('Generating Withdrawals PDF report...');
+      const res = await apiInstance.get('/withdrawals', {
+        params: { page: 1, limit: 2000, status }
+      });
+      const withdrawalList = res.data?.body?.list || data.list || [];
+      if (!withdrawalList.length) {
+        toast.warning('No withdrawal requests found to export.');
+        return;
+      }
+      exportWithdrawalsToPdf(withdrawalList, { status });
+      toast.success('Withdrawals PDF exported successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export withdrawals PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleAction = async (newStatus) => {
     if (!modal) return;
@@ -51,7 +75,38 @@ const WithdrawalsList = () => {
   return (
     <div>
       <ToastContainer position="top-right" autoClose={2500} />
-      <PageHeader title="Withdrawal Requests" subtitle={`${data.total} total requests`} />
+      <PageHeader
+        title="Withdrawal Requests"
+        subtitle={`${data.total} total requests`}
+        action={
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              background: exporting ? '#9ca3af' : 'linear-gradient(135deg, #f91942, #ff4d6d)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              boxShadow: exporting ? 'none' : '0 2px 8px rgba(249, 25, 66, 0.25)',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => !exporting && (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={e => !exporting && (e.currentTarget.style.opacity = '1')}
+          >
+            <i className="material-icons" style={{ fontSize: '18px' }}>
+              {exporting ? 'hourglass_top' : 'picture_as_pdf'}
+            </i>
+            <span>{exporting ? 'Exporting...' : 'Export PDF'}</span>
+          </button>
+        }
+      />
 
       <TableCard>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
@@ -79,7 +134,7 @@ const WithdrawalsList = () => {
                     <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{w.provider?.name}</div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>{w.provider?.email}</div>
                   </td>
-                  <td style={{ padding: '12px 16px', fontWeight: '700', color: '#f97316' }}>{formatCurrency(w.amount)}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: '700', color: '#f97316' }}>{formatCurrency(w.amount, w.provider?.currency)}</td>
                   <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.provider?.bankAccounts?.[0]?.bankName || w.bankName || w.bank_name || '—'}</td>
                   <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151' }}>{w.provider?.bankAccounts?.[0]?.accountNumber || w.accountNumber || w.account_number || '—'}</td>
                   <td style={{ padding: '12px 16px', fontSize: '13px', color: '#374151', fontFamily: 'ui-monospace, monospace' }}>{w.provider?.bankAccounts?.[0]?.routingNumber || w.ifscCode || w.ifsc_code || '—'}</td>

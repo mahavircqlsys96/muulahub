@@ -21,7 +21,7 @@ module.exports = {
         include: [{
           model: users,
           as: 'provider',
-          attributes: ['id', 'name', 'email', 'phone', 'walletAmount', 'totalEarning'],
+          attributes: ['id', 'name', 'email', 'phone', 'walletAmount', 'totalEarning', 'currency'],
           include: [{
             model: bank_accounts,
             as: 'bankAccounts',
