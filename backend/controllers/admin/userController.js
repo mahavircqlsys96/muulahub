@@ -174,6 +174,19 @@ module.exports = {
             const row = user_details.toJSON ? user_details.toJSON() : user_details;
             row.total_spent = parseFloat(totalSpentResult?.totalSpent || 0);
 
+            // If user has no currency set on profile, check if any of their bookings has currency
+            if (!row.currency) {
+                const bookingWithCur = await bookings.findOne({
+                    where: { userId: id, currency: { [Op.ne]: null } },
+                    attributes: ['currency'],
+                    order: [['id', 'DESC']],
+                    raw: true
+                });
+                if (bookingWithCur && bookingWithCur.currency) {
+                    row.currency = String(bookingWithCur.currency).toLowerCase().trim();
+                }
+            }
+
             const bankDetails = await bank_accounts.findOne({ where: { userId: id } });
             row.bankDetails = bankDetails;
 

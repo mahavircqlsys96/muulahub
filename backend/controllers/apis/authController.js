@@ -938,10 +938,7 @@ module.exports = {
       if (bio) updateData.bio = bio;
       if (profileImage) updateData.profileImage = profileImage;
       if (currency) {
-        const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined';
-        if (!hasExistingCurrency) {
-          updateData.currency = String(currency).toLowerCase().trim();
-        }
+        updateData.currency = String(currency).toLowerCase().trim();
       }
 
       /* =========================
@@ -1022,8 +1019,7 @@ module.exports = {
   },
   /**
    * Update Currency in Users table
-   * Rule: Can ONLY be updated when current currency is empty or null.
-   * Once set, currency cannot be changed.
+   * Updates currency on every hit as requested.
    */
   updateCurrency: async (req, res) => {
     try {
@@ -1041,15 +1037,6 @@ module.exports = {
       const user = await users.findOne({ where: { id: userId } });
       if (!user) {
         return helper.failed(res, "User not found");
-      }
-
-      // Check if user already has a currency set
-      const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null' && user.currency !== 'undefined';
-      if (hasExistingCurrency) {
-        return helper.success(res, "Currency is already set", {
-          userId: user.id,
-          currency: user.currency
-        });
       }
 
       const cleanCurrency = String(req.body.currency).toLowerCase().trim();
@@ -1402,12 +1389,8 @@ module.exports = {
         if (countryCode && !user.countryCode) updateData.countryCode = countryCode;
         if (phone && !user.phone) updateData.phone = phone;
 
-        // Set currency only if not already set on user record
         if (currency) {
-          const hasExistingCurrency = user.currency && String(user.currency).trim() !== '' && user.currency !== 'null';
-          if (!hasExistingCurrency) {
-            updateData.currency = String(currency).toLowerCase().trim();
-          }
+          updateData.currency = String(currency).toLowerCase().trim();
         }
 
         await user.update(updateData);

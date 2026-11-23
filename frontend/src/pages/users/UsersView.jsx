@@ -493,7 +493,9 @@ const UsersView = () => {
                       textTransform: 'uppercase',
                     }}
                   >
-                    {userDetails?.currency ? `${userDetails.currency.toUpperCase()} (${getCurrencySymbol(userDetails.currency)})` : '—'}
+                    {userDetails?.currency
+                      ? `${userDetails.currency.toUpperCase()}${getCurrencySymbol(userDetails.currency) ? ` (${getCurrencySymbol(userDetails.currency)})` : ''}`
+                      : '—'}
                   </div>
                 </div>
 
@@ -514,7 +516,11 @@ const UsersView = () => {
                       color: '#111827',
                     }}
                   >
-                    {formatCurrency(userDetails?.total_spent ?? 0, userDetails?.currency)}
+                    {userDetails?.currency
+                      ? `${getCurrencySymbol(userDetails.currency)}${Number(userDetails?.total_spent ?? 0).toFixed(2)}`
+                      : userDetails?.total_spent !== undefined && userDetails?.total_spent !== null
+                      ? `${Number(userDetails.total_spent).toFixed(2)}`
+                      : '0.00'}
                   </div>
                 </div>
 

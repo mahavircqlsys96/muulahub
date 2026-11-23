@@ -240,7 +240,7 @@ export const formatDate = (d) => {
 };
 
 export const getCurrencySymbol = (currency) => {
-  if (!currency) return '$';
+  if (!currency) return '';
   const c = String(currency).trim().toLowerCase();
   switch (c) {
     case 'gbp': return '£';
@@ -257,10 +257,10 @@ export const getCurrencySymbol = (currency) => {
 
 export const formatCurrency = (v, currency) => {
   const sym = getCurrencySymbol(currency);
-  if (v === null || v === undefined) return `${sym}0.00`;
+  if (v === null || v === undefined) return sym ? `${sym}0.00` : '0.00';
   const num = parseFloat(v);
-  if (isNaN(num)) return `${sym}0.00`;
-  return `${sym}${num.toFixed(2)}`;
+  if (isNaN(num)) return sym ? `${sym}0.00` : '0.00';
+  return sym ? `${sym}${num.toFixed(2)}` : `${num.toFixed(2)}`;
 };
 
 export const ImageModal = ({ src, alt, onClose }) => {
