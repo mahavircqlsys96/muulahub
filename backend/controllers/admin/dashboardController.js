@@ -71,6 +71,8 @@ module.exports = {
         attributes: ['id', 'name', 'email', 'providerStatus', 'createdAt'],
       });
 
+      const categoriesCount = await db.services_categories.count();
+
       const avgBookingValueRow = await db.bookings.findOne({
         attributes: [[fn('COALESCE', fn('AVG', col('amount')), 0), 'avgValue']],
         raw: true,
@@ -132,6 +134,8 @@ module.exports = {
           pendingWithdrawals,
           totalRevenue: Number(totalRevenueRow?.total || 0),
           monthlyRevenue: Number(monthlyRevenueRow?.total || 0),
+          categoriesCount: categoriesCount || 0,
+          categoryCount: categoriesCount || 0,
           averageBookingValue: Number(avgBookingValueRow?.avgValue || 0),
         },
         topCategories,

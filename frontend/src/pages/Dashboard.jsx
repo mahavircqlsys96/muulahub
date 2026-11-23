@@ -116,7 +116,7 @@ const Dashboard = () => {
     { url: "/bookings", icon: "pending_actions", title: "Active Bookings", count: stats.activeBookings, color: "#06b6d4", bgColor: "rgba(6,182,212,0.1)" },
     { url: "/payments", icon: "trending_up", title: "Monthly Revenue", count: stats.monthlyRevenue, color: "#f59e0b", bgColor: "rgba(245,158,11,0.1)" },
     { url: "/withdrawals", icon: "account_balance_wallet", title: "Pending Withdrawals", count: stats.pendingWithdrawals, color: "#ef4444", bgColor: "rgba(239,68,68,0.1)" },
-    { url: "/bookings", icon: "request_quote", title: "Avg Booking Value", count: stats.averageBookingValue || 0, color: "#14b8a6", bgColor: "rgba(20,184,166,0.1)" },
+    { url: "/categories", icon: "category", title: "Category Count", count: stats.categoriesCount ?? stats.categoryCount ?? 0, color: "#14b8a6", bgColor: "rgba(20,184,166,0.1)" },
   ];
 
   return (
