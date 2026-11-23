@@ -1,7 +1,7 @@
 const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
-const { users, posts, post_likes, post_comments, reports, post_media } = db;
+const { users, posts, post_likes, post_comments, reports, post_media, services_categories, bookmarks } = db;
 
 module.exports = {
 
@@ -27,7 +27,8 @@ module.exports = {
       const { count, rows } = await posts.findAndCountAll({
         where: whereClause,
         include: [
-          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'profileImage'] },
+          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'isProvider'] },
+          { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false },
           { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl', 'thumbnail', 'type'] }
         ],
         order: [['createdAt', 'DESC']],
@@ -121,23 +122,39 @@ module.exports = {
       const post = await posts.findOne({
         where: { id },
         include: [
-          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'profileImage'] },
-          { model: post_media, as: 'postMedia', attributes: ['id', 'mediaUrl', 'thumbnail', 'type'] }
+          {
+            model: users,
+            as: 'user',
+            attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'role', 'isProvider']
+          },
+          {
+            model: services_categories,
+            as: 'category',
+            attributes: ['id', 'categoryName', 'image'],
+            required: false
+          },
+          {
+            model: post_media,
+            as: 'postMedia',
+            attributes: ['id', 'mediaUrl', 'thumbnail', 'type']
+          }
         ]
       });
 
       if (!post) return helper.failed(res, 'Post not found');
 
-      const [likesCount, commentsCount] = await Promise.all([
+      const [likesCount, commentsCount, bookmarksCount, reportsCount] = await Promise.all([
         post_likes.count({ where: { postId: id } }),
-        post_comments.count({ where: { postId: id } })
+        post_comments.count({ where: { postId: id } }),
+        bookmarks ? bookmarks.count({ where: { postId: id } }).catch(() => 0) : 0,
+        reports ? reports.count({ where: { postId: id } }).catch(() => 0) : 0
       ]);
 
       const recentComments = await post_comments.findAll({
         where: { postId: id },
-        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'email', 'profileImage'] }],
         order: [['createdAt', 'DESC']],
-        limit: 5
+        limit: 25
       });
 
       let postData = post.toJSON();
@@ -148,6 +165,8 @@ module.exports = {
         ...postData,
         likesCount,
         commentsCount,
+        bookmarksCount,
+        reportsCount,
         recentComments
       });
     } catch (error) {

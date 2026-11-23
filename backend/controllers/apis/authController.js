@@ -508,6 +508,7 @@ module.exports = {
         where: { userId: req.auth.id },
       });
 
+
       if (Array.isArray(categoryIds) && categoryIds.length > 0) {
         await user_categories.bulkCreate(
           categoryIds.map((categoryId, index) => ({
