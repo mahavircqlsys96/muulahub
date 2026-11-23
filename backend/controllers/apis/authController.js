@@ -439,19 +439,11 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { bio, profileImage, categoryIds, location, lat, latitude, lng, longitude, address } = req.body;
+      let { bio, profileImage, categoryIds, location, latitude, longitude, address } = req.body;
 
-      const finalLat = lat !== undefined && lat !== null && String(lat).trim() !== ''
-        ? parseFloat(lat)
-        : (latitude !== undefined && latitude !== null && String(latitude).trim() !== '' ? parseFloat(latitude) : null);
-
-      const finalLng = lng !== undefined && lng !== null && String(lng).trim() !== ''
-        ? parseFloat(lng)
-        : (longitude !== undefined && longitude !== null && String(longitude).trim() !== '' ? parseFloat(longitude) : null);
-
-      const finalLocation = location !== undefined && location !== null && String(location).trim() !== ''
-        ? String(location).trim()
-        : (address !== undefined && address !== null && String(address).trim() !== '' ? String(address).trim() : null);
+      const finalLat = latitude;
+      const finalLng = longitude;
+      const finalLocation = location ? location : address;
 
       // Convert string to array
       if (typeof categoryIds === "string") {
