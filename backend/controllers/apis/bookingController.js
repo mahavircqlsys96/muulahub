@@ -1311,6 +1311,14 @@ module.exports = {
         booking.update({ currency: resolvedCurrency }).catch(err => console.log("Backfill booking currency error:", err));
       }
 
+      if (!bookingData.bookingImages) bookingData.bookingImages = [];
+      if (bookingData.thumbnail && !bookingData.bookingImages.some(img => img.image === bookingData.thumbnail)) {
+        bookingData.bookingImages.push({ id: 'completion_thumb', image: bookingData.thumbnail, isCompletion: true });
+      }
+      if (bookingData.rating && bookingData.rating.image && !bookingData.bookingImages.some(img => img.image === bookingData.rating.image)) {
+        bookingData.bookingImages.push({ id: 'rating_img', image: bookingData.rating.image, isRating: true });
+      }
+
       return helper.success(res, 'Booking detail fetched', { ...bookingData, payment });
     } catch (error) {
       console.log(error);
@@ -1487,24 +1495,87 @@ module.exports = {
       // =========================================
       let videoUrl = booking.video || null;
       let thumbnailUrl = booking.thumbnail || null;
+      const uploadedImagesList = [];
 
       // =========================================
-      // VIDEO + THUMBNAIL OPTIONAL
+      // PROCESS UPLOADED FILES (VIDEO, THUMBNAIL, IMAGE, IMAGES, PHOTO, PHOTOS)
       // =========================================
       if (req.files) {
         if (req.files.video) {
-          videoUrl = await helper.fileUpload(
-            req.files.video,
-            "bookings"
-          );
+          videoUrl = await helper.fileUpload(req.files.video, "bookings");
         }
 
         if (req.files.thumbnail) {
-          thumbnailUrl = await helper.fileUpload(
-            req.files.thumbnail,
-            "bookings"
-          );
+          thumbnailUrl = await helper.fileUpload(req.files.thumbnail, "bookings");
+          uploadedImagesList.push(thumbnailUrl);
         }
+
+        if (req.files.image) {
+          const imgFiles = Array.isArray(req.files.image) ? req.files.image : [req.files.image];
+          for (const f of imgFiles) {
+            const uploaded = await helper.fileUpload(f, "bookings");
+            uploadedImagesList.push(uploaded);
+          }
+        }
+
+        if (req.files.images) {
+          const imgFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+          for (const f of imgFiles) {
+            const uploaded = await helper.fileUpload(f, "bookings");
+            uploadedImagesList.push(uploaded);
+          }
+        }
+
+        if (req.files.photo) {
+          const imgFiles = Array.isArray(req.files.photo) ? req.files.photo : [req.files.photo];
+          for (const f of imgFiles) {
+            const uploaded = await helper.fileUpload(f, "bookings");
+            uploadedImagesList.push(uploaded);
+          }
+        }
+
+        if (req.files.photos) {
+          const imgFiles = Array.isArray(req.files.photos) ? req.files.photos : [req.files.photos];
+          for (const f of imgFiles) {
+            const uploaded = await helper.fileUpload(f, "bookings");
+            uploadedImagesList.push(uploaded);
+          }
+        }
+      }
+
+      // Also handle string/array images in req.body
+      if (req.body.image && typeof req.body.image === 'string') {
+        uploadedImagesList.push(req.body.image);
+      }
+      if (req.body.thumbnail && typeof req.body.thumbnail === 'string') {
+        thumbnailUrl = req.body.thumbnail;
+        uploadedImagesList.push(thumbnailUrl);
+      }
+      if (req.body.images) {
+        try {
+          const parsed = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+          if (Array.isArray(parsed)) {
+            parsed.forEach(img => { if (img) uploadedImagesList.push(img); });
+          } else if (typeof parsed === 'string') {
+            uploadedImagesList.push(parsed);
+          }
+        } catch (e) {
+          if (typeof req.body.images === 'string') uploadedImagesList.push(req.body.images);
+        }
+      }
+
+      if (!thumbnailUrl && uploadedImagesList.length > 0) {
+        thumbnailUrl = uploadedImagesList[0];
+      }
+
+      // Save completion images into booking_images table
+      if (uploadedImagesList.length > 0) {
+        const uniqueImgs = [...new Set(uploadedImagesList)];
+        const records = uniqueImgs.map(img => ({
+          bookingId: booking.id,
+          image: img
+        }));
+        await booking_images.bulkCreate(records);
       }
 
       // =========================================

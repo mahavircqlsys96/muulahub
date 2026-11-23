@@ -204,55 +204,98 @@ const BookingDetailPage = () => {
             </div>
           )}
 
-          {/* Booking Photos / Images */}
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <h6 style={{ fontWeight: '700', margin: 0, fontSize: '16px', color: '#111827' }}>
-                Booking Photos
-              </h6>
-              {booking.bookingImages && booking.bookingImages.length > 0 && (
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
-                  {booking.bookingImages.length} photo{booking.bookingImages.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
+          {/* Booking Photos / Completion Media */}
+          {(() => {
+            const allPhotos = [...(booking.bookingImages || [])];
+            if (booking.thumbnail && !allPhotos.some(img => img.image === booking.thumbnail)) {
+              allPhotos.unshift({ id: 'completion_thumb', image: booking.thumbnail, label: 'Completion Photo' });
+            }
+            if (booking.rating?.image && !allPhotos.some(img => img.image === booking.rating.image)) {
+              allPhotos.push({ id: 'rating_img', image: booking.rating.image, label: 'Review Photo' });
+            }
 
-            {booking.bookingImages && booking.bookingImages.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                {booking.bookingImages.map((imgObj, idx) => {
-                  const src = imgObj.image?.startsWith('http')
-                    ? imgObj.image
-                    : `${imageBaseUrl}${imgObj.image}`;
-                  return (
-                    <div
-                      key={imgObj.id || idx}
-                      style={{
-                        position: 'relative',
-                        width: '100px',
-                        height: '100px',
-                        borderRadius: '10px',
-                        overflow: 'hidden',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => setPreviewImage(src)}
-                    >
-                      <img
-                        src={src}
-                        alt={`Booking photo ${idx + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => { e.target.src = 'https://placehold.co/100x100?text=No+Image'; }}
-                      />
+            return (
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <h6 style={{ fontWeight: '700', margin: 0, fontSize: '16px', color: '#111827' }}>
+                    Booking Photos & Completion Media
+                  </h6>
+                  {allPhotos.length > 0 && (
+                    <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                      {allPhotos.length} photo{allPhotos.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Work completion video */}
+                {booking.video && (
+                  <div style={{ marginBottom: '16px', padding: '12px', background: '#f9fafb', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="material-icons" style={{ fontSize: '16px', color: '#ef4444' }}>videocam</i>
+                      Work Completion Video
                     </div>
-                  );
-                })}
+                    <video
+                      src={booking.video.startsWith('http') ? booking.video : `${imageBaseUrl}${booking.video}`}
+                      controls
+                      style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '6px', background: '#000' }}
+                    />
+                  </div>
+                )}
+
+                {allPhotos.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {allPhotos.map((imgObj, idx) => {
+                      const src = imgObj.image?.startsWith('http')
+                        ? imgObj.image
+                        : `${imageBaseUrl}${imgObj.image}`;
+                      return (
+                        <div
+                          key={imgObj.id || idx}
+                          style={{
+                            position: 'relative',
+                            width: '100px',
+                            height: '100px',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setPreviewImage(src)}
+                        >
+                          <img
+                            src={src}
+                            alt={`Booking photo ${idx + 1}`}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.target.src = 'https://placehold.co/100x100?text=No+Image'; }}
+                          />
+                          {(imgObj.label || imgObj.isCompletion) && (
+                            <span style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              background: 'rgba(0,0,0,0.65)',
+                              color: '#fff',
+                              fontSize: '9px',
+                              textAlign: 'center',
+                              padding: '2px 0',
+                              fontWeight: '600'
+                            }}>
+                              {imgObj.label || 'Completed'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ color: '#9ca3af', fontSize: '13px', padding: '10px 0' }}>
+                    No photos attached to this booking
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{ color: '#9ca3af', fontSize: '13px', padding: '10px 0' }}>
-                No photos attached to this booking
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Rating & Review Card */}
           <div style={cardStyle}>

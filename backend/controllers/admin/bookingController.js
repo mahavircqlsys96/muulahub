@@ -187,6 +187,14 @@ module.exports = {
       j.serviceTitle = srv?.title || cat?.categoryName || '—';
       j.displayStatus = resolveBookingStatus(j);
 
+      if (!j.bookingImages) j.bookingImages = [];
+      if (j.thumbnail && !j.bookingImages.some(img => img.image === j.thumbnail)) {
+        j.bookingImages.push({ id: 'completion_thumb', image: j.thumbnail, isCompletion: true });
+      }
+      if (j.rating && j.rating.image && !j.bookingImages.some(img => img.image === j.rating.image)) {
+        j.bookingImages.push({ id: 'rating_img', image: j.rating.image, isRating: true });
+      }
+
       return helper.success(res, 'Booking detail fetched', { ...j, payment });
     } catch (error) {
       console.log(error);
