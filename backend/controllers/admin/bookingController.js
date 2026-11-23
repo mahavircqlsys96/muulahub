@@ -5,11 +5,30 @@ const { Validator } = require('node-input-validator');
 const { users, services, services_categories, bookings, payments, notifications, wallet_transactions, booking_images, rating } = db;
 
 const resolveBookingStatus = (b) => {
-  if (b.counterStatus === 'pending') {
+  const bStatus = String(b.bookingStatus || '').toLowerCase().trim();
+  // Started or in-progress bookings (mobile sets active on startWork, ongoing on startTracking)
+  if (bStatus === 'active' || bStatus === 'ongoing') {
+    return 'ongoing';
+  }
+  if (bStatus === 'completed') {
+    return 'completed';
+  }
+  if (bStatus === 'cancelled' || bStatus === 'reject') {
+    return 'cancelled';
+  }
+  if (bStatus === 'upcoming') {
+    return 'upcoming';
+  }
+  if (bStatus === 'accepted') {
+    return 'accepted';
+  }
+  if (b.counterPrice && parseFloat(b.counterPrice) > 0 && b.counterStatus === 'pending') {
     return 'Quote sent by host';
-  } else if (b.counterStatus === 'accepted' && b.bookingStatus === 'pending') {
+  }
+  if (b.counterStatus === 'accepted' && bStatus === 'pending') {
     return 'Quote accepted';
-  } else if (b.counterStatus === 'rejected' && b.bookingStatus === 'pending') {
+  }
+  if (b.counterStatus === 'rejected' && bStatus === 'pending') {
     return 'Quote rejected';
   }
   return b.bookingStatus || 'pending';
@@ -54,7 +73,16 @@ module.exports = {
         if (!Number.isNaN(uid)) andParts.push({ userId: uid });
         if (!Number.isNaN(pid)) andParts.push({ providerId: pid });
       }
-      if (status) andParts.push({ bookingStatus: status });
+      if (status) {
+        const sLower = String(status).toLowerCase().trim();
+        if (sLower === 'ongoing' || sLower === 'active') {
+          andParts.push({ bookingStatus: { [Op.in]: ['ongoing', 'active'] } });
+        } else if (sLower === 'cancelled' || sLower === 'reject') {
+          andParts.push({ bookingStatus: { [Op.in]: ['cancelled', 'reject'] } });
+        } else {
+          andParts.push({ bookingStatus: status });
+        }
+      }
       if (paymentStatus) andParts.push({ paymentStatus: paymentStatus });
       if (search) andParts.push({ bookingNumber: { [Op.like]: `%${search}%` } });
 
@@ -260,15 +288,25 @@ module.exports = {
 
   bookingStats: async (req, res) => {
     try {
-      const [total, pending, accepted, completed, cancelled] = await Promise.all([
+      const [total, pending, accepted, upcoming, ongoing, completed, cancelled] = await Promise.all([
         bookings.count(),
         bookings.count({ where: { bookingStatus: 'pending' } }),
         bookings.count({ where: { bookingStatus: 'accepted' } }),
+        bookings.count({ where: { bookingStatus: 'upcoming' } }),
+        bookings.count({ where: { bookingStatus: { [Op.in]: ['ongoing', 'active'] } } }),
         bookings.count({ where: { bookingStatus: 'completed' } }),
-        bookings.count({ where: { bookingStatus: 'cancelled' } }),
+        bookings.count({ where: { bookingStatus: { [Op.in]: ['cancelled', 'reject'] } } }),
       ]);
 
-      return helper.success(res, 'Booking stats fetched', { total, pending, accepted, completed, cancelled });
+      return helper.success(res, 'Booking stats fetched', {
+        total,
+        pending,
+        accepted,
+        upcoming,
+        ongoing,
+        completed,
+        cancelled
+      });
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');

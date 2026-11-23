@@ -24,7 +24,7 @@ module.exports = {
         db.users.count({ where: { role: 'user' } }),
         db.users.count({ where: { isProvider: 1, providerStatus: 'approved' } }),
         db.bookings.count(),
-        db.bookings.count({ where: { bookingStatus: { [Op.in]: ['pending', 'accepted'] } } }),
+        db.bookings.count({ where: { bookingStatus: { [Op.in]: ['pending', 'accepted', 'upcoming', 'ongoing', 'active'] } } }),
         db.withdrawal_requests.count({ where: { status: 'pending' } }),
       ]);
 

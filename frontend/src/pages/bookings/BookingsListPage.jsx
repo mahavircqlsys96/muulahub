@@ -33,8 +33,10 @@ const BookingsListPage = () => {
     accepted: { bg: '#dbeafe', color: '#1d4ed8' },
     upcoming: { bg: '#e0e7ff', color: '#4338ca' },
     ongoing: { bg: '#fef3c7', color: '#d97706' },
+    active: { bg: '#fef3c7', color: '#d97706' },
     completed: { bg: '#dcfce7', color: '#16a34a' },
     cancelled: { bg: '#fee2e2', color: '#dc2626' },
+    reject: { bg: '#fee2e2', color: '#dc2626' },
     'quote sent by host': { bg: '#ede9fe', color: '#7c3aed' },
     'quote accepted': { bg: '#dcfce7', color: '#16a34a' },
     'quote rejected': { bg: '#fee2e2', color: '#dc2626' },
@@ -147,7 +149,7 @@ const BookingsListPage = () => {
                   </td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(b.bookingDate)}</td>
                   <td style={{ padding: '12px 16px', fontWeight: '600', color: '#111827', fontSize: '13px' }}>{formatCurrency(b.amount, b.currency)}</td>
-                  <td style={{ padding: '12px 16px' }}><StatusBadge status={b.displayStatus || (b.counterStatus === 'pending' ? 'Quote sent by host' : b.bookingStatus)} map={statusColors} /></td>
+                  <td style={{ padding: '12px 16px' }}><StatusBadge status={b.displayStatus || (b.bookingStatus === 'active' || b.bookingStatus === 'ongoing' ? 'ongoing' : (b.counterPrice && parseFloat(b.counterPrice) > 0 && b.counterStatus === 'pending' ? 'Quote sent by host' : b.bookingStatus))} map={statusColors} /></td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={b.paymentStatus} map={paymentColors} /></td>
                   <td style={{ padding: '12px 16px' }}>
                     <Link to={`/bookings/${b.id}`}>

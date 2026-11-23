@@ -61,8 +61,14 @@ const BookingDetailPage = () => {
 
   if (!booking) return <div style={{ padding: '24px' }}>Booking not found</div>;
 
-  const displayStatus = booking.displayStatus || (booking.counterStatus === 'pending' ? 'Quote sent by host' : booking.bookingStatus);
-  const hasQuote = Boolean(booking.counterPrice || booking.counterStatus || booking.counterDate);
+  const displayStatus = booking.displayStatus || (
+    booking.bookingStatus === 'active' || booking.bookingStatus === 'ongoing'
+      ? 'ongoing'
+      : (booking.counterPrice && parseFloat(booking.counterPrice) > 0 && booking.counterStatus === 'pending'
+          ? 'Quote sent by host'
+          : booking.bookingStatus)
+  );
+  const hasQuote = Boolean(booking.counterPrice && parseFloat(booking.counterPrice) > 0);
 
   return (
     <div>

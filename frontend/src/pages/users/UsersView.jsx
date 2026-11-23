@@ -996,7 +996,7 @@ const UsersView = () => {
                           )}
                         </td>
                         <td style={{ padding: '14px 16px' }} title={b.bookingStatus || ''}>
-                          <StatusBadge status={b.bookingStatus} />
+                          <StatusBadge status={b.displayStatus || (b.bookingStatus === 'active' || b.bookingStatus === 'ongoing' ? 'ongoing' : b.bookingStatus)} />
                         </td>
                         <td
                           style={{
