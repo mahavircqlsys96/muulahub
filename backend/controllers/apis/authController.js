@@ -439,7 +439,19 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { bio, profileImage, categoryIds } = req.body;
+      let { bio, profileImage, categoryIds, location, lat, latitude, lng, longitude, address } = req.body;
+
+      const finalLat = lat !== undefined && lat !== null && String(lat).trim() !== ''
+        ? parseFloat(lat)
+        : (latitude !== undefined && latitude !== null && String(latitude).trim() !== '' ? parseFloat(latitude) : null);
+
+      const finalLng = lng !== undefined && lng !== null && String(lng).trim() !== ''
+        ? parseFloat(lng)
+        : (longitude !== undefined && longitude !== null && String(longitude).trim() !== '' ? parseFloat(longitude) : null);
+
+      const finalLocation = location !== undefined && location !== null && String(location).trim() !== ''
+        ? String(location).trim()
+        : (address !== undefined && address !== null && String(address).trim() !== '' ? String(address).trim() : null);
 
       // Convert string to array
       if (typeof categoryIds === "string") {
@@ -470,6 +482,17 @@ module.exports = {
         isProfileComplete: 1, // 0=>Pending,1=>User,2=>Provider
         otp: 1111
       };
+
+      if (finalLat !== null && !isNaN(finalLat)) {
+        updateData.latitude = finalLat;
+      }
+      if (finalLng !== null && !isNaN(finalLng)) {
+        updateData.longitude = finalLng;
+      }
+      if (finalLocation !== null) {
+        updateData.location = finalLocation;
+        updateData.address = finalLocation;
+      }
 
       // if (user.phone) {
       //   // Generate 4 digit OTP
@@ -523,7 +546,11 @@ module.exports = {
           "hourlyPrice",
           "currency",
           "referralCode",
-          "isProvider"
+          "isProvider",
+          "latitude",
+          "longitude",
+          "location",
+          "address"
         ]
       });
 
@@ -565,7 +592,19 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      let { about, profileImageProvider, hourlyPrice, categoryIds, portfolio } = req.body;
+      let { about, profileImageProvider, hourlyPrice, categoryIds, portfolio, location, lat, latitude, lng, longitude, address } = req.body;
+
+      const finalLat = lat !== undefined && lat !== null && String(lat).trim() !== ''
+        ? parseFloat(lat)
+        : (latitude !== undefined && latitude !== null && String(latitude).trim() !== '' ? parseFloat(latitude) : null);
+
+      const finalLng = lng !== undefined && lng !== null && String(lng).trim() !== ''
+        ? parseFloat(lng)
+        : (longitude !== undefined && longitude !== null && String(longitude).trim() !== '' ? parseFloat(longitude) : null);
+
+      const finalLocation = location !== undefined && location !== null && String(location).trim() !== ''
+        ? String(location).trim()
+        : (address !== undefined && address !== null && String(address).trim() !== '' ? String(address).trim() : null);
 
       // Convert string to array
       if (typeof categoryIds === "string") {
@@ -604,8 +643,18 @@ module.exports = {
         profileImageProvider,
         hourlyPrice,
         isProfileComplete: 2, // 0=>Pending,1=>User,2=>Provider
-
       };
+
+      if (finalLat !== null && !isNaN(finalLat)) {
+        updateData.latitude = finalLat;
+      }
+      if (finalLng !== null && !isNaN(finalLng)) {
+        updateData.longitude = finalLng;
+      }
+      if (finalLocation !== null) {
+        updateData.location = finalLocation;
+        updateData.address = finalLocation;
+      }
 
       await user.update(updateData);
 
@@ -649,7 +698,12 @@ module.exports = {
           "about",
           "hourlyPrice",
           "isProfileComplete",
-          "currency"
+          "currency",
+          "isProvider",
+          "latitude",
+          "longitude",
+          "location",
+          "address"
         ]
       });
 

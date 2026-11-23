@@ -41,4 +41,7 @@ Object.keys(db).forEach(modelName => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
+// Ensure location column exists on users table safely
+sequelize.query("ALTER TABLE `users` ADD COLUMN `location` VARCHAR(255) NULL").catch(() => {});
+
 module.exports = db;

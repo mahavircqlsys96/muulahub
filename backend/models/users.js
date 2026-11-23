@@ -86,6 +86,10 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.TEXT,
       allowNull: true
     },
+    location: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
     loginTime: {
       type: DataTypes.BIGINT,
       allowNull: true,
