@@ -11,6 +11,8 @@ import {
   StatusBadge,
   Pagination,
   formatDate,
+  formatCurrency,
+  getCurrencySymbol,
   ImageModal,
 } from '../../components/common/PageTable';
 
@@ -345,8 +347,8 @@ const UsersView = () => {
                       color: '#111827',
                     }}
                   >
-                    {userDetails?.country_code && userDetails?.phone
-                      ? `${userDetails.country_code} ${userDetails.phone}`
+                    {(userDetails?.countryCode || userDetails?.country_code) && userDetails?.phone
+                      ? `${userDetails.countryCode || userDetails.country_code} ${userDetails.phone}`
                       : userDetails?.phone || '—'}
                   </div>
                 </div>
@@ -359,7 +361,7 @@ const UsersView = () => {
                       marginBottom: '4px',
                     }}
                   >
-                    Date of Birth
+                    Login Type
                   </div>
                   <div
                     style={{
@@ -368,7 +370,35 @@ const UsersView = () => {
                       color: '#111827',
                     }}
                   >
-                    {userDetails?.dateOfBirth ? formatDate(userDetails.dateOfBirth) : '—'}
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        textTransform: 'capitalize',
+                        background:
+                          userDetails?.loginType === 'google'
+                            ? '#fee2e2'
+                            : userDetails?.loginType === 'apple'
+                            ? '#f3f4f6'
+                            : userDetails?.loginType === 'facebook'
+                            ? '#dbeafe'
+                            : '#e0e7ff',
+                        color:
+                          userDetails?.loginType === 'google'
+                            ? '#dc2626'
+                            : userDetails?.loginType === 'apple'
+                            ? '#111827'
+                            : userDetails?.loginType === 'facebook'
+                            ? '#1d4ed8'
+                            : '#4338ca',
+                      }}
+                    >
+                      {userDetails?.loginType || 'email'}
+                    </span>
                   </div>
                 </div>
 
@@ -460,9 +490,10 @@ const UsersView = () => {
                       fontSize: '14px',
                       fontWeight: '500',
                       color: '#111827',
+                      textTransform: 'uppercase',
                     }}
                   >
-                    {userDetails?.currency || '—'}
+                    {userDetails?.currency ? `${userDetails.currency.toUpperCase()} (${getCurrencySymbol(userDetails.currency)})` : '—'}
                   </div>
                 </div>
 
@@ -483,9 +514,7 @@ const UsersView = () => {
                       color: '#111827',
                     }}
                   >
-                    {userDetails?.total_spent !== undefined
-                      ? `$${Number(userDetails.total_spent).toFixed(2)}`
-                      : '$0.00'}
+                    {formatCurrency(userDetails?.total_spent ?? 0, userDetails?.currency)}
                   </div>
                 </div>
 
@@ -861,7 +890,7 @@ const UsersView = () => {
                   columns={[
                     'S No.',
                     'Booking #',
-                    'Title',
+                    'Category',
                     bookingTab === 'user' ? 'Host' : 'Customer',
                     'Status',
                     'Amount',
@@ -912,9 +941,21 @@ const UsersView = () => {
                             fontSize: '13px',
                             color: '#374151',
                           }}
-                          title={b.service?.title || ''}
+                          title={b.category?.categoryName || b.categoryName || b.service?.title || ''}
                         >
-                          {b.service?.title || '—'}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {b.category?.image && (
+                              <img
+                                src={`${imageBaseUrl}${b.category.image}`}
+                                alt=""
+                                style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            )}
+                            <span style={{ fontWeight: '500' }}>
+                              {b.category?.categoryName || b.categoryName || b.service?.title || '—'}
+                            </span>
+                          </div>
                         </td>
                         <td
                           style={{
@@ -958,9 +999,9 @@ const UsersView = () => {
                             color: '#374151',
                             fontWeight: '600',
                           }}
-                          title={b.amount != null ? `$${Number(b.amount).toFixed(2)}` : ''}
+                          title={formatCurrency(b.amount, b.currency || userDetails?.currency)}
                         >
-                          {b.amount != null ? `$${Number(b.amount).toFixed(2)}` : '—'}
+                          {formatCurrency(b.amount, b.currency || userDetails?.currency)}
                         </td>
                         <td
                           style={{

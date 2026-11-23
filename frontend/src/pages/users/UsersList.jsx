@@ -222,7 +222,7 @@ const UserList = () => {
                 'Sr. No.',
                 'User',
                 'Phone',
-                'Date of Birth',
+                'Login Type',
                 'Bookings',
                 'Status',
                 'Joined',
@@ -330,7 +330,18 @@ const UserList = () => {
                         fontSize: '13px'
                       }}
                     >
-                      {user.phone || '—'}
+                      {user.phone ? (
+                        <span>
+                          {(user.countryCode || user.country_code) ? (
+                            <span style={{ color: '#6b7280', marginRight: '4px', fontWeight: '500' }}>
+                              {user.countryCode || user.country_code}
+                            </span>
+                          ) : null}
+                          {user.phone}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
 
                     <td
@@ -340,7 +351,35 @@ const UserList = () => {
                         fontSize: '13px'
                       }}
                     >
-                      {user.dateOfBirth ? formatDate(user.dateOfBirth) : '—'}
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          textTransform: 'capitalize',
+                          background:
+                            user.loginType === 'google'
+                              ? '#fee2e2'
+                              : user.loginType === 'apple'
+                              ? '#f3f4f6'
+                              : user.loginType === 'facebook'
+                              ? '#dbeafe'
+                              : '#e0e7ff',
+                          color:
+                            user.loginType === 'google'
+                              ? '#dc2626'
+                              : user.loginType === 'apple'
+                              ? '#111827'
+                              : user.loginType === 'facebook'
+                              ? '#1d4ed8'
+                              : '#4338ca'
+                        }}
+                      >
+                        {user.loginType || 'email'}
+                      </span>
                     </td>
 
                     <td

@@ -77,10 +77,10 @@ const BookingDetailPage = () => {
           <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             <h6 style={{ fontWeight: '700', marginBottom: '12px' }}>Booking Details</h6>
             <InfoRow label="Booking Number" value={`#${booking.bookingNumber}`} />
-            <InfoRow label="Service" value={booking.service?.title} />
+            <InfoRow label="Category" value={booking.category?.categoryName || booking.categoryName || booking.service?.title || '—'} />
             <InfoRow label="Date" value={formatDate(booking.bookingDate)} />
             <InfoRow label="Time" value={booking.bookingTime} />
-            <InfoRow label="Amount" value={formatCurrency(booking.amount)} />
+            <InfoRow label="Amount" value={formatCurrency(booking.amount, booking.currency)} />
             <InfoRow label="Payment Status" value={<StatusBadge status={booking.paymentStatus} />} />
             <InfoRow label="Booking Status" value={<StatusBadge status={booking.bookingStatus} />} />
             <InfoRow label="Created" value={formatDate(booking.createdAt)} />
@@ -104,14 +104,14 @@ const BookingDetailPage = () => {
             <h6 style={{ fontWeight: '700', marginBottom: '12px' }}>Customer</h6>
             <InfoRow label="Name" value={booking.user?.name} />
             <InfoRow label="Email" value={booking.user?.email} />
-            <InfoRow label="Phone" value={booking.user?.phone} />
+            <InfoRow label="Phone" value={booking.user?.countryCode && booking.user?.phone ? `${booking.user.countryCode} ${booking.user.phone}` : booking.user?.phone || '—'} />
           </div>
 
           <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '16px' }}>
             <h6 style={{ fontWeight: '700', marginBottom: '12px' }}>Provider</h6>
             <InfoRow label="Name" value={booking.provider?.name} />
             <InfoRow label="Email" value={booking.provider?.email} />
-            <InfoRow label="Phone" value={booking.provider?.phone} />
+            <InfoRow label="Phone" value={booking.provider?.countryCode && booking.provider?.phone ? `${booking.provider.countryCode} ${booking.provider.phone}` : booking.provider?.phone || '—'} />
           </div>
         </div>
       </div>

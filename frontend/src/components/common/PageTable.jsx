@@ -239,9 +239,28 @@ export const formatDate = (d) => {
   return new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' });
 };
 
-export const formatCurrency = (v) => {
-  if (v === null || v === undefined) return '$0.00';
-  return `$${parseFloat(v).toFixed(2)}`;
+export const getCurrencySymbol = (currency) => {
+  if (!currency) return '$';
+  const c = String(currency).trim().toLowerCase();
+  switch (c) {
+    case 'gbp': return '£';
+    case 'eur': return '€';
+    case 'usd': return '$';
+    case 'cad': return 'CA$';
+    case 'aud': return 'AU$';
+    case 'inr': return '₹';
+    case 'jpy': return '¥';
+    case 'cny': return '¥';
+    default: return `${currency.toUpperCase()} `;
+  }
+};
+
+export const formatCurrency = (v, currency) => {
+  const sym = getCurrencySymbol(currency);
+  if (v === null || v === undefined) return `${sym}0.00`;
+  const num = parseFloat(v);
+  if (isNaN(num)) return `${sym}0.00`;
+  return `${sym}${num.toFixed(2)}`;
 };
 
 export const ImageModal = ({ src, alt, onClose }) => {

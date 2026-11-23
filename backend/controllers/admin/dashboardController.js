@@ -51,9 +51,10 @@ module.exports = {
         limit: 8,
         order: [['createdAt', 'DESC']],
         include: [
-          { model: db.users, as: 'user', attributes: ['id', 'name', 'email'] },
-          { model: db.users, as: 'provider', attributes: ['id', 'name'] },
-          { model: db.services, as: 'service', attributes: ['id', 'title'] },
+          { model: db.users, as: 'user', attributes: ['id', 'name', 'email', 'countryCode'] },
+          { model: db.users, as: 'provider', attributes: ['id', 'name', 'countryCode'] },
+          { model: db.services_categories, as: 'category', attributes: ['id', 'categoryName'], required: false },
+          { model: db.services, as: 'service', attributes: ['id', 'title'], required: false },
         ],
       });
 

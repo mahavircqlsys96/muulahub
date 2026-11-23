@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import { get_bookings } from '../../utils/thunkApis';
+import { imageBaseUrl } from '../../services/api';
 import {
   PageHeader, SearchBar, FilterSelect, TableCard, TableHead,
   ActionBtn, Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency
@@ -93,7 +94,7 @@ const BookingsListPage = () => {
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <TableHead columns={['Sr. No.', 'Booking #', 'Customer', 'Provider', 'Service', 'Date', 'Amount', 'Status', 'Payment', 'Actions']} />
+            <TableHead columns={['Sr. No.', 'Booking #', 'Customer', 'Provider', 'Category', 'Date', 'Amount', 'Status', 'Payment', 'Actions']} />
             <tbody>
               {loading && <LoadingRow cols={10} />}
               {!loading && !data.list?.length && <EmptyRow cols={10} message="No bookings found" />}
@@ -103,12 +104,35 @@ const BookingsListPage = () => {
                   <td style={{ padding: '12px 16px', fontWeight: '600', color: '#111827', fontSize: '13px' }}>#{b.bookingNumber}</td>
                   <td style={{ padding: '12px 16px', color: '#374151', fontSize: '13px' }}>
                     <div>{b.user?.name}</div>
-                    <div style={{ color: '#9ca3af', fontSize: '11px' }}>{b.user?.email}</div>
+                    <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                      {b.user?.phone ? `${b.user?.countryCode ? b.user.countryCode + ' ' : ''}${b.user.phone}` : b.user?.email}
+                    </div>
                   </td>
-                  <td style={{ padding: '12px 16px', color: '#374151', fontSize: '13px' }}>{b.provider?.name}</td>
-                  <td style={{ padding: '12px 16px', color: '#374151', fontSize: '13px' }}>{b.service?.title}</td>
+                  <td style={{ padding: '12px 16px', color: '#374151', fontSize: '13px' }}>
+                    <div>{b.provider?.name || '—'}</div>
+                    {b.provider?.phone && (
+                      <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                        {b.provider?.countryCode ? `${b.provider.countryCode} ` : ''}{b.provider.phone}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#374151', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {b.category?.image && (
+                        <img
+                          src={`${imageBaseUrl}${b.category.image}`}
+                          alt=""
+                          style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      <span style={{ fontWeight: '500' }}>
+                        {b.category?.categoryName || b.categoryName || b.service?.title || '—'}
+                      </span>
+                    </div>
+                  </td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(b.bookingDate)}</td>
-                  <td style={{ padding: '12px 16px', fontWeight: '600', color: '#111827', fontSize: '13px' }}>{formatCurrency(b.amount)}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: '600', color: '#111827', fontSize: '13px' }}>{formatCurrency(b.amount, b.currency)}</td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={b.bookingStatus} map={statusColors} /></td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={b.paymentStatus} map={paymentColors} /></td>
                   <td style={{ padding: '12px 16px' }}>

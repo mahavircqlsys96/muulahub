@@ -2,7 +2,7 @@ const db = require('../../models');
 const { Op } = require('sequelize');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
-const { users, services, bookings, payments, notifications, wallet_transactions } = db;
+const { users, services, services_categories, bookings, payments, notifications, wallet_transactions } = db;
 
 module.exports = {
 
@@ -52,9 +52,18 @@ module.exports = {
       const { count, rows } = await bookings.findAndCountAll({
         where: whereClause,
         include: [
-          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
-          { model: users, as: 'provider', attributes: ['id', 'name', 'email'] },
-          { model: services, as: 'service', attributes: ['id', 'title', 'price'] }
+          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage'] },
+          { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage'] },
+          { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false },
+          {
+            model: services,
+            as: 'service',
+            attributes: ['id', 'title', 'price', 'categoryId'],
+            required: false,
+            include: [
+              { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false }
+            ]
+          }
         ],
         order: [['createdAt', 'DESC']],
         limit,
@@ -62,8 +71,18 @@ module.exports = {
         distinct: true
       });
 
+      const formattedRows = rows.map((b) => {
+        const j = b.toJSON ? b.toJSON() : b;
+        const cat = j.category || j.service?.category || null;
+        return {
+          ...j,
+          category: cat,
+          categoryName: cat?.categoryName || j.service?.title || '—'
+        };
+      });
+
       return helper.success(res, 'Bookings fetched', {
-        list: rows,
+        list: formattedRows,
         total: count,
         currentPage: page,
         totalPages: Math.ceil(count / limit)
@@ -81,9 +100,18 @@ module.exports = {
       const booking = await bookings.findOne({
         where: { id },
         include: [
-          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'profileImage'] },
-          { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone', 'profileImage'] },
-          { model: services, as: 'service', attributes: ['id', 'title', 'price', 'serviceImage', 'description'] }
+          { model: users, as: 'user', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'currency'] },
+          { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone', 'countryCode', 'profileImage', 'currency'] },
+          { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false },
+          {
+            model: services,
+            as: 'service',
+            attributes: ['id', 'title', 'price', 'serviceImage', 'description', 'categoryId'],
+            required: false,
+            include: [
+              { model: services_categories, as: 'category', attributes: ['id', 'categoryName', 'image'], required: false }
+            ]
+          }
         ]
       });
 
@@ -91,7 +119,12 @@ module.exports = {
 
       const payment = await payments.findOne({ where: { bookingId: id } });
 
-      return helper.success(res, 'Booking detail fetched', { ...booking.toJSON(), payment });
+      const j = booking.toJSON ? booking.toJSON() : booking;
+      const cat = j.category || j.service?.category || null;
+      j.category = cat;
+      j.categoryName = cat?.categoryName || j.service?.title || '—';
+
+      return helper.success(res, 'Booking detail fetched', { ...j, payment });
     } catch (error) {
       console.log(error);
       return helper.error(res, 'Something went wrong');
