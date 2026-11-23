@@ -573,10 +573,6 @@ module.exports = {
    */
   nearbyProviders: async (req, res) => {
     try {
-      const page = parseInt(req.query.page || (req.body && req.body.page), 10) || 1;
-      const limit = parseInt(req.query.limit || (req.body && req.body.limit), 10) || 10;
-      const offset = (page - 1) * limit;
-
       const currentUserId = (req.auth && req.auth.id) || (req.user && req.user.id) || 0;
 
       // ==========================================
@@ -688,13 +684,7 @@ module.exports = {
         if (matchedUserIds.length === 0) {
           return helper.success(res, "Nearby providers fetched successfully", {
             providers: [],
-            pagination: {
-              page,
-              limit,
-              total: 0,
-              totalPages: 0,
-              hasNextPage: false
-            }
+            total: 0
           });
         }
 
@@ -800,31 +790,8 @@ module.exports = {
         group: ['users.id'],
         having: havingClause,
         order,
-        limit,
-        offset,
         subQuery: false
       });
-
-      // Total count query for pagination
-      const totalProviders = await users.findAll({
-        where: whereCondition,
-        attributes: [
-          'id',
-          [
-            db.sequelize.literal(`(
-              SELECT IFNULL(ROUND(AVG(rating), 1), 0)
-              FROM rating
-              WHERE rating.providerId = users.id
-            )`),
-            "providerAvgRating"
-          ],
-          ...(hasCoordinates ? [[db.sequelize.literal(distanceQuery), "distance"]] : [])
-        ],
-        group: ['users.id'],
-        having: havingClause,
-        subQuery: false
-      });
-      const totalCount = totalProviders.length;
 
       // ==========================================
       // 6. ATTACH FULL CATEGORIES FOR EACH PROVIDER
@@ -882,14 +849,7 @@ module.exports = {
 
       return helper.success(res, "Nearby providers fetched successfully", {
         providers: formattedProviders,
-        pagination: {
-          page,
-          limit,
-          total: totalCount,
-          totalPages: Math.ceil(totalCount / limit),
-          rating: filterRating,
-          hasNextPage: page * limit < totalCount
-        }
+        total: formattedProviders.length
       });
 
     } catch (error) {
