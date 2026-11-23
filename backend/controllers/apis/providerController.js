@@ -342,16 +342,14 @@ module.exports = {
       const formattedList = findProviders.map(p => {
         const pObj = p.toJSON ? p.toJSON() : p;
         if (pObj.userCategories && Array.isArray(pObj.userCategories)) {
-          pObj.userCategories = pObj.userCategories.map(uc => {
+          pObj.categories = pObj.userCategories.map(uc => {
             const item = { ...uc };
             const catData = item.category || item.categories || null;
             item.categories = catData;
-            item.category = catData;
-            item.categoryName = catData ? catData.categoryName : null;
-            item.image = catData ? catData.image : null;
+            delete item.category;
             return item;
           });
-          pObj.categories = pObj.userCategories;
+          delete pObj.userCategories;
         }
         return pObj;
       });
@@ -447,16 +445,14 @@ module.exports = {
       providerData.liveEvents = completedLiveEvents;
 
       if (providerData.userCategories && Array.isArray(providerData.userCategories)) {
-        providerData.userCategories = providerData.userCategories.map(uc => {
+        providerData.categories = providerData.userCategories.map(uc => {
           const item = { ...uc };
           const catData = item.category || item.categories || null;
           item.categories = catData;
-          item.category = catData;
-          item.categoryName = catData ? catData.categoryName : null;
-          item.image = catData ? catData.image : null;
+          delete item.category;
           return item;
         });
-        providerData.categories = providerData.userCategories;
+        delete providerData.userCategories;
       }
 
       return helper.success(res, "Provider detail fetched successfully", providerData);
@@ -848,9 +844,7 @@ module.exports = {
           const item = catItem.toJSON ? catItem.toJSON() : catItem;
           const catData = item.category || item.categories || null;
           item.categories = catData;
-          item.category = catData;
-          item.categoryName = catData ? catData.categoryName : null;
-          item.image = catData ? catData.image : null;
+          delete item.category;
 
           if (!categoriesByProvider[item.userId]) {
             categoriesByProvider[item.userId] = [];
@@ -874,7 +868,7 @@ module.exports = {
 
         const userCats = categoriesByProvider[pObj.id] || [];
         pObj.categories = userCats;
-        pObj.userCategories = userCats;
+        delete pObj.userCategories;
 
         return pObj;
       });
