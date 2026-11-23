@@ -66,6 +66,7 @@ module.exports = {
         delete postData.postMedia;
         return {
           ...postData,
+          categoryName: postData.category ? postData.category.categoryName : (postData.categoryId ? `Category #${postData.categoryId}` : '—'),
           likesCount: likeMap[String(p.id)] || 0,
           commentsCount: commentMap[String(p.id)] || 0
         };

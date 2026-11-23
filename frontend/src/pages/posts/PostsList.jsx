@@ -77,7 +77,7 @@ const PostsList = () => {
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <TableHead columns={['Sr. No.', 'User', 'Type', 'Caption', 'Hashtags', 'Likes', 'Comments', 'Status', 'Date', 'Actions']} />
+            <TableHead columns={['Sr. No.', 'User', 'Category', 'Caption', 'Hashtags', 'Likes', 'Comments', 'Status', 'Date', 'Actions']} />
             <tbody>
               {loading && <LoadingRow cols={10} />}
               {!loading && !data.list?.length && <EmptyRow cols={10} message="No posts found" />}
@@ -88,7 +88,27 @@ const PostsList = () => {
                     <div style={{ fontWeight: '600', fontSize: '14px' }}>{p.user?.name}</div>
                     <div style={{ color: '#9ca3af', fontSize: '12px' }}>{p.user?.email}</div>
                   </td>
-                  <td style={{ padding: '12px 16px', textTransform: 'capitalize', fontSize: '13px' }}>{p.postType}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+                    {p.category?.categoryName || p.categoryName ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {p.category?.image && (
+                          <img
+                            src={p.category.image.startsWith('http') ? p.category.image : `${imageBaseUrl}${p.category.image}`}
+                            alt=""
+                            style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        <span style={{ fontWeight: '500', color: '#111827' }}>
+                          {p.category?.categoryName || p.categoryName}
+                        </span>
+                      </div>
+                    ) : p.categoryId ? (
+                      <span style={{ color: '#6b7280' }}>Category #{p.categoryId}</span>
+                    ) : (
+                      <span style={{ color: '#9ca3af' }}>—</span>
+                    )}
+                  </td>
                   <td style={{ padding: '12px 16px', maxWidth: '220px' }}>
                     <div style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.caption || '—'}
