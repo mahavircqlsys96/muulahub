@@ -6,7 +6,7 @@ import { get_payments } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
 import {
   PageHeader, SearchBar, FilterSelect, TableCard, TableHead,
-  Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency
+  Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency, getCurrencySymbol
 } from '../../components/common/PageTable';
 
 const PaymentsList = () => {
@@ -37,9 +37,9 @@ const PaymentsList = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const statCards = [
-    { label: 'Admin Revenue', value: formatCurrency(stats.adminRevenue), color: '#ff4d6d' },
-    { label: 'Provider Payout', value: formatCurrency(stats.providerPayout), color: '#10b981' },
-    { label: 'Total Volume', value: formatCurrency(stats.totalVolume), color: '#f97316' },
+    { label: 'Admin Revenue', value: formatCurrency(stats.adminRevenue, stats.primaryCurrency), color: '#ff4d6d' },
+    { label: 'Provider Payout', value: formatCurrency(stats.providerPayout, stats.primaryCurrency), color: '#10b981' },
+    { label: 'Total Volume', value: formatCurrency(stats.totalVolume, stats.primaryCurrency), color: '#f97316' },
   ];
 
   return (
@@ -74,10 +74,10 @@ const PaymentsList = () => {
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <TableHead columns={['Sr. No.', 'Transaction', 'Customer', 'Booking', 'Amount', 'Commission', 'Provider', 'Status', 'Date']} />
+            <TableHead columns={['Sr. No.', 'Transaction', 'Customer', 'Booking', 'Currency', 'Amount', 'Commission', 'Provider', 'Status', 'Date']} />
             <tbody>
-              {loading && <LoadingRow cols={9} />}
-              {!loading && !data.list?.length && <EmptyRow cols={9} message="No payments found" />}
+              {loading && <LoadingRow cols={10} />}
+              {!loading && !data.list?.length && <EmptyRow cols={10} message="No payments found" />}
               {!loading && data.list?.map((p, i) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '12px 16px', color: '#9ca3af', fontSize: '13px' }}>{(page - 1) * 10 + i + 1}</td>
@@ -90,9 +90,25 @@ const PaymentsList = () => {
                       </Link>
                     ) : '—'}
                   </td>
-                  <td style={{ padding: '12px 16px', fontWeight: '600' }}>{formatCurrency(p.amount)}</td>
-                  <td style={{ padding: '12px 16px', color: '#ff4d6d' }}>{formatCurrency(p.adminCommission)}</td>
-                  <td style={{ padding: '12px 16px' }}>{formatCurrency(p.providerAmount)}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase'
+                    }}>
+                      {getCurrencySymbol(p.currency)} {String(p.currency || 'USD').toUpperCase()}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 16px', fontWeight: '600' }}>{formatCurrency(p.amount, p.currency)}</td>
+                  <td style={{ padding: '12px 16px', color: '#ff4d6d' }}>{formatCurrency(p.adminCommission, p.currency)}</td>
+                  <td style={{ padding: '12px 16px' }}>{formatCurrency(p.providerAmount, p.currency)}</td>
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={p.paymentStatus} /></td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(p.createdAt)}</td>
                 </tr>
