@@ -316,5 +316,53 @@ module.exports = {
       console.log("getChannelUsers error:", error);
       return helper.error(res, "Error fetching channel users: " + error.message);
     }
+  },
+
+  /**
+   * Agora Message Notification Webhook (for Cloud Recording upload events)
+   * Configure in Agora Console -> Project Configuration -> Message Notification Service
+   * Webhook URL: https://<domain>/api/agoraWebhook
+   */
+  webhook: async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const { noticeId, event, payload: eventData } = payload;
+      console.log("📡 Agora Webhook received:", JSON.stringify(payload));
+
+      const cname = (eventData && eventData.cname) || payload.cname;
+      const sid = (eventData && eventData.sid) || payload.sid;
+
+      if ((cname || sid) && db.events) {
+        let where = {};
+        if (sid) where.recordingSid = sid;
+        else if (cname) where.agoraChannel = cname;
+
+        const liveEvent = await db.events.findOne({ where, order: [['id', 'DESC']] });
+        if (liveEvent) {
+          const fileList = (eventData && eventData.fileList) || payload.fileList;
+          if (Array.isArray(fileList) && fileList.length > 0) {
+            const bucket = process.env.AWS_S3_BUCKET_NAME || 'muulahublive';
+            const region = (process.env.AWS_REGION || 'us-east-1').trim().toLowerCase();
+            const s3BaseUrl = `https://${bucket}.s3.${region}.amazonaws.com`;
+            const mp4File = fileList.find(f => f.fileName && f.fileName.endsWith('.mp4'));
+            const m3u8File = fileList.find(f => f.fileName && f.fileName.endsWith('.m3u8'));
+            const chosen = mp4File || m3u8File || fileList[0];
+            if (chosen && chosen.fileName) {
+              const fileUrl = `${s3BaseUrl}/${chosen.fileName}`;
+              await liveEvent.update({
+                recordingStatus: 'completed',
+                recordingUrl: fileUrl
+              });
+              console.log(`✅ [Agora Webhook] Updated event ${liveEvent.id} recordingUrl: ${fileUrl}`);
+            }
+          }
+        }
+      }
+
+      return res.status(200).json({ code: 0, message: "ok" });
+    } catch (err) {
+      console.error("Agora Webhook error:", err);
+      return res.status(200).json({ code: 0, message: "processed" });
+    }
   }
 };

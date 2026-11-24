@@ -27,6 +27,7 @@ module.exports = (io) => {
   router.post('/publicContactUs', authController.publicContactUs);
   router.post('/publicReport', authController.publicReport);
   router.post('/muxWebhook', muxController.webhook);
+  router.post('/agoraWebhook', agoraController.webhook);
   router.post('/sendTestPush', eventController.sendTestPushByToken);
   router.get('/sendTestPush', eventController.sendTestPushByToken);
   router.get('/testLivePush', eventController.testLivePush);
