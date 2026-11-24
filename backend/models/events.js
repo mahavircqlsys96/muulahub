@@ -83,6 +83,27 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.STRING(255),
       allowNull: true
     },
+    recordingResourceId: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    recordingSid: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    recordingUid: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    recordingStatus: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      defaultValue: "idle"
+    },
+    recordingUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
 
   }, {
     sequelize,

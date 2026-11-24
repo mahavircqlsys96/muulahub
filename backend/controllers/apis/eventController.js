@@ -1,4 +1,5 @@
 const helper = require('../../helpers/helper');
+const agoraRecording = require('../../helpers/agoraRecording');
 const { Validator } = require('node-input-validator');
 const { Op } = require('sequelize');
 const db = require('../../models');
@@ -27,6 +28,26 @@ module.exports = {
       if (errors) return helper.failed(res, errors);
 
       // Stop any previously active live event(s) for this user so only one is live at a time
+      try {
+        const prevEvents = await events.findAll({ where: { userId, status: 'start' } });
+        for (const prev of prevEvents) {
+          if (prev.recordingSid && prev.recordingResourceId && prev.recordingStatus === 'recording') {
+            agoraRecording.stopRecordingForEvent({
+              channelName: prev.agoraChannel,
+              recordingUid: prev.recordingUid,
+              resourceId: prev.recordingResourceId,
+              sid: prev.recordingSid
+            }).then(stopRes => {
+              if (stopRes && stopRes.recordingUrl) {
+                prev.update({ recordingStatus: 'completed', recordingUrl: stopRes.recordingUrl });
+              } else {
+                prev.update({ recordingStatus: 'stopped' });
+              }
+            }).catch(() => prev.update({ recordingStatus: 'stopped' }));
+          }
+        }
+      } catch (_) {}
+
       await events.update(
         { status: 'stop' },
         { where: { userId, status: 'start' } }
@@ -162,8 +183,55 @@ module.exports = {
           : 0;
       }
 
+      // Auto-start live stream recording on AWS S3 if Agora Cloud Recording is configured
+      let recordingInfo = {
+        recordingStatus: 'idle',
+        recordingResourceId: null,
+        recordingSid: null,
+        recordingUid: null,
+        recordingUrl: null,
+        recordingStorage: 'AWS_S3',
+        s3Bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive'
+      };
+
+      if (agoraRecording.isConfigured()) {
+        try {
+          const recordingUid = String(Math.floor(100000 + Math.random() * 900000));
+          const startResult = await agoraRecording.startRecordingForEvent({
+            channelName,
+            recordingUid,
+            eventId: newEvent.id
+          });
+          if (startResult && startResult.success) {
+            await newEvent.update({
+              recordingResourceId: startResult.resourceId,
+              recordingSid: startResult.sid,
+              recordingUid: recordingUid,
+              recordingStatus: 'recording'
+            });
+            recordingInfo = {
+              recordingStatus: 'recording',
+              recordingResourceId: startResult.resourceId,
+              recordingSid: startResult.sid,
+              recordingUid: recordingUid,
+              recordingUrl: null,
+              recordingStorage: 'AWS_S3',
+              s3Bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive'
+            };
+            console.log(`🎥 [Live Recording] Auto-started Agora recording on AWS S3 for event ${newEvent.id} (Channel: ${channelName}, S3: ${recordingInfo.s3Bucket})`);
+          } else {
+            console.log("ℹ️ [Live Recording] Agora recording could not be auto-started:", startResult ? startResult.message : 'Unknown');
+          }
+        } catch (recErr) {
+          console.error("⚠️ [Live Recording] Auto-start recording error:", recErr.message);
+        }
+      } else {
+        console.log("ℹ️ [Live Recording] Note: AGORA_CUSTOMER_ID / AGORA_CUSTOMER_SECRET not set in .env. Live event started without automatic cloud recording.");
+      }
+
       const responseData = {
         ...eventJson,
+        ...recordingInfo,
         token: agoraToken,
         rtcToken: agoraToken,
         rtmToken: rtmToken,
@@ -335,6 +403,31 @@ module.exports = {
       }
 
       await event.update({ status: 'stop' });
+
+      // Stop cloud recording if active for this event
+      if (event.recordingSid && event.recordingResourceId && event.recordingStatus === 'recording') {
+        try {
+          console.log(`🎥 [Live Recording] Stopping Agora cloud recording for event ${event.id}...`);
+          const stopResult = await agoraRecording.stopRecordingForEvent({
+            channelName: event.agoraChannel,
+            recordingUid: event.recordingUid,
+            resourceId: event.recordingResourceId,
+            sid: event.recordingSid
+          });
+          if (stopResult && stopResult.success && stopResult.recordingUrl) {
+            await event.update({
+              recordingStatus: 'completed',
+              recordingUrl: stopResult.recordingUrl
+            });
+            console.log(`✅ [Live Recording] Successfully saved live stream recording on AWS S3: ${stopResult.recordingUrl}`);
+          } else {
+            await event.update({ recordingStatus: 'stopped' });
+          }
+        } catch (recStopErr) {
+          console.error("⚠️ [Live Recording] Error stopping cloud recording:", recStopErr.message);
+          await event.update({ recordingStatus: 'stopped' });
+        }
+      }
 
       await events.update(
         { status: 'stop' },
@@ -1232,6 +1325,211 @@ module.exports = {
         errorMessage: err.message || String(err),
         tokenTested: (req.body && (req.body.deviceToken || req.body.token)) || (req.query && (req.query.deviceToken || req.query.token))
       });
+    }
+  },
+
+  /**
+   * Start Live Stream Cloud Recording on AWS S3
+   * Endpoint: POST /api/events/:id/start-recording or POST /api/startRecording
+   */
+  startRecording: async (req, res) => {
+    try {
+      const userId = req.auth ? req.auth.id : null;
+      const eventId = req.params.id || req.params.eventId || req.body.eventId;
+      const channelName = req.body.channelName || req.body.channel;
+
+      let event = null;
+      if (eventId) {
+        event = await events.findOne({ where: { id: eventId } });
+      } else if (channelName) {
+        event = await events.findOne({ where: { agoraChannel: channelName }, order: [['id', 'DESC']] });
+      } else if (userId) {
+        event = await events.findOne({ where: { userId, status: 'start' }, order: [['id', 'DESC']] });
+      }
+
+      if (!event) {
+        return helper.failed(res, "Active live event not found");
+      }
+
+      const channel = event.agoraChannel || channelName;
+      if (!channel) {
+        return helper.failed(res, "Channel name is missing for this event");
+      }
+
+      if (!agoraRecording.isConfigured()) {
+        return helper.failed(res, "Agora Cloud Recording requires AGORA_CUSTOMER_ID and AGORA_CUSTOMER_SECRET in .env", {
+          missingCredentials: true,
+          configured: false,
+          bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive'
+        });
+      }
+
+      const recordingUid = String(Math.floor(100000 + Math.random() * 900000));
+      const startResult = await agoraRecording.startRecordingForEvent({
+        channelName: channel,
+        recordingUid,
+        eventId: event.id
+      });
+
+      if (!startResult.success) {
+        return helper.failed(res, "Failed to start Agora cloud recording: " + startResult.message, startResult);
+      }
+
+      await event.update({
+        recordingResourceId: startResult.resourceId,
+        recordingSid: startResult.sid,
+        recordingUid: recordingUid,
+        recordingStatus: 'recording'
+      });
+
+      return helper.success(res, "Live stream recording started on AWS S3", {
+        eventId: event.id,
+        channelName: channel,
+        recordingStatus: 'recording',
+        recordingResourceId: startResult.resourceId,
+        recordingSid: startResult.sid,
+        recordingUid: recordingUid,
+        bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive',
+        region: process.env.AWS_REGION || 'us-east-1'
+      });
+
+    } catch (error) {
+      console.error("startRecording error:", error);
+      return helper.error(res, "Error starting live recording: " + error.message);
+    }
+  },
+
+  /**
+   * Stop Live Stream Cloud Recording on AWS S3
+   * Endpoint: POST /api/events/:id/stop-recording or POST /api/stopRecording
+   */
+  stopRecording: async (req, res) => {
+    try {
+      const userId = req.auth ? req.auth.id : null;
+      const eventId = req.params.id || req.params.eventId || req.body.eventId;
+      const channelName = req.body.channelName || req.body.channel;
+
+      let event = null;
+      if (eventId) {
+        event = await events.findOne({ where: { id: eventId } });
+      } else if (channelName) {
+        event = await events.findOne({ where: { agoraChannel: channelName }, order: [['id', 'DESC']] });
+      } else if (userId) {
+        event = await events.findOne({ where: { userId }, order: [['id', 'DESC']] });
+      }
+
+      if (!event) {
+        return helper.failed(res, "Live event not found");
+      }
+
+      if (!event.recordingSid || !event.recordingResourceId) {
+        return helper.failed(res, "No active cloud recording found for this event", {
+          recordingStatus: event.recordingStatus || 'idle'
+        });
+      }
+
+      const stopResult = await agoraRecording.stopRecordingForEvent({
+        channelName: event.agoraChannel,
+        recordingUid: event.recordingUid,
+        resourceId: event.recordingResourceId,
+        sid: event.recordingSid
+      });
+
+      if (!stopResult.success) {
+        await event.update({ recordingStatus: 'stopped' });
+        return helper.failed(res, "Failed to stop recording: " + stopResult.message, stopResult);
+      }
+
+      const recordingUrl = stopResult.recordingUrl || null;
+      await event.update({
+        recordingStatus: 'completed',
+        recordingUrl: recordingUrl || event.recordingUrl
+      });
+
+      return helper.success(res, "Live stream recording stopped and saved to AWS S3 successfully", {
+        eventId: event.id,
+        recordingStatus: 'completed',
+        recordingUrl: recordingUrl,
+        fileList: stopResult.fileList || [],
+        bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive'
+      });
+
+    } catch (error) {
+      console.error("stopRecording error:", error);
+      return helper.error(res, "Error stopping live recording: " + error.message);
+    }
+  },
+
+  /**
+   * Get Live Stream Recording Status
+   * Endpoint: GET /api/events/:id/recording-status or GET /api/recordingStatus/:id
+   */
+  getRecordingStatus: async (req, res) => {
+    try {
+      const eventId = req.params.id || req.params.eventId || req.query.eventId;
+      if (!eventId) return helper.failed(res, "eventId is required");
+
+      const event = await events.findOne({ where: { id: eventId } });
+      if (!event) return helper.failed(res, "Event not found");
+
+      let agoraQueryData = null;
+      if (event.recordingResourceId && event.recordingSid && agoraRecording.isConfigured()) {
+        try {
+          agoraQueryData = await agoraRecording.query(event.recordingResourceId, event.recordingSid);
+        } catch (_) {}
+      }
+
+      return helper.success(res, "Recording status fetched", {
+        eventId: event.id,
+        status: event.status,
+        recordingStatus: event.recordingStatus || 'idle',
+        recordingUrl: event.recordingUrl || null,
+        recordingResourceId: event.recordingResourceId || null,
+        recordingSid: event.recordingSid || null,
+        agoraQueryData
+      });
+    } catch (error) {
+      console.error("getRecordingStatus error:", error);
+      return helper.error(res, "Error fetching recording status: " + error.message);
+    }
+  },
+
+  /**
+   * Direct Upload of Recorded Live Stream to AWS S3
+   * Endpoint: POST /api/events/:id/upload-recording or POST /api/uploadRecording
+   * Used when mobile/web client recorded locally on device and uploads file
+   */
+  uploadRecording: async (req, res) => {
+    try {
+      const eventId = req.params.id || req.params.eventId || req.body.eventId;
+      if (!eventId) return helper.failed(res, "eventId is required");
+
+      const event = await events.findOne({ where: { id: eventId } });
+      if (!event) return helper.failed(res, "Event not found");
+
+      const file = req.files && (req.files.video || req.files.recording || req.files.file || req.files.media);
+      if (!file) {
+        return helper.failed(res, "No video recording file provided (expected field 'video' or 'recording')");
+      }
+
+      console.log(`🎥 Uploading client live recording to AWS S3 for event ${eventId}...`);
+      const s3Url = await helper.uploadFileToS3(file, `recordings/event_${eventId}`);
+
+      await event.update({
+        recordingStatus: 'completed',
+        recordingUrl: s3Url
+      });
+
+      return helper.success(res, "Recording uploaded and saved to AWS S3 successfully", {
+        eventId: event.id,
+        recordingStatus: 'completed',
+        recordingUrl: s3Url,
+        bucket: process.env.AWS_S3_BUCKET_NAME || 'muulahublive'
+      });
+
+    } catch (error) {
+      console.error("uploadRecording error:", error);
+      return helper.error(res, "Error uploading recording to AWS S3: " + error.message);
     }
   }
 

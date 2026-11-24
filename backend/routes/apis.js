@@ -189,5 +189,16 @@ module.exports = (io) => {
   router.post('/deleteEvent', eventController.deleteEvent);
   router.get('/getMyLiveEvent', eventController.getMyLiveEvent);
 
+  // Live Streaming AWS S3 Recording
+  router.post('/startRecording', eventController.startRecording);
+  router.post('/stopRecording', eventController.stopRecording);
+  router.get('/recordingStatus/:id?', eventController.getRecordingStatus);
+  router.post('/uploadRecording/:id?', eventController.uploadRecording);
+
+  router.post('/events/:id/start-recording', eventController.startRecording);
+  router.post('/events/:id/stop-recording', eventController.stopRecording);
+  router.get('/events/:id/recording-status', eventController.getRecordingStatus);
+  router.post('/events/:id/upload-recording', eventController.uploadRecording);
+
   return router;
 };

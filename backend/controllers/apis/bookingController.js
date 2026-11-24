@@ -559,7 +559,9 @@ module.exports = {
         booking.providerId,
         userId,
         'Booking Accepted',
-        `${customerName} has accepted booking #${booking.bookingNumber}.`,
+        // `Provider ${customerName} has accepted your booking request #${booking.bookingNumber}.`,
+        `You have accepted booking #${booking.bookingNumber} with ${customerName}.`,
+
         booking.id
       );
       // Push to User
@@ -567,7 +569,8 @@ module.exports = {
         userId,
         booking.providerId,
         'Booking Accepted',
-        `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
+        `Provider ${providerName} has accepted your booking request #${booking.bookingNumber}.`,
+        // `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
         booking.id
       );
 
