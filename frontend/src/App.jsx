@@ -73,6 +73,9 @@ const App = () => {
       <Suspense fallback={fallback}>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/subadmin" element={<Login />} />
+          <Route path="/subadmin/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<Layout />}>

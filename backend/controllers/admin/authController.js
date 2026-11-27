@@ -12,16 +12,24 @@ module.exports = {
     login: async (req, res) => {
         const { email, password } = req.body;
         try {
-            const admin = await users.findOne({ where: { email } });
+            const identifier = (email || '').trim();
+            const admin = await users.findOne({
+                where: {
+                    [db.Sequelize.Op.or]: [
+                        { email: identifier.toLowerCase() },
+                        { userName: identifier }
+                    ]
+                }
+            });
             if (!admin) {
-                return helper.failed(res, "Incorrect email or password");
+                return helper.failed(res, "Incorrect email/username or password");
             }
             const isMatch = await bcrypt.compare(password, admin.password);
             if (!isMatch) {
-                return helper.failed(res, "Incorrect email or password");
+                return helper.failed(res, "Incorrect email/username or password");
             }
             if (admin.role != 'admin') {
-                return helper.failed(res, "Incorrect email or password");
+                return helper.failed(res, "Incorrect email/username or password");
             }
             if (admin.status === 'blocked' || admin.status === 'inactive') {
                 return helper.failed(res, "Your account has been deactivated. Contact Super Admin.");

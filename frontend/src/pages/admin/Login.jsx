@@ -52,9 +52,17 @@ const Login = () => {
   }, [sessionexpired, logoutmessage, resetpass]);
 
 
-  const validateEmail = (email) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    setEmailError(!regex.test(email) ? 'Invalid email format' : '');
+  const validateEmail = (val) => {
+    if (!val || val.trim().length === 0) {
+      setEmailError('Please enter email or username');
+    } else if (val.includes('@')) {
+      const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      setEmailError(!regex.test(val) ? 'Invalid email format' : '');
+    } else if (val.trim().length < 3) {
+      setEmailError('Username must be at least 3 characters');
+    } else {
+      setEmailError('');
+    }
   };
 
   const validatePassword = (password) => {
@@ -135,12 +143,12 @@ const Login = () => {
                       <form onSubmit={handleSubmit} className="text-start">
                         <div className="input-group input-group-outline mt-3">
                           <input
-                            type="email"
+                            type="text"
                             className="form-control"
                             value={email}
                             onChange={handleChangeEmail}
                             required
-                            placeholder="Email"
+                            placeholder="Email or Username"
                             autoComplete="off"
                           />
 
