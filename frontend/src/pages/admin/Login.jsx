@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import './Login.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,6 +19,9 @@ const LoadingOverlay = ({ loading }) => (
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isSubAdmin = location.pathname.startsWith('/subadmin');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -88,7 +91,11 @@ const Login = () => {
     if (!emailError && !passwordError) {
       setLoading(true);
       try {
-        const res = await apiInstance.post('/login', { email, password });
+        const res = await apiInstance.post('/login', {
+          email,
+          password,
+          portalType: isSubAdmin ? 'subadmin' : 'superadmin'
+        });
         const { token, user } = res.data?.body || {};
         if (token) {
           localStorage.setItem('token', token);
@@ -135,7 +142,29 @@ const Login = () => {
                     <div className="card-headers p-0  mt-n4 mx-3 z-index-2">
                       <div className="parkez-auth-header shadow-dark border-radius-lg py-3 pe-1 mt-4">
                         <div className='text-center'>
-                          <img src='/logo-muulahub.png' alt='Muulahub' style={{ height: "180px", width: "auto", maxWidth: "100%", padding: "0 16px", objectFit: "contain" }} />
+                          <img src='/logo-muulahub.png' alt='Muulahub' style={{ height: "140px", width: "auto", maxWidth: "100%", padding: "0 16px", objectFit: "contain" }} />
+                          <div className="mt-2">
+                            <span
+                              className="badge"
+                              style={{
+                                backgroundColor: isSubAdmin ? '#e0e7ff' : '#fee2e2',
+                                color: isSubAdmin ? '#4338ca' : '#b91c1c',
+                                padding: '5px 14px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                letterSpacing: '0.8px',
+                                textTransform: 'uppercase'
+                              }}
+                            >
+                              {isSubAdmin ? 'Sub-Admin Portal' : 'Super Admin Portal'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-white opacity-8 mb-0 mt-2 px-3">
+                            {isSubAdmin
+                              ? 'Sign in to access your authorized modules & duties'
+                              : 'Master administrative access & system governance'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -148,7 +177,7 @@ const Login = () => {
                             value={email}
                             onChange={handleChangeEmail}
                             required
-                            placeholder="Email or Username"
+                            placeholder={isSubAdmin ? "Username or Email" : "Super Admin Email"}
                             autoComplete="off"
                           />
 
@@ -175,9 +204,35 @@ const Login = () => {
                         {passwordError && <small className="text-danger">{passwordError}</small>}
 
                         <div className="text-center">
-                          <button type="submit" className="btn bg-info py-2 text-white w-100 my-4 mb-2">Login</button>
-                          <div className="mt-2">
-                            <Link to="/forgot-password" className="text-info text-sm">Forgot password?</Link>
+                          <button
+                            type="submit"
+                            className="btn py-2 text-white w-100 my-4 mb-2"
+                            style={{
+                              background: isSubAdmin
+                                ? 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)'
+                                : 'linear-gradient(135deg, #f91942 0%, #e11d48 100%)',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontWeight: 600
+                            }}
+                          >
+                            {isSubAdmin ? 'Sign In as Sub-Admin' : 'Sign In as Super Admin'}
+                          </button>
+                          <div className="mt-2 d-flex justify-content-between align-items-center">
+                            <Link to="/forgot-password" className="text-secondary text-xs">
+                              Forgot password?
+                            </Link>
+                            <Link
+                              to={isSubAdmin ? "/" : "/subadmin"}
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                color: isSubAdmin ? '#f91942' : '#6366f1',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              {isSubAdmin ? 'Super Admin Portal →' : 'Sub-Admin Portal →'}
+                            </Link>
                           </div>
                         </div>
                       </form>

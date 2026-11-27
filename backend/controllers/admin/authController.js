@@ -10,7 +10,7 @@ const path = require('path');
 module.exports = {
 
     login: async (req, res) => {
-        const { email, password } = req.body;
+        const { email, password, portalType } = req.body;
         try {
             const identifier = (email || '').trim();
             const admin = await users.findOne({
@@ -33,6 +33,18 @@ module.exports = {
             }
             if (admin.status === 'blocked' || admin.status === 'inactive') {
                 return helper.failed(res, "Your account has been deactivated. Contact Super Admin.");
+            }
+
+            // Portal Segregation Verification
+            const isSubAdminUser = !!admin.isSubAdmin;
+            if (portalType === 'superadmin') {
+                if (isSubAdminUser && admin.adminRoleSlug !== 'super_admin') {
+                    return helper.failed(res, "This portal is for Super Admins only. Please use the Sub-Admin Portal at /subadmin");
+                }
+            } else if (portalType === 'subadmin') {
+                if (!isSubAdminUser && (!admin.adminRoleSlug || admin.adminRoleSlug === 'super_admin')) {
+                    return helper.failed(res, "This portal is for Sub-Admins. Super Admin, please use the main Super Admin Portal.");
+                }
             }
             let time = Math.floor(Date.now() / 1000);
             await admin.update({ loginTime: time });
