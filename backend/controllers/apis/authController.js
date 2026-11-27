@@ -203,7 +203,7 @@ module.exports = {
       } else {
         const uniqueSuffix = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
         const guestEmail = `guest_${uniqueSuffix}@muulahub.com`;
-        const guestUserName = `guest_${uniqueSuffix.slice(-6)}`;
+        const guestUserName = `guest_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
 
         user = await users.create({
           name: 'Guest User',
@@ -345,11 +345,13 @@ module.exports = {
       if (existingPhone) {
         return helper.failed(res, "Phone already exists");
       }
+
+      const cleanUserName = String(userName || '').trim();
       const existingUserName = await users.findOne({
-        where: {
-          role: "user",
-          userName: userName
-        }
+        where: db.sequelize.where(
+          db.sequelize.fn('LOWER', db.sequelize.col('userName')),
+          cleanUserName.toLowerCase()
+        )
       });
 
       if (existingUserName) {
@@ -382,7 +384,7 @@ module.exports = {
         email,
         name,
         dateOfBirth,
-        userName,
+        userName: cleanUserName,
         password: hashedPassword,
         loginTime: loginTime,
         deviceToken: deviceToken,
@@ -926,6 +928,30 @@ module.exports = {
       }
 
       /* =========================
+         Username Duplicate Check
+      ========================= */
+      if (userName && String(userName).trim() !== '') {
+        const cleanUserName = String(userName).trim();
+        const userNameExists = await users.findOne({
+          where: {
+            [Op.and]: [
+              db.sequelize.where(
+                db.sequelize.fn('LOWER', db.sequelize.col('userName')),
+                cleanUserName.toLowerCase()
+              ),
+              {
+                id: { [Op.ne]: userId }
+              }
+            ]
+          }
+        });
+
+        if (userNameExists) {
+          return helper.failed(res, "Username already exists");
+        }
+      }
+
+      /* =========================
          Prepare Update Data
       ========================= */
       const updateData = {};
@@ -934,7 +960,7 @@ module.exports = {
       if (phone) updateData.phone = phone;
       if (countryCode) updateData.countryCode = countryCode;
       if (name) updateData.name = name;
-      if (userName) updateData.userName = userName;
+      if (userName && String(userName).trim() !== '') updateData.userName = String(userName).trim();
       if (hourlyPrice) updateData.hourlyPrice = hourlyPrice;
       if (bio) updateData.bio = bio;
       if (profileImage) updateData.profileImage = profileImage;
@@ -1974,6 +2000,46 @@ module.exports = {
     } catch (error) {
       console.log(error);
       return helper.error(res, error);
+    }
+  },
+
+  /**
+   * Check if a userName is available across all users (case-insensitive)
+   * Query or Body: userName (or username)
+   */
+  checkUsername: async (req, res) => {
+    try {
+      const rawUserName = req.query.userName || req.body.userName || req.query.username || req.body.username;
+      if (!rawUserName || String(rawUserName).trim() === '') {
+        return helper.failed(res, "Username is required");
+      }
+
+      const cleanUserName = String(rawUserName).trim();
+      const currentUserId = (req.auth && req.auth.id) || req.query.userId || req.body.userId;
+
+      let whereClause = db.sequelize.where(
+        db.sequelize.fn('LOWER', db.sequelize.col('userName')),
+        cleanUserName.toLowerCase()
+      );
+
+      if (currentUserId) {
+        whereClause = {
+          [Op.and]: [
+            whereClause,
+            { id: { [Op.ne]: currentUserId } }
+          ]
+        };
+      }
+
+      const existing = await users.findOne({ where: whereClause });
+      if (existing) {
+        return helper.failed(res, "Username already exists", { isAvailable: false, userName: cleanUserName });
+      }
+
+      return helper.success(res, "Username is available", { isAvailable: true, userName: cleanUserName });
+    } catch (error) {
+      console.error("checkUsername error:", error);
+      return helper.error(res, "Error checking username: " + error.message);
     }
   },
 };

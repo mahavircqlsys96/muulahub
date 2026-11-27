@@ -44,6 +44,9 @@ db.Sequelize = Sequelize;
 // Ensure location column exists on users table safely
 sequelize.query("ALTER TABLE `users` ADD COLUMN `location` VARCHAR(255) NULL").catch(() => {});
 
+// Ensure unique index on userName exists safely
+sequelize.query("ALTER TABLE `users` ADD UNIQUE INDEX `idx_users_userName_unique` (`userName`)").catch(() => {});
+
 // Ensure recording columns exist on events table safely for live streaming recording on AWS S3
 sequelize.query("ALTER TABLE `events` ADD COLUMN `recordingResourceId` VARCHAR(255) NULL").catch(() => {});
 sequelize.query("ALTER TABLE `events` ADD COLUMN `recordingSid` VARCHAR(255) NULL").catch(() => {});

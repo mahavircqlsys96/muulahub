@@ -51,6 +51,7 @@ module.exports = (io) => {
   router.post('/forgotPassword', authController.forgotPassword);
   router.post('/socialLogin', authController.socialLogin);
   router.get('/categoryList', authController.categoryList);
+  router.all(['/checkUsername', '/check-username'], optionalAuthenticateJWT, authController.checkUsername);
 
   // ─── Optional JWT Auth (Guests & Authenticated Users) ───
   router.all(['/home'], optionalAuthenticateJWT, userController.home);

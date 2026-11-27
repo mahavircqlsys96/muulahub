@@ -32,6 +32,7 @@ module.exports = function (sequelize, DataTypes) {
     userName: {
       type: DataTypes.STRING(255),
       allowNull: true,
+      unique: "userName"
     },
     password: {
       type: DataTypes.STRING(255),
@@ -270,6 +271,12 @@ module.exports = function (sequelize, DataTypes) {
         name: "idx_users_email",
         using: "BTREE",
         fields: [{ name: "email" }]
+      },
+      {
+        name: "idx_users_userName_unique",
+        unique: true,
+        using: "BTREE",
+        fields: [{ name: "userName" }]
       },
     ]
   });
