@@ -199,8 +199,12 @@ module.exports = {
       });
       if (!booking) return helper.failed(res, 'Booking not found or not authorized');
 
+      if (booking.bookingStatus === 'cancelled' || booking.bookingStatus === 'reject') {
+        return helper.failed(res, 'This booking has been cancelled. You cannot send a quote, accept, or decline this booking.');
+      }
+
       if (booking.bookingStatus !== 'pending') {
-        return helper.failed(res, 'Only pending bookings can be accepted or declined');
+        return helper.failed(res, 'Only pending bookings can be accepted, declined, or quoted');
       }
 
       const finalStatus = status === 'reject' ? 'cancelled' : status;
@@ -342,6 +346,10 @@ module.exports = {
 
       const booking = await bookings.findOne({ where: { id: bookingId, userId: userId } });
       if (!booking) return helper.failed(res, 'Booking not found or not authorized');
+
+      if (booking.bookingStatus === 'cancelled' || booking.bookingStatus === 'reject') {
+        return helper.failed(res, 'This booking has been cancelled.');
+      }
 
       if (booking.counterStatus !== 'pending') {
         return helper.failed(res, 'Counter offer has already been responded to');
@@ -1969,6 +1977,10 @@ module.exports = {
       const updateData = {
         bookingStatus: 'cancelled'
       };
+
+      if (booking.counterStatus === 'pending') {
+        updateData.counterStatus = 'cancelled';
+      }
 
       if (cancellationReason) {
         const existingNotes = booking.notes || '';
