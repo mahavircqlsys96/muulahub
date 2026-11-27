@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { isSuperAdminUser } from "../utils/permissions";
 
 const menuSections = [
   {
@@ -20,8 +21,8 @@ const menuSections = [
       { to: "/payments", label: "Payments", icon: "payments", permission: "payments:view" },
       { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet", permission: "withdrawals:view" },
       { to: "/wallets", label: "Wallets", icon: "account_balance", permission: "wallets:view" },
-      { to: "/subadmins", label: "Sub-Admins", icon: "admin_panel_settings", permission: "subadmins:view" },
-      { to: "/roles", label: "Roles & Permissions", icon: "security", permission: "roles:view" },
+      { to: "/subadmins", label: "Sub-Admins", icon: "admin_panel_settings", permission: "subadmins:view", superAdminOnly: true },
+      { to: "/roles", label: "Roles & Permissions", icon: "security", permission: "roles:view", superAdminOnly: true },
       // { to: "/locations", label: "Locations", icon: "public" },
       // { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
     ]
@@ -37,12 +38,13 @@ const menuSections = [
   },
   {
     label: "CMS PAGES",
+    superAdminOnly: true,
     items: [
-      { to: "/cms/about-us", label: "About Us", icon: "info", permission: "cms:view" },
-      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip", permission: "cms:view" },
-      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel", permission: "cms:view" },
-      { to: "/cms/faqs", label: "FAQs", icon: "help_outline", permission: "cms:view" },
-      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule", permission: "cms:view" }
+      { to: "/cms/about-us", label: "About Us", icon: "info", permission: "cms:view", superAdminOnly: true },
+      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip", permission: "cms:view", superAdminOnly: true },
+      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel", permission: "cms:view", superAdminOnly: true },
+      { to: "/cms/faqs", label: "FAQs", icon: "help_outline", permission: "cms:view", superAdminOnly: true },
+      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule", permission: "cms:view", superAdminOnly: true }
     ]
   },
   // {
@@ -68,9 +70,9 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
   // Prioritize whichever user object holds loaded data with an id
   const currentUser = (reduxUser && reduxUser.id) ? reduxUser : (localUser && localUser.id ? localUser : null);
 
-  // If user is subadmin (isSubAdmin is true/1 or roleSlug is not super_admin)
-  const isSubAdmin = Boolean(currentUser?.isSubAdmin) || (currentUser?.roleSlug && currentUser?.roleSlug !== "super_admin");
-  const isSuperAdmin = Boolean(currentUser && !isSubAdmin && currentUser.role === "admin");
+  // Check super admin vs sub-admin
+  const isSuperAdmin = isSuperAdminUser();
+  const isSubAdmin = !isSuperAdmin;
 
   let userPermissions = [];
   try {
@@ -85,9 +87,25 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
 
   // Filter menu sections by subadmin permissions
   const visibleSections = menuSections.map((section) => {
+    // If section is marked superAdminOnly and user is not superadmin, hide entire section
+    if (section.superAdminOnly && !isSuperAdmin) {
+      return { ...section, items: [] };
+    }
+
     const visibleItems = section.items.filter((item) => {
       // Super Admin sees all modules without restriction
       if (isSuperAdmin) return true;
+
+      // Sub-Admins: Strictly NEVER show subadmins, roles, or CMS tables
+      if (
+        item.superAdminOnly ||
+        item.to === "/subadmins" ||
+        item.to === "/roles" ||
+        item.to.startsWith("/cms") ||
+        section.label === "CMS PAGES"
+      ) {
+        return false;
+      }
 
       // Sub-Admins: ONLY show modules that are explicitly in their permissions!
       if (!isSubAdmin) return false;

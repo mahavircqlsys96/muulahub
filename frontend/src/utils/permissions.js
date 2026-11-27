@@ -29,6 +29,11 @@ export const checkUserPermission = (moduleName, action = 'view') => {
     return true;
   }
 
+  // Sub-Admins are strictly barred from subadmins, roles, and CMS management
+  if (['subadmins', 'roles', 'cms'].includes(moduleName)) {
+    return false;
+  }
+
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];
 
   // Full wildcard
