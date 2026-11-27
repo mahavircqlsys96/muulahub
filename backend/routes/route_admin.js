@@ -72,92 +72,92 @@ router.put('/updateProfile', authController.updateProfile);
 router.put('/updatePassword', authController.updatePassword);
 
 // Dashboard
-router.get('/dashboard_data', dashboardController.dashboard_data);
-router.get('/getMonthlyUserStats', dashboardController.getMonthlyUserStats);
+router.get('/dashboard_data', requirePermission('dashboard:view'), dashboardController.dashboard_data);
+router.get('/getMonthlyUserStats', requirePermission('dashboard:view'), dashboardController.getMonthlyUserStats);
 
 // User Management
-router.get('/userList', userController.userList);
-router.get('/userList2', userController.userList2);
-router.get('/userListDeleted', userController.userListDeleted);
-router.get('/userFollowers/:id', userController.userFollowers);
-router.get('/userFollowing/:id', userController.userFollowing);
-router.get('/viewUser/:id/:role', userController.viewUser);
-router.get('/userCategories/:id', userController.getUserCategories);
-router.put('/toggleUserStatus/:id', userController.toggleUserStatus);
-router.put('/updateApprovalStatus', userController.updateApprovalStatus);
-router.delete('/deleteUser/:id', userController.deleteUser);
-router.put('/restoreUser/:id', userController.restoreUser);
-router.post('/generateUserQR', userController.generateUserQR);
+router.get('/userList', requirePermission('users:view'), userController.userList);
+router.get('/userList2', requirePermission('users:view'), userController.userList2);
+router.get('/userListDeleted', requirePermission('users:view'), userController.userListDeleted);
+router.get('/userFollowers/:id', requirePermission('users:view'), userController.userFollowers);
+router.get('/userFollowing/:id', requirePermission('users:view'), userController.userFollowing);
+router.get('/viewUser/:id/:role', requirePermission('users:view'), userController.viewUser);
+router.get('/userCategories/:id', requirePermission('users:view'), userController.getUserCategories);
+router.put('/toggleUserStatus/:id', requirePermission('users:suspend'), userController.toggleUserStatus);
+router.put('/updateApprovalStatus', requirePermission('users:edit'), userController.updateApprovalStatus);
+router.delete('/deleteUser/:id', requirePermission('users:edit'), userController.deleteUser);
+router.put('/restoreUser/:id', requirePermission('users:reactivate'), userController.restoreUser);
+router.post('/generateUserQR', requirePermission('users:view'), userController.generateUserQR);
 
 // CMS
-router.get('/getCms/:slug', cmsController.getCms);
-router.put('/updateCms', cmsController.updateCms);
+router.get('/getCms/:slug', requirePermission('cms:view'), cmsController.getCms);
+router.put('/updateCms', requirePermission('cms:edit'), cmsController.updateCms);
 
 // Contact Support
-router.get('/contactUsList', contactUsController.contactUs_list);
-router.get('/contactUs/:id', contactUsController.view_contactUs);
-router.put('/contactUs/:id', contactUsController.update_contactUs);
-router.delete('/deleteContactUs/:id', contactUsController.delete_contactUs);
+router.get('/contactUsList', requirePermission('support:view'), contactUsController.contactUs_list);
+router.get('/contactUs/:id', requirePermission('support:view'), contactUsController.view_contactUs);
+router.put('/contactUs/:id', requirePermission('support:respond'), contactUsController.update_contactUs);
+router.delete('/deleteContactUs/:id', requirePermission('support:close'), contactUsController.delete_contactUs);
 
 // Provider Management
-router.get('/providers', providerController.providerList);
-router.put('/providers/:id/avatar', providerController.updateProviderAvatar);
-router.get('/providers/:id', providerController.viewProvider);
-router.put('/providers/:id/categories', providerController.updateProviderCategories);
-router.put('/updateProviderStatus', providerController.updateProviderStatus);
-router.get('/pendingVerifications', providerController.pendingVerifications);
+router.get('/providers', requirePermission('providers:view'), providerController.providerList);
+router.put('/providers/:id/avatar', requirePermission('providers:edit'), providerController.updateProviderAvatar);
+router.get('/providers/:id', requirePermission('providers:view'), providerController.viewProvider);
+router.put('/providers/:id/categories', requirePermission('providers:edit'), providerController.updateProviderCategories);
+router.put('/updateProviderStatus', requirePermission('providers:verify'), providerController.updateProviderStatus);
+router.get('/pendingVerifications', requirePermission('providers:view'), providerController.pendingVerifications);
 
 // Services Categories
-router.get('/categories', categoryController.categoryList);
-router.post('/categories', categoryController.createCategory);
-router.put('/categories/:id', categoryController.updateCategory);
-router.delete('/categories/:id', categoryController.deleteCategory);
-router.put('/categories/:id/toggle', categoryController.toggleCategoryStatus);
+router.get('/categories', requirePermission('categories:view'), categoryController.categoryList);
+router.post('/categories', requirePermission('categories:create'), categoryController.createCategory);
+router.put('/categories/:id', requirePermission('categories:edit'), categoryController.updateCategory);
+router.delete('/categories/:id', requirePermission('categories:delete'), categoryController.deleteCategory);
+router.put('/categories/:id/toggle', requirePermission('categories:edit'), categoryController.toggleCategoryStatus);
 
 // Services Management
-router.get('/services', serviceController.serviceList);
-router.put('/services/:id/status', serviceController.updateServiceStatus);
+router.get('/services', requirePermission('categories:view'), serviceController.serviceList);
+router.put('/services/:id/status', requirePermission('categories:edit'), serviceController.updateServiceStatus);
 
 // Booking Management
-router.get('/bookings', bookingController.bookingList);
-router.get('/bookings/stats', bookingController.bookingStats);
-router.get('/bookings/:id', bookingController.bookingDetail);
-router.put('/bookings/:id/status', bookingController.updateBookingStatus);
+router.get('/bookings', requirePermission('bookings:view'), bookingController.bookingList);
+router.get('/bookings/stats', requirePermission('bookings:view'), bookingController.bookingStats);
+router.get('/bookings/:id', requirePermission('bookings:view'), bookingController.bookingDetail);
+router.put('/bookings/:id/status', requirePermission('bookings:manage'), bookingController.updateBookingStatus);
 
 // Payment Management
-router.get('/payments', paymentController.paymentList);
-router.get('/payments/stats', paymentController.paymentStats);
-router.get('/payments/:id', paymentController.paymentDetail);
+router.get('/payments', requirePermission('payments:view'), paymentController.paymentList);
+router.get('/payments/stats', requirePermission('payments:view'), paymentController.paymentStats);
+router.get('/payments/:id', requirePermission('payments:view'), paymentController.paymentDetail);
 
 // Withdrawal Management
-router.get('/withdrawals', withdrawalController.withdrawalList);
-router.get('/withdrawals/:id', withdrawalController.withdrawalDetail);
-router.put('/withdrawals/:id/status', withdrawalController.updateWithdrawalStatus);
+router.get('/withdrawals', requirePermission('withdrawals:view'), withdrawalController.withdrawalList);
+router.get('/withdrawals/:id', requirePermission('withdrawals:view'), withdrawalController.withdrawalDetail);
+router.put('/withdrawals/:id/status', requirePermission('withdrawals:approve'), withdrawalController.updateWithdrawalStatus);
 
 // Posts Moderation
-router.get('/posts', postsController.postsList);
-router.get('/posts/:id', postsController.postDetail);
-router.put('/posts/:id/status', postsController.updatePostStatus);
-router.delete('/posts/:id', postsController.deletePost);
+router.get('/posts', requirePermission('posts:view'), postsController.postsList);
+router.get('/posts/:id', requirePermission('posts:view'), postsController.postDetail);
+router.put('/posts/:id/status', requirePermission('posts:hide'), postsController.updatePostStatus);
+router.delete('/posts/:id', requirePermission('posts:remove'), postsController.deletePost);
 
 // Reports
-router.get('/reports', reportController.reportList);
-router.put('/reports/:id', reportController.updateReportStatus);
+router.get('/reports', requirePermission('reports:view'), reportController.reportList);
+router.put('/reports/:id', requirePermission('reports:review'), reportController.updateReportStatus);
 
 // Disputes
-router.get('/disputes', disputeController.disputeList);
-router.get('/disputes/:id', disputeController.disputeDetail);
-router.put('/disputes/:id/resolve', disputeController.resolveDispute);
+router.get('/disputes', requirePermission('disputes:view'), disputeController.disputeList);
+router.get('/disputes/:id', requirePermission('disputes:view'), disputeController.disputeDetail);
+router.put('/disputes/:id/resolve', requirePermission('disputes:resolve'), disputeController.resolveDispute);
 
 // Wallets
-router.get('/wallets', walletController.walletList);
-router.get('/wallets/transactions', walletController.walletTransactions);
-router.post('/wallets/update', walletController.updateWallet);
-router.put('/wallets/:id/freeze', walletController.freezeWallet);
+router.get('/wallets', requirePermission('wallets:view'), walletController.walletList);
+router.get('/wallets/transactions', requirePermission('wallets:view'), walletController.walletTransactions);
+router.post('/wallets/update', requirePermission('wallets:adjust'), walletController.updateWallet);
+router.put('/wallets/:id/freeze', requirePermission('wallets:adjust'), walletController.freezeWallet);
 
 // Notifications
-router.post('/notifications/bulk', notificationController.sendBulkNotification);
-router.get('/notifications', notificationController.notificationList);
+router.post('/notifications/bulk', requirePermission('notifications:send'), notificationController.sendBulkNotification);
+router.get('/notifications', requirePermission('notifications:view'), notificationController.notificationList);
 
 // Fraud Monitoring
 router.get('/fraud-alerts', fraudController.getFraudAlerts);

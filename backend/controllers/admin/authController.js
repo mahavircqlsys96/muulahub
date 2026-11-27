@@ -39,38 +39,53 @@ module.exports = {
             const isSubAdminUser = !!admin.isSubAdmin;
             if (portalType === 'subadmin') {
                 if (!isSubAdminUser) {
-                    return helper.failed(
-                        res,
-                        "Access Denied: Super Admin must log in through the Main Admin Portal (https://app.muulahub.com/)."
-                    );
+                    return res.status(401).json({
+                        success: false,
+                        code: 401,
+                        message: "Unauthorized: Super Admin must log in from the Super Admin Panel (https://app.muulahub.com/).",
+                        body: {}
+                    });
                 }
             } else {
                 // Main Admin Portal (Super Admin only)
                 if (isSubAdminUser) {
-                    return helper.failed(
-                        res,
-                        "Access Denied: Sub-Admins must log in through the Sub-Admin Portal (https://app.muulahub.com/subadmin)."
-                    );
+                    return res.status(401).json({
+                        success: false,
+                        code: 401,
+                        message: "Unauthorized: Sub-Admins must log in from the Sub-Admin Panel (https://app.muulahub.com/subadmin).",
+                        body: {}
+                    });
                 }
             }
             let time = Math.floor(Date.now() / 1000);
             await admin.update({ loginTime: time });
 
-            let roleSlug = admin.adminRoleSlug || (admin.isSubAdmin ? 'sub_admin' : 'super_admin');
+            let roleSlug = admin.adminRoleSlug || (isSubAdminUser ? 'sub_admin' : 'super_admin');
             let permissions = admin.adminPermissions;
-            let roleName = "Super Admin";
+            let roleName = isSubAdminUser ? "Sub-Admin" : "Super Admin";
 
             if (admin.adminRoleId && admin_roles) {
               const roleObj = await admin_roles.findOne({ where: { id: admin.adminRoleId } });
               if (roleObj) {
                 roleSlug = roleObj.slug;
                 roleName = roleObj.name;
-                if (!permissions || !permissions.length) {
+                if (!permissions || (Array.isArray(permissions) && !permissions.length)) {
                   permissions = roleObj.permissions;
                 }
               }
-            } else if (roleSlug === 'super_admin') {
+            }
+
+            // Ensure permissions is properly parsed as an Array
+            if (typeof permissions === 'string') {
+              try { permissions = JSON.parse(permissions); } catch (e) { permissions = []; }
+            }
+
+            // Super Admin has wildcard full access; Sub-Admins have ONLY their granted permissions!
+            if (!isSubAdminUser || roleSlug === 'super_admin') {
               permissions = ["*"];
+              roleName = roleName || "Super Admin";
+            } else {
+              permissions = Array.isArray(permissions) ? permissions : [];
             }
 
             const token = jwt.sign(
@@ -94,8 +109,8 @@ module.exports = {
                     role: admin.role,
                     roleSlug,
                     roleName,
-                    permissions: permissions || ["*"],
-                    isSubAdmin: !!admin.isSubAdmin
+                    permissions: permissions,
+                    isSubAdmin: isSubAdminUser
                 }
             });
         } catch (error) {
@@ -113,21 +128,33 @@ module.exports = {
             }
             const row = admin.toJSON ? admin.toJSON() : admin;
 
-            let roleSlug = admin.adminRoleSlug || (admin.isSubAdmin ? 'sub_admin' : 'super_admin');
+            const isSubAdminUser = !!admin.isSubAdmin;
+            let roleSlug = admin.adminRoleSlug || (isSubAdminUser ? 'sub_admin' : 'super_admin');
             let permissions = admin.adminPermissions;
-            let roleName = "Super Admin";
+            let roleName = isSubAdminUser ? "Sub-Admin" : "Super Admin";
 
             if (admin.adminRoleId && admin_roles) {
               const roleObj = await admin_roles.findOne({ where: { id: admin.adminRoleId } });
               if (roleObj) {
                 roleSlug = roleObj.slug;
                 roleName = roleObj.name;
-                if (!permissions || !permissions.length) {
+                if (!permissions || (Array.isArray(permissions) && !permissions.length)) {
                   permissions = roleObj.permissions;
                 }
               }
-            } else if (roleSlug === 'super_admin') {
+            }
+
+            // Ensure permissions is properly parsed as an Array
+            if (typeof permissions === 'string') {
+              try { permissions = JSON.parse(permissions); } catch (e) { permissions = []; }
+            }
+
+            // Super Admin has wildcard full access; Sub-Admins have ONLY their granted permissions!
+            if (!isSubAdminUser || roleSlug === 'super_admin') {
               permissions = ["*"];
+              roleName = roleName || "Super Admin";
+            } else {
+              permissions = Array.isArray(permissions) ? permissions : [];
             }
 
             const payload = {
@@ -135,8 +162,8 @@ module.exports = {
                 profile_picture: row.profileImage || row.profile_picture,
                 roleSlug,
                 roleName,
-                permissions: permissions || ["*"],
-                isSubAdmin: !!admin.isSubAdmin
+                permissions: permissions,
+                isSubAdmin: isSubAdminUser
             };
             return helper.success(res, "Admin profile retrieved successfully", payload);
         } catch (err) {

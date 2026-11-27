@@ -6,7 +6,7 @@ const menuSections = [
   {
     label: "MAIN",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: "dashboard", permission: null },
+      { to: "/dashboard", label: "Dashboard", icon: "dashboard", permission: "dashboard:view" },
     ]
   },
   {
@@ -66,14 +66,38 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
   } catch (e) {}
 
   const currentUser = reduxUser || localUser;
-  const isSuperAdmin = !currentUser?.isSubAdmin || currentUser?.roleSlug === "super_admin";
-  const userPermissions = Array.isArray(currentUser?.permissions) ? currentUser.permissions : [];
+  // If user is a sub-admin (isSubAdmin is true/1 and not super_admin)
+  const isSubAdmin = Boolean(currentUser?.isSubAdmin) && currentUser?.roleSlug !== "super_admin";
+  const isSuperAdmin = !isSubAdmin && (currentUser?.role === "admin" || !currentUser);
 
-  // Filter menu sections by subadmin permissions
+  let userPermissions = [];
+  try {
+    if (Array.isArray(currentUser?.permissions)) {
+      userPermissions = currentUser.permissions;
+    } else if (typeof currentUser?.permissions === 'string') {
+      userPermissions = JSON.parse(currentUser.permissions);
+    }
+  } catch (e) {
+    userPermissions = [];
+  }
+
+  // Filter menu sections: Sub-Admins ONLY see granted modules!
   const visibleSections = menuSections.map((section) => {
     const visibleItems = section.items.filter((item) => {
-      if (isSuperAdmin || !item.permission) return true;
-      return userPermissions.includes(item.permission);
+      // Super Admin sees all modules without restriction
+      if (isSuperAdmin) return true;
+
+      // Sub-Admins MUST have explicit permission
+      if (userPermissions.includes('*')) return true;
+      if (item.permission && userPermissions.includes(item.permission)) return true;
+
+      // Check wildcard module matching (e.g. "users:*" matches "users:view")
+      if (item.permission) {
+        const [mod] = item.permission.split(':');
+        if (userPermissions.includes(`${mod}:*`)) return true;
+      }
+
+      return false;
     });
     return { ...section, items: visibleItems };
   }).filter((section) => section.items.length > 0);
