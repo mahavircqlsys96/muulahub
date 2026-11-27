@@ -78,11 +78,24 @@ const requirePermission = (moduleOrPerm, action) => {
       }
 
       // If user is not explicitly a subadmin (i.e. primary Super Admin account),
-      // or if roleSlug is super_admin, ALWAYS grant full access automatically
+      // or if roleSlug is super_admin, grant full access automatically
       const isSubAdmin = !!userRecord.isSubAdmin;
-      const roleSlug = userRecord.adminRoleSlug || (!isSubAdmin ? 'super_admin' : '');
+      const roleSlug = userRecord.adminRoleSlug || (!isSubAdmin ? 'super_admin' : 'sub_admin');
 
-      if (!isSubAdmin || roleSlug === 'super_admin' || !roleSlug) {
+      // Sub-Admins strictly forbidden from subadmins, roles, and CMS management
+      if (isSubAdmin || (roleSlug && roleSlug !== 'super_admin')) {
+        const [mod] = requiredPermission.split(':');
+        if (['subadmins', 'roles', 'cms'].includes(mod)) {
+          return res.status(403).json({
+            success: false,
+            code: 403,
+            msg: `Access Denied: Only Super Admin has permission to access ${mod}.`,
+            body: {}
+          });
+        }
+      }
+
+      if (!isSubAdmin && roleSlug === 'super_admin') {
         return next();
       }
 

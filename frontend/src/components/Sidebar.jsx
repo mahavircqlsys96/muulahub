@@ -71,8 +71,8 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
   const currentUser = (reduxUser && reduxUser.id) ? reduxUser : (localUser && localUser.id ? localUser : null);
 
   // Check super admin vs sub-admin
-  const isSuperAdmin = isSuperAdminUser();
-  const isSubAdmin = !isSuperAdmin;
+  const isSuperAdmin = isSuperAdminUser(currentUser);
+  const isSubAdmin = !isSuperAdmin || isSubAdminUser(currentUser);
 
   let userPermissions = [];
   try {
@@ -89,15 +89,17 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
   const visibleSections = menuSections
     .filter((section) => {
       // If user is subadmin, NEVER show CMS PAGES section
-      if (!isSuperAdmin && (section.superAdminOnly || section.label === "CMS PAGES")) {
-        return false;
+      if (isSubAdmin || !isSuperAdmin) {
+        if (section.superAdminOnly || section.label === "CMS PAGES") {
+          return false;
+        }
       }
       return true;
     })
     .map((section) => {
       const visibleItems = section.items.filter((item) => {
         // Sub-Admins: Strictly NEVER show subadmins, roles, or CMS tables
-        if (!isSuperAdmin) {
+        if (isSubAdmin || !isSuperAdmin) {
           if (
             item.superAdminOnly ||
             item.to === "/subadmins" ||
@@ -109,7 +111,7 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
         }
 
         // Super Admin sees all modules without restriction
-        if (isSuperAdmin) return true;
+        if (isSuperAdmin && !isSubAdmin) return true;
 
         // Sub-Admins: ONLY show modules that are explicitly in their permissions!
         if (!isSubAdmin) return false;

@@ -11,36 +11,44 @@ export const getCurrentUser = () => {
   }
 };
 
-export const isSubAdminUser = () => {
-  const user = getCurrentUser();
+export const isSubAdminUser = (userOverride = null) => {
+  if (localStorage.getItem('portalType') === 'subadmin') return true;
+  const user = userOverride || getCurrentUser();
   if (!user) return false;
   if (user.isSubAdmin === 1 || user.isSubAdmin === true || user.isSubAdmin === '1') return true;
   if (user.roleSlug && user.roleSlug !== 'super_admin') return true;
   if (user.adminRoleSlug && user.adminRoleSlug !== 'super_admin') return true;
-  if (localStorage.getItem('portalType') === 'subadmin') return true;
-  if (Array.isArray(user.permissions) && !user.permissions.includes('*')) return true;
+
+  let perms = user.permissions;
+  if (typeof perms === 'string') {
+    try { perms = JSON.parse(perms); } catch (e) { perms = []; }
+  }
+  if (Array.isArray(perms) && !perms.includes('*')) return true;
   return false;
 };
 
-export const isSuperAdminUser = () => {
-  const user = getCurrentUser();
+export const isSuperAdminUser = (userOverride = null) => {
+  if (localStorage.getItem('portalType') === 'subadmin') return false;
+  const user = userOverride || getCurrentUser();
   if (!user) return false;
-  if (isSubAdminUser()) return false;
-  return user.role === 'admin';
+  if (isSubAdminUser(user)) return false;
+  return user.role === 'admin' && (user.roleSlug === 'super_admin' || !user.isSubAdmin);
 };
 
-export const checkUserPermission = (moduleName, action = 'view') => {
-  const user = getCurrentUser();
+export const checkUserPermission = (moduleName, action = 'view', userOverride = null) => {
+  const user = userOverride || getCurrentUser();
   if (!user) return false;
-
-  // Super Admin has full, unrestricted access to all modules and actions
-  if (isSuperAdminUser()) {
-    return true;
-  }
 
   // Sub-Admins are strictly barred from subadmins, roles, and CMS management
   if (['subadmins', 'roles', 'cms'].includes(moduleName)) {
-    return false;
+    if (isSubAdminUser(user) || localStorage.getItem('portalType') === 'subadmin') {
+      return false;
+    }
+  }
+
+  // Super Admin has full, unrestricted access to all modules and actions
+  if (isSuperAdminUser(user)) {
+    return true;
   }
 
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];

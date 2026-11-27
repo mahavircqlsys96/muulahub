@@ -86,26 +86,53 @@ module.exports = {
 
       const reportData = report.toJSON ? report.toJSON() : report;
       let targetDetails = null;
+      const reportTypeLower = (report.reportType || '').toLowerCase();
 
-      if (report.reportType === 'user' && report.referenceId) {
+      if (reportTypeLower === 'user' && report.referenceId) {
         const targetUser = await users.findOne({
           where: { id: report.referenceId },
           attributes: ['id', 'name', 'email', 'phone', 'role', 'status', 'profileImage', 'createdAt'],
           paranoid: false
         });
-        if (targetUser) targetDetails = targetUser;
-      } else if (report.reportType === 'post' && report.referenceId) {
+        if (targetUser) targetDetails = targetUser.toJSON ? targetUser.toJSON() : targetUser;
+      } else if (reportTypeLower === 'post' && report.referenceId) {
         if (db.posts) {
           const targetPost = await db.posts.findOne({
             where: { id: report.referenceId },
             include: [
-              { model: users, as: 'user', attributes: ['id', 'name', 'email', 'profileImage'], required: false },
-              ...(db.post_media ? [{ model: db.post_media, as: 'media', required: false }] : [])
+              {
+                model: users,
+                as: 'user',
+                attributes: ['id', 'name', 'email', 'phone', 'profileImage', 'role'],
+                required: false
+              },
+              ...(db.post_media ? [{
+                model: db.post_media,
+                as: 'postMedia',
+                attributes: ['id', 'mediaUrl', 'thumbnail', 'type'],
+                required: false
+              }] : []),
+              ...(db.services_categories ? [{
+                model: db.services_categories,
+                as: 'category',
+                attributes: ['id', 'categoryName'],
+                required: false
+              }] : [])
             ]
           });
-          if (targetPost) targetDetails = targetPost;
+          if (targetPost) {
+            const pData = targetPost.toJSON ? targetPost.toJSON() : targetPost;
+            pData.media = pData.postMedia ? pData.postMedia.map(m => ({
+              id: m.id,
+              url: m.mediaUrl,
+              mediaUrl: m.mediaUrl,
+              thumbnail: m.thumbnail,
+              type: m.type
+            })) : [];
+            targetDetails = pData;
+          }
         }
-      } else if ((report.reportType === 'job' || report.reportType === 'booking') && report.referenceId) {
+      } else if ((reportTypeLower === 'job' || reportTypeLower === 'booking') && report.referenceId) {
         if (db.bookings) {
           const targetBooking = await db.bookings.findOne({
             where: { id: report.referenceId },
@@ -114,7 +141,7 @@ module.exports = {
               { model: users, as: 'provider', attributes: ['id', 'name', 'email', 'phone'], required: false }
             ]
           });
-          if (targetBooking) targetDetails = targetBooking;
+          if (targetBooking) targetDetails = targetBooking.toJSON ? targetBooking.toJSON() : targetBooking;
         }
       }
 

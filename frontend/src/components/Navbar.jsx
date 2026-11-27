@@ -74,6 +74,7 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
     if (result.isConfirmed) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      localStorage.removeItem("portalType");
       localStorage.setItem("logoutmessage", "true");
       setDropdownOpen(false);
       navigate(isSub ? "/subadmin" : "/");

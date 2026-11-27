@@ -102,7 +102,12 @@ const Login = () => {
         const { token, user } = res.data?.body || {};
         if (token) {
           localStorage.setItem('token', token);
+          localStorage.setItem('portalType', isSubAdmin ? 'subadmin' : 'superadmin');
           if (user) {
+            if (isSubAdmin) {
+              user.isSubAdmin = true;
+              user.roleSlug = user.roleSlug || 'sub_admin';
+            }
             localStorage.setItem('user', JSON.stringify(user));
             dispatch(setUser(user));
           }

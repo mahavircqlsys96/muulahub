@@ -31,6 +31,7 @@ const ReportDetailPage = () => {
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState('pending');
   const [adminRemarks, setAdminRemarks] = useState('');
+  const [previewMedia, setPreviewMedia] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -259,45 +260,133 @@ const ReportDetailPage = () => {
             )}
 
             {/* If Reported is a Post */}
-            {report.reportType === 'post' && (
+            {(report.reportType?.toLowerCase() === 'post') && (
               target?.id ? (
                 <div>
+                  {/* Author Header */}
+                  {target.user && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingBottom: '16px', borderBottom: '1px solid #f1f5f9', marginBottom: '16px' }}>
+                      <div style={{
+                        width: '48px', height: '48px', borderRadius: '50%',
+                        background: '#ede9fe', color: '#6d28d9',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: '700', fontSize: '18px', overflow: 'hidden'
+                      }}>
+                        {target.user.profileImage ? (
+                          <img
+                            src={target.user.profileImage.startsWith('http') ? target.user.profileImage : `${imageBaseUrl}${target.user.profileImage}`}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          (target.user.name || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{target.user.name}</span>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#6366f1', background: '#ede9fe', padding: '2px 8px', borderRadius: '12px', textTransform: 'capitalize' }}>
+                            {target.user.role || 'User'}
+                          </span>
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: '12px' }}>{target.user.email} {target.user.phone ? `• ${target.user.phone}` : ''}</div>
+                      </div>
+                      <Link to={`/usersView/${target.user.id}`} className="btn btn-xs btn-outline-secondary" style={{ borderRadius: '6px' }}>
+                        View Author
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Post Caption */}
                   <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>Post Caption:</div>
-                    <div style={{ fontSize: '14px', color: '#111827', background: '#f8fafc', padding: '12px', borderRadius: '8px' }}>
-                      {target.caption || 'No caption'}
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
+                      Post Content / Caption:
+                    </div>
+                    <div style={{
+                      fontSize: '15px', color: '#0f172a', background: '#f8fafc',
+                      padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0',
+                      lineHeight: '1.6', whiteSpace: 'pre-wrap'
+                    }}>
+                      {target.caption || 'No caption provided.'}
                     </div>
                   </div>
-                  {target.hashtags && (
-                    <InfoRow label="Hashtags" value={<span style={{ color: '#6366f1' }}>{target.hashtags}</span>} />
-                  )}
-                  {target.user && (
-                    <InfoRow label="Post Author" value={
-                      <Link to={`/usersView/${target.user.id}`} style={{ color: '#6366f1', textDecoration: 'none', fontWeight: '600' }}>
-                        {target.user.name} ({target.user.email})
-                      </Link>
-                    } />
-                  )}
-                  <InfoRow label="Post Status" value={target.status} />
-                  <InfoRow label="Posted On" value={formatDate(target.createdAt)} />
 
-                  {/* Post Media Gallery */}
+                  {/* Attached Media (Images / Video) */}
                   {Array.isArray(target.media) && target.media.length > 0 && (
-                    <div style={{ marginTop: '16px' }}>
-                      <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Attached Media:</div>
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        Attached Media Gallery ({target.media.length}):
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
                         {target.media.map((m, idx) => {
-                          const src = m.media || m.url || m.image;
+                          const src = m.mediaUrl || m.url || m.media || m.image;
                           const fullUrl = src && src.startsWith('http') ? src : `${imageBaseUrl}${src}`;
+                          const isVideo = m.type === 'video' || (typeof src === 'string' && src.toLowerCase().endsWith('.mp4'));
+
                           return (
-                            <div key={idx} style={{ width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                              <img src={fullUrl} alt="media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div
+                              key={idx}
+                              style={{
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                border: '1px solid #e2e8f0',
+                                position: 'relative',
+                                background: '#000',
+                                cursor: 'pointer',
+                                height: '140px'
+                              }}
+                              onClick={() => setPreviewMedia({ url: fullUrl, isVideo })}
+                            >
+                              {isVideo ? (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                  <video src={fullUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <div style={{
+                                    position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}>
+                                    <i className="material-icons" style={{ fontSize: '36px', color: '#fff' }}>play_circle_filled</i>
+                                  </div>
+                                </div>
+                              ) : (
+                                <img
+                                  src={fullUrl}
+                                  alt="media"
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     </div>
                   )}
+
+                  {/* Post Attributes Table */}
+                  <InfoRow label="Post ID" value={`#${target.id}`} />
+                  {target.hashtags && (
+                    <InfoRow label="Hashtags" value={<span style={{ color: '#6366f1', fontWeight: '600' }}>{target.hashtags}</span>} />
+                  )}
+                  {target.category && (
+                    <InfoRow label="Category" value={target.category.categoryName} />
+                  )}
+                  {target.location && (
+                    <InfoRow label="Location" value={target.location} />
+                  )}
+                  <InfoRow label="Post Status" value={<StatusBadge status={target.status} />} />
+                  <InfoRow label="Publish Type" value={<span style={{ textTransform: 'capitalize' }}>{target.type || 'Standard'}</span>} />
+                  <InfoRow label="Posted Date" value={formatDate(target.createdAt)} />
+
+                  {/* Direct Link to View Full Post Page */}
+                  <div style={{ marginTop: '16px' }}>
+                    <Link
+                      to={`/posts/${target.id}`}
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                      style={{ borderRadius: '8px', padding: '8px 16px', fontWeight: '600' }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '18px' }}>open_in_new</i>
+                      Open Full Post Moderation Page
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div style={{ color: '#9ca3af', fontSize: '13px', padding: '16px 0' }}>
@@ -420,6 +509,35 @@ const ReportDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Media Preview Modal */}
+      {previewMedia && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 99999, padding: '20px'
+          }}
+          onClick={() => setPreviewMedia(null)}
+        >
+          <div style={{ position: 'relative', maxWidth: '85vw', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewMedia(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0',
+                background: 'none', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+            {previewMedia.isVideo ? (
+              <video src={previewMedia.url} controls autoPlay style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '8px' }} />
+            ) : (
+              <img src={previewMedia.url} alt="Full Preview" style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '8px', objectFit: 'contain' }} />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
