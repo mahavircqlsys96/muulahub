@@ -35,15 +35,22 @@ module.exports = {
                 return helper.failed(res, "Your account has been deactivated. Contact Super Admin.");
             }
 
-            // Portal Segregation Verification
+            // Strict Portal Segregation
             const isSubAdminUser = !!admin.isSubAdmin;
-            if (portalType === 'superadmin') {
-                if (isSubAdminUser && admin.adminRoleSlug !== 'super_admin') {
-                    return helper.failed(res, "This portal is for Super Admins only. Please use the Sub-Admin Portal at /subadmin");
+            if (portalType === 'subadmin') {
+                if (!isSubAdminUser) {
+                    return helper.failed(
+                        res,
+                        "Access Denied: Super Admin must log in through the Main Admin Portal (https://app.muulahub.com/)."
+                    );
                 }
-            } else if (portalType === 'subadmin') {
-                if (!isSubAdminUser && (!admin.adminRoleSlug || admin.adminRoleSlug === 'super_admin')) {
-                    return helper.failed(res, "This portal is for Sub-Admins. Super Admin, please use the main Super Admin Portal.");
+            } else {
+                // Main Admin Portal (Super Admin only)
+                if (isSubAdminUser) {
+                    return helper.failed(
+                        res,
+                        "Access Denied: Sub-Admins must log in through the Sub-Admin Portal (https://app.muulahub.com/subadmin)."
+                    );
                 }
             }
             let time = Math.floor(Date.now() / 1000);

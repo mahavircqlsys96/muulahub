@@ -133,107 +133,239 @@ const Login = () => {
       />
       <div className="parkez-auth-page bg-gray-200">
         <main className="main-content mt-0">
-          <div className="page-header align-items-start min-vh-100" style={{ backgroundImage: "url('/loginBackground.jpg')" }}>
-            <span className="mask bg-gradient-dark opacity-6"></span>
-            <div className="container my-auto">
+          <div
+            className="page-header align-items-start min-vh-100"
+            style={{
+              backgroundImage: "url('/loginBackground.jpg')",
+              position: 'relative'
+            }}
+          >
+            {/* Distinct theme mask based on portal */}
+            <span
+              className="mask opacity-8"
+              style={{
+                background: isSubAdmin
+                  ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 27, 75, 0.95) 50%, rgba(15, 23, 42, 0.98) 100%)'
+                  : 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(45, 10, 20, 0.96) 50%, rgba(15, 23, 42, 0.98) 100%)'
+              }}
+            ></span>
+
+            <div className="container my-auto" style={{ zIndex: 10 }}>
               <div className="row">
                 <div className="col-lg-4 col-md-8 col-12 mx-auto parkez-auth-card">
-                  <div className="card z-index-0 fadeIn3 fadeInBottom">
-                    <div className="card-headers p-0  mt-n4 mx-3 z-index-2">
-                      <div className="parkez-auth-header shadow-dark border-radius-lg py-3 pe-1 mt-4">
+                  <div
+                    className="card z-index-0 fadeIn3 fadeInBottom"
+                    style={{
+                      borderRadius: '20px',
+                      overflow: 'hidden',
+                      boxShadow: isSubAdmin
+                        ? '0 25px 50px -12px rgba(99, 102, 241, 0.35)'
+                        : '0 25px 50px -12px rgba(249, 25, 66, 0.35)',
+                      border: isSubAdmin
+                        ? '1px solid rgba(99, 102, 241, 0.3)'
+                        : '1px solid rgba(249, 25, 66, 0.3)'
+                    }}
+                  >
+                    {/* Color-coded Header Card */}
+                    <div className="card-headers p-0 mt-n4 mx-3 z-index-2">
+                      <div
+                        className="shadow-dark border-radius-lg py-4 pe-1 mt-4"
+                        style={{
+                          background: isSubAdmin
+                            ? 'linear-gradient(135deg, #312e81 0%, #4338ca 50%, #6366f1 100%)'
+                            : 'linear-gradient(135deg, #4c0519 0%, #881337 50%, #f91942 100%)',
+                          boxShadow: isSubAdmin
+                            ? '0 10px 25px -5px rgba(99, 102, 241, 0.45)'
+                            : '0 10px 25px -5px rgba(249, 25, 66, 0.45)',
+                          borderRadius: '16px'
+                        }}
+                      >
                         <div className='text-center'>
-                          <img src='/logo-muulahub.png' alt='Muulahub' style={{ height: "140px", width: "auto", maxWidth: "100%", padding: "0 16px", objectFit: "contain" }} />
-                          <div className="mt-2">
+                          <div
+                            style={{
+                              background: '#ffffff',
+                              borderRadius: '16px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '8px 16px',
+                              boxShadow: '0 4px 14px rgba(0,0,0,0.15)'
+                            }}
+                          >
+                            <img
+                              src='/logo-muulahub.png'
+                              alt='Muulahub'
+                              style={{ height: "42px", width: "auto", objectFit: "contain" }}
+                            />
+                          </div>
+
+                          <div className="mt-3">
                             <span
-                              className="badge"
                               style={{
-                                backgroundColor: isSubAdmin ? '#e0e7ff' : '#fee2e2',
-                                color: isSubAdmin ? '#4338ca' : '#b91c1c',
+                                backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.35)',
                                 padding: '5px 14px',
                                 borderRadius: '20px',
                                 fontSize: '11px',
                                 fontWeight: '700',
-                                letterSpacing: '0.8px',
-                                textTransform: 'uppercase'
+                                letterSpacing: '1px',
+                                textTransform: 'uppercase',
+                                display: 'inline-block'
                               }}
                             >
-                              {isSubAdmin ? 'Sub-Admin Portal' : 'Super Admin Portal'}
+                              {isSubAdmin ? '👥 Sub-Admin Team Portal' : '🛡️ Super Admin Console'}
                             </span>
                           </div>
-                          <p className="text-xs text-white opacity-8 mb-0 mt-2 px-3">
+
+                          <h5 className="text-white mt-2 mb-0 font-weight-bold" style={{ fontSize: '18px' }}>
+                            {isSubAdmin ? 'Sub-Admin Sign In' : 'Master Administrator Sign In'}
+                          </h5>
+
+                          <p className="text-xs text-white opacity-8 mb-0 mt-1 px-3">
                             {isSubAdmin
-                              ? 'Sign in to access your authorized modules & duties'
-                              : 'Master administrative access & system governance'}
+                              ? 'Authorized team access for assigned department modules'
+                              : 'Master system controls, settings, and governance'}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="card-body">
+
+                    <div className="card-body px-4 pb-4 pt-3">
                       <form onSubmit={handleSubmit} className="text-start">
-                        <div className="input-group input-group-outline mt-3">
+                        <div className="mb-3">
+                          <label
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#475569',
+                              marginBottom: '6px',
+                              display: 'block'
+                            }}
+                          >
+                            {isSubAdmin ? 'Team Username or Email' : 'Super Admin Email'}
+                          </label>
                           <input
                             type="text"
                             className="form-control"
                             value={email}
                             onChange={handleChangeEmail}
                             required
-                            placeholder={isSubAdmin ? "Username or Email" : "Super Admin Email"}
+                            placeholder={isSubAdmin ? "e.g. ops_sarah or sarah@muulahub.com" : "e.g. admin@muulahub.com"}
                             autoComplete="off"
-                          />
-
-                        </div>
-                        {emailError && <small className="text-danger">{emailError}</small>}
-
-                        <div className="input-group input-group-outline mt-3 position-relative">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            className="form-control"
-                            value={password}
-                            onChange={handleChangePassword}
-                            required
-                            placeholder="Password"
-                            autoComplete="off"
-                            maxLength={12}
-                          />
-                          <i
-                            onClick={() => setShowPassword(!showPassword)}
-                            className={`fas ${showPassword ? 'fa-eye' : 'fa-eye-slash'}`}
-                            style={{ position: "absolute", right: '5px', top: '16px', cursor: 'pointer', zIndex: '100', color: '#ff7a1a', fontSize: "12px" }}
-                          />
-                        </div>
-                        {passwordError && <small className="text-danger">{passwordError}</small>}
-
-                        <div className="text-center">
-                          <button
-                            type="submit"
-                            className="btn py-2 text-white w-100 my-4 mb-2"
                             style={{
-                              background: isSubAdmin
-                                ? 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)'
-                                : 'linear-gradient(135deg, #f91942 0%, #e11d48 100%)',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontWeight: 600
+                              borderRadius: '10px',
+                              padding: '11px 14px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '14px'
                             }}
-                          >
-                            {isSubAdmin ? 'Sign In as Sub-Admin' : 'Sign In as Super Admin'}
-                          </button>
-                          <div className="mt-2 d-flex justify-content-between align-items-center">
-                            <Link to="/forgot-password" className="text-secondary text-xs">
-                              Forgot password?
-                            </Link>
-                            <Link
-                              to={isSubAdmin ? "/" : "/subadmin"}
+                          />
+                          {emailError && <small className="text-danger">{emailError}</small>}
+                        </div>
+
+                        <div className="mb-3">
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label
                               style={{
                                 fontSize: '12px',
                                 fontWeight: '600',
-                                color: isSubAdmin ? '#f91942' : '#6366f1',
-                                textDecoration: 'none'
+                                color: '#475569',
+                                margin: 0
                               }}
                             >
-                              {isSubAdmin ? 'Super Admin Portal →' : 'Sub-Admin Portal →'}
+                              Password
+                            </label>
+                            <Link to="/forgot-password" className="text-secondary text-xs">
+                              Forgot password?
                             </Link>
                           </div>
+                          <div className="position-relative">
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              className="form-control"
+                              value={password}
+                              onChange={handleChangePassword}
+                              required
+                              placeholder="••••••••••••"
+                              autoComplete="off"
+                              maxLength={12}
+                              style={{
+                                borderRadius: '10px',
+                                padding: '11px 14px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '14px'
+                              }}
+                            />
+                            <i
+                              onClick={() => setShowPassword(!showPassword)}
+                              className={`fas ${showPassword ? 'fa-eye' : 'fa-eye-slash'}`}
+                              style={{
+                                position: "absolute",
+                                right: '12px',
+                                top: '14px',
+                                cursor: 'pointer',
+                                zIndex: '10',
+                                color: isSubAdmin ? '#6366f1' : '#f91942',
+                                fontSize: "14px"
+                              }}
+                            />
+                          </div>
+                          {passwordError && <small className="text-danger">{passwordError}</small>}
+                        </div>
+
+                        <div className="text-center mt-4">
+                          <button
+                            type="submit"
+                            className="btn py-2 text-white w-100 mb-2"
+                            style={{
+                              background: isSubAdmin
+                                ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                                : 'linear-gradient(135deg, #f91942 0%, #be123c 100%)',
+                              border: 'none',
+                              borderRadius: '10px',
+                              padding: '12px',
+                              fontSize: '14px',
+                              fontWeight: '700',
+                              letterSpacing: '0.3px',
+                              boxShadow: isSubAdmin
+                                ? '0 4px 14px rgba(79, 70, 229, 0.4)'
+                                : '0 4px 14px rgba(249, 25, 66, 0.4)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {isSubAdmin ? 'Sign In to Sub-Admin Panel' : 'Sign In to Super Admin Panel'}
+                          </button>
+                        </div>
+
+                        {/* Portal Switcher Callout */}
+                        <div
+                          style={{
+                            marginTop: '16px',
+                            padding: '10px 14px',
+                            background: isSubAdmin ? '#f8fafc' : '#fef2f2',
+                            borderRadius: '10px',
+                            border: isSubAdmin ? '1px solid #e2e8f0' : '1px solid #fee2e2',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '6px'
+                          }}
+                        >
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            {isSubAdmin ? 'Master Administrator?' : 'Staff / Team Sub-Admin?'}
+                          </span>
+                          <Link
+                            to={isSubAdmin ? "/" : "/subadmin"}
+                            style={{
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: isSubAdmin ? '#f91942' : '#4f46e5',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            {isSubAdmin ? 'Super Admin Portal →' : 'Sub-Admin Portal →'}
+                          </Link>
                         </div>
                       </form>
                     </div>
