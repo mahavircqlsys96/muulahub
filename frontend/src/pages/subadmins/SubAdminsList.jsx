@@ -406,7 +406,7 @@ const SubAdminsList = () => {
         }}>
           <div style={{
             background: '#fff', borderRadius: '16px', maxWidth: '640px', width: '100%',
-            margin: 'auto', padding: '28px',
+            margin: '20px auto 40px auto', padding: '28px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

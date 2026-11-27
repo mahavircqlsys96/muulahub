@@ -65,10 +65,12 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
     localUser = JSON.parse(localStorage.getItem("user") || "null");
   } catch (e) {}
 
-  const currentUser = reduxUser || localUser;
-  // If user is a sub-admin (isSubAdmin is true/1 and not super_admin)
-  const isSubAdmin = Boolean(currentUser?.isSubAdmin) && currentUser?.roleSlug !== "super_admin";
-  const isSuperAdmin = !isSubAdmin && (currentUser?.role === "admin" || !currentUser);
+  // Prioritize whichever user object holds loaded data with an id
+  const currentUser = (reduxUser && reduxUser.id) ? reduxUser : (localUser && localUser.id ? localUser : null);
+
+  // If user is subadmin (isSubAdmin is true/1 or roleSlug is not super_admin)
+  const isSubAdmin = Boolean(currentUser?.isSubAdmin) || (currentUser?.roleSlug && currentUser?.roleSlug !== "super_admin");
+  const isSuperAdmin = Boolean(currentUser && !isSubAdmin && currentUser.role === "admin");
 
   let userPermissions = [];
   try {
@@ -81,20 +83,26 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
     userPermissions = [];
   }
 
-  // Filter menu sections: Sub-Admins ONLY see granted modules!
+  // Filter menu sections by subadmin permissions
   const visibleSections = menuSections.map((section) => {
     const visibleItems = section.items.filter((item) => {
       // Super Admin sees all modules without restriction
       if (isSuperAdmin) return true;
 
-      // Sub-Admins MUST have explicit permission
+      // Sub-Admins: ONLY show modules that are explicitly in their permissions!
+      if (!isSubAdmin) return false;
+
+      // Wildcard full access
       if (userPermissions.includes('*')) return true;
+
+      // Check explicit item permission (e.g. "posts:view")
       if (item.permission && userPermissions.includes(item.permission)) return true;
 
-      // Check wildcard module matching (e.g. "users:*" matches "users:view")
+      // Check module-level wildcard (e.g. "posts:*")
       if (item.permission) {
         const [mod] = item.permission.split(':');
         if (userPermissions.includes(`${mod}:*`)) return true;
+        if (userPermissions.includes(mod)) return true;
       }
 
       return false;

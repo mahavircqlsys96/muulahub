@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../utils/redux/slices/user-slice';
 import './Login.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,6 +21,7 @@ const LoadingOverlay = ({ loading }) => (
 
 const Login = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const location = useLocation();
   const isSubAdmin = location.pathname.startsWith('/subadmin');
 
@@ -101,9 +104,30 @@ const Login = () => {
           localStorage.setItem('token', token);
           if (user) {
             localStorage.setItem('user', JSON.stringify(user));
+            dispatch(setUser(user));
           }
           localStorage.setItem('loginmessage', 'true');
-          navigate('/dashboard');
+
+          // Determine landing page according to granted permissions
+          const userPerms = Array.isArray(user?.permissions) ? user.permissions : [];
+          const isSub = Boolean(user?.isSubAdmin);
+
+          let targetPath = '/dashboard';
+          if (isSub && !userPerms.includes('*') && !userPerms.includes('dashboard:view')) {
+            if (userPerms.some(p => p.startsWith('users:'))) targetPath = '/usersList';
+            else if (userPerms.some(p => p.startsWith('categories:'))) targetPath = '/categories';
+            else if (userPerms.some(p => p.startsWith('bookings:'))) targetPath = '/bookings';
+            else if (userPerms.some(p => p.startsWith('payments:'))) targetPath = '/payments';
+            else if (userPerms.some(p => p.startsWith('withdrawals:'))) targetPath = '/withdrawals';
+            else if (userPerms.some(p => p.startsWith('wallets:'))) targetPath = '/wallets';
+            else if (userPerms.some(p => p.startsWith('posts:'))) targetPath = '/posts';
+            else if (userPerms.some(p => p.startsWith('reports:'))) targetPath = '/reports';
+            else if (userPerms.some(p => p.startsWith('notifications:'))) targetPath = '/notifications';
+            else if (userPerms.some(p => p.startsWith('support:'))) targetPath = '/contactUs';
+            else if (userPerms.some(p => p.startsWith('cms:'))) targetPath = '/cms/about-us';
+          }
+
+          navigate(targetPath);
         } else {
           toast.error(res.data?.message || "Login failed");
         }

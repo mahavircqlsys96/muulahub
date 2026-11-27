@@ -24,8 +24,8 @@ apiInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      const errMsg = error.response?.data?.msg;
-      if (error.response?.status === 403) {
+      const errMsg = error.response?.data?.msg || error.response?.data?.message;
+      if (error.response?.status === 403 || error.response?.status === 401) {
         if (
           errMsg === 'Unauthorized: Token missing' ||
           errMsg === 'Forbidden: Invalid or expired token' ||
@@ -34,8 +34,14 @@ apiInstance.interceptors.response.use(
           errMsg === 'Internal Server Error' ||
           errMsg === 'Forbidden: admin access required'
         ) {
+          let isSubAdmin = false;
+          try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            isSubAdmin = Boolean(u?.isSubAdmin);
+          } catch(e) {}
           localStorage.removeItem('token');
-          window.location.href = '/';
+          localStorage.removeItem('user');
+          window.location.href = isSubAdmin ? '/subadmin' : '/';
         }
       }
     }

@@ -13,7 +13,12 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  const user = useSelector((state) => state.users.user);
+  const reduxUser = useSelector((state) => state.users.user);
+  let localUser = null;
+  try {
+    localUser = JSON.parse(localStorage.getItem("user") || "null");
+  } catch (e) {}
+  const user = (reduxUser && reduxUser.id) ? reduxUser : (localUser || {});
   const token = localStorage.getItem("token");
 
   // ❌ REMOVE THIS
@@ -50,6 +55,12 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
   }, []);
 
   const logout = async () => {
+    let isSub = false;
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "null");
+      isSub = Boolean(user?.isSubAdmin || u?.isSubAdmin || (user?.roleSlug && user?.roleSlug !== "super_admin"));
+    } catch (e) {}
+
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You will be logged out of your account.",
@@ -62,9 +73,10 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
 
     if (result.isConfirmed) {
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
       localStorage.setItem("logoutmessage", "true");
-      navigate("/");
       setDropdownOpen(false);
+      navigate(isSub ? "/subadmin" : "/");
     }
   };
 
