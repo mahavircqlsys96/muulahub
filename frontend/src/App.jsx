@@ -50,6 +50,7 @@ const PostsList = lazy(() => import("./pages/posts/PostsList"));
 const PostView = lazy(() => import("./pages/posts/PostView"));
 
 const ReportsList = lazy(() => import("./pages/reports/ReportsList"));
+const ReportDetailPage = lazy(() => import("./pages/reports/ReportDetailPage"));
 
 const AdminNotifications = lazy(() => import("./pages/notifications/AdminNotifications"));
 
@@ -116,6 +117,7 @@ const App = () => {
             <Route path="/posts/:id" element={<PrivateRoute element={<PostView />} permission="posts:view" moduleName="Posts" />} />
 
             <Route path="/reports" element={<PrivateRoute element={<ReportsList />} permission="reports:view" moduleName="Reports" />} />
+            <Route path="/reports/:id" element={<PrivateRoute element={<ReportDetailPage />} permission="reports:view" moduleName="Reports" />} />
 
             <Route path="/notifications" element={<PrivateRoute element={<AdminNotifications />} permission="notifications:view" moduleName="Notifications" />} />
 

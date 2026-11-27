@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import { get_reports } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
@@ -95,12 +96,23 @@ const ReportsList = () => {
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={r.status} /></td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(r.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    {r.status === 'pending' && can('reports', 'edit') && (
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <ActionBtn icon="check_circle" color="#10b981" title="Resolve" onClick={() => updateReport(r.id, 'resolved')} />
-                        <ActionBtn icon="cancel" color="#ef4444" title="Reject" onClick={() => updateReport(r.id, 'rejected')} />
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <Link
+                        to={`/reports/${r.id}`}
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 mb-0"
+                        style={{ borderRadius: '6px', padding: '5px 10px', fontSize: '12px', fontWeight: '600' }}
+                        title="View Full Report Details"
+                      >
+                        <i className="material-icons" style={{ fontSize: '16px' }}>visibility</i>
+                        View
+                      </Link>
+                      {r.status === 'pending' && can('reports', 'edit') && (
+                        <>
+                          <ActionBtn icon="check_circle" color="#10b981" title="Resolve" onClick={() => updateReport(r.id, 'resolved')} />
+                          <ActionBtn icon="cancel" color="#ef4444" title="Reject" onClick={() => updateReport(r.id, 'rejected')} />
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

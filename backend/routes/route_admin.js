@@ -142,6 +142,7 @@ router.delete('/posts/:id', requirePermission('posts:remove'), postsController.d
 
 // Reports
 router.get('/reports', requirePermission('reports:view'), reportController.reportList);
+router.get('/reports/:id', requirePermission('reports:view'), reportController.getReportDetail);
 router.put('/reports/:id', requirePermission('reports:review'), reportController.updateReportStatus);
 
 // Disputes
