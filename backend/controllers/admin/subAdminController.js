@@ -277,16 +277,52 @@ module.exports = {
 
       const { name, email, password, phone, countryCode, adminRoleId, adminPermissions } = req.body;
 
-      // Check existing email
-      const existingEmail = await users.findOne({ where: { email: email.trim().toLowerCase() } });
-      if (existingEmail) {
-        return helper.failed(res, "Email already exists in the system");
-      }
-
       // Check role existence
       const role = await admin_roles.findOne({ where: { id: adminRoleId } });
       if (!role) {
         return helper.failed(res, "Selected role does not exist");
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+
+      // Check existing email
+      const existingUser = await users.findOne({ where: { email: cleanEmail } });
+      if (existingUser) {
+        // If already an active admin/sub-admin
+        if (existingUser.role === 'admin' && existingUser.deletedAt === null) {
+          return helper.failed(
+            res,
+            existingUser.isSubAdmin
+              ? "A sub-admin account with this email already exists."
+              : "This email belongs to the primary Super Admin account."
+          );
+        }
+
+        // If email belongs to an existing regular user or soft-deleted account, upgrade/convert to Sub-Admin
+        existingUser.name = name.trim();
+        existingUser.role = 'admin';
+        existingUser.isSubAdmin = 1;
+        existingUser.adminRoleId = role.id;
+        existingUser.adminRoleSlug = role.slug;
+        existingUser.adminPermissions = Array.isArray(adminPermissions) ? adminPermissions : null;
+        existingUser.status = 'active';
+        existingUser.deletedAt = null;
+        if (phone) existingUser.phone = phone;
+        if (countryCode) existingUser.countryCode = countryCode;
+        if (password && password.trim()) {
+          existingUser.password = await bcrypt.hash(password.trim(), 10);
+        }
+        await existingUser.save();
+
+        return helper.success(res, "Existing account upgraded to Sub-Admin successfully", {
+          id: existingUser.id,
+          name: existingUser.name,
+          email: existingUser.email,
+          userName: existingUser.userName,
+          role: existingUser.role,
+          adminRoleSlug: existingUser.adminRoleSlug,
+          adminRoleId: existingUser.adminRoleId
+        });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);

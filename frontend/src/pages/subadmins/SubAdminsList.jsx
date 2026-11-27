@@ -35,6 +35,7 @@ const SubAdminsList = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -82,6 +83,7 @@ const SubAdminsList = () => {
 
   const openAddModal = () => {
     setEditingAdmin(null);
+    setFormError('');
     setForm({
       name: '',
       email: '',
@@ -99,6 +101,7 @@ const SubAdminsList = () => {
 
   const openEditModal = (admin) => {
     setEditingAdmin(admin);
+    setFormError('');
     const hasCustom = Array.isArray(admin.adminPermissions) && admin.adminPermissions.length > 0;
     setForm({
       name: admin.name || '',
@@ -166,7 +169,9 @@ const SubAdminsList = () => {
       fetchData();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.msg || 'Failed to save sub-admin');
+      const errorMsg = err.response?.data?.message || err.response?.data?.msg || err.message || 'Failed to save sub-admin';
+      setFormError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -396,12 +401,12 @@ const SubAdminsList = () => {
       {modalOpen && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: '20px'
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          zIndex: 9999, padding: '24px 16px', overflowY: 'auto'
         }}>
           <div style={{
             background: '#fff', borderRadius: '16px', maxWidth: '640px', width: '100%',
-            maxHeight: '90vh', overflowY: 'auto', padding: '28px',
+            margin: 'auto', padding: '28px',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -415,6 +420,17 @@ const SubAdminsList = () => {
                 ✕
               </button>
             </div>
+
+            {formError && (
+              <div style={{
+                background: '#fee2e2', border: '1px solid #fecaca', color: '#b91c1c',
+                padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
+                marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                <i className="material-icons" style={{ fontSize: '18px' }}>error_outline</i>
+                <span>{formError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSave}>
               <div className="row">
