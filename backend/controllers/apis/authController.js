@@ -1746,6 +1746,52 @@ module.exports = {
       return helper.error(res, error);
     }
   },
+  markNotificationRead: async (req, res) => {
+    try {
+      const notificationId = req.params.id || req.body.notificationId || req.body.id;
+      if (!notificationId) {
+        return helper.failed(res, "notificationId is required");
+      }
+
+      const notif = await notifications.findOne({
+        where: {
+          id: notificationId,
+          userId: req.auth.id
+        }
+      });
+
+      if (!notif) {
+        return helper.failed(res, "Notification not found");
+      }
+
+      await notif.update({ isRead: 1 });
+
+      return helper.success(res, "Notification marked as read successfully", notif);
+    } catch (error) {
+      console.error("Error in markNotificationRead:", error);
+      return helper.error(res, error.message || "Internal server error");
+    }
+  },
+  markAllNotificationsRead: async (req, res) => {
+    try {
+      const [updatedCount] = await notifications.update(
+        { isRead: 1 },
+        {
+          where: {
+            userId: req.auth.id,
+            isRead: 0
+          }
+        }
+      );
+
+      return helper.success(res, "All notifications marked as read successfully", {
+        updatedCount
+      });
+    } catch (error) {
+      console.error("Error in markAllNotificationsRead:", error);
+      return helper.error(res, error.message || "Internal server error");
+    }
+  },
   forgotPassword: async (req, res) => {
     try {
       const v = new Validator(req.body, {

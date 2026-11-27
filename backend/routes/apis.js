@@ -84,6 +84,12 @@ module.exports = (io) => {
   router.post('/contactUs', authController.contactUs);
   router.get('/notificationList', authController.notificationList);
   router.delete('/clearNotification', authController.clearNotification);
+  router.patch('/markNotificationRead/:id?', authController.markNotificationRead);
+  router.post('/markNotificationRead', authController.markNotificationRead);
+  router.put('/markNotificationRead/:id?', authController.markNotificationRead);
+  router.patch('/markAllNotificationsRead', authController.markAllNotificationsRead);
+  router.post('/markAllNotificationsRead', authController.markAllNotificationsRead);
+  router.put('/markAllNotificationsRead', authController.markAllNotificationsRead);
 
   // User
   router.get('/getProfile', authController.getProfile);
@@ -138,6 +144,10 @@ module.exports = (io) => {
   router.post('/acceptRejectRequestProvider', bookingController.acceptRejectRequestProvider);
   router.post('/acceptRejectRequestUser', bookingController.acceptRejectRequestUser);
   router.post('/payBooking', bookingController.payBooking);
+  router.post('/cancelBooking', bookingController.cancelBooking);
+  router.post('/cancelBooking/:id', bookingController.cancelBooking);
+  router.patch('/cancelBooking', bookingController.cancelBooking);
+  router.put('/cancelBooking/:id?', bookingController.cancelBooking);
 
   router.post('/stripe_status_update', bookingController.stripe_status_update);
   router.get('/getUserBookings', bookingController.getUserBookings);

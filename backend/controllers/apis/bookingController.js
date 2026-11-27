@@ -1922,4 +1922,153 @@ module.exports = {
       return helper.error(res, 'Something went wrong');
     }
   },
+  cancelBooking: async (req, res) => {
+    const t = await db.sequelize.transaction();
+    try {
+      const bookingId = req.params.id || req.body.bookingId || req.body.id;
+      const { reason, notes, cancelReason } = req.body;
+      const cancellationReason = reason || cancelReason || notes || '';
+
+      if (!bookingId) {
+        await t.rollback();
+        return helper.failed(res, "bookingId is required");
+      }
+
+      const userId = req.auth.id;
+
+      const booking = await bookings.findOne({
+        where: { id: bookingId },
+        transaction: t
+      });
+
+      if (!booking) {
+        await t.rollback();
+        return helper.failed(res, "Booking not found");
+      }
+
+      // Check authorization: user must be customer or provider of this booking
+      const isCustomer = Number(booking.userId) === Number(userId);
+      const isProvider = Number(booking.providerId) === Number(userId);
+
+      if (!isCustomer && !isProvider) {
+        await t.rollback();
+        return helper.failed(res, "You are not authorized to cancel this booking");
+      }
+
+      // Check current booking status
+      if (booking.bookingStatus === 'completed') {
+        await t.rollback();
+        return helper.failed(res, "Completed bookings cannot be cancelled");
+      }
+
+      if (booking.bookingStatus === 'cancelled' || booking.bookingStatus === 'reject') {
+        await t.rollback();
+        return helper.failed(res, "Booking is already cancelled");
+      }
+
+      const updateData = {
+        bookingStatus: 'cancelled'
+      };
+
+      if (cancellationReason) {
+        const existingNotes = booking.notes || '';
+        updateData.notes = existingNotes
+          ? `${existingNotes} | Cancel Reason: ${cancellationReason}`
+          : `Cancel Reason: ${cancellationReason}`;
+      }
+
+      // If payment was already made, process refund to customer's wallet
+      const bookingAmount = parseFloat(booking.amount) || 0;
+      let isRefunded = false;
+
+      if (booking.paymentStatus === 'paid' && bookingAmount > 0) {
+        const customer = await users.findOne({ where: { id: booking.userId }, transaction: t });
+        const provider = await users.findOne({ where: { id: booking.providerId }, transaction: t });
+
+        if (customer) {
+          await customer.increment('walletAmount', { by: bookingAmount, transaction: t });
+          await wallet_transactions.create({
+            userId: customer.id,
+            amount: bookingAmount,
+            type: 'credit',
+            status: 'completed',
+            description: `Refund for cancelled booking #${booking.bookingNumber}`,
+            referenceId: booking.id.toString()
+          }, { transaction: t });
+          isRefunded = true;
+        }
+
+        // Deduct from provider pendingAmount if it was added as pending
+        if (provider && parseFloat(provider.pendingAmount || 0) >= bookingAmount) {
+          await provider.decrement('pendingAmount', { by: bookingAmount, transaction: t });
+        }
+
+        // Update payment record if exists
+        const paymentRecord = await payments.findOne({ where: { bookingId: booking.id }, transaction: t });
+        if (paymentRecord) {
+          await paymentRecord.update({ paymentStatus: 'failed' }, { transaction: t });
+        }
+      }
+
+      await booking.update(updateData, { transaction: t });
+      await t.commit();
+
+      // Notifications after commit
+      const customerUser = await users.findOne({ where: { id: booking.userId }, attributes: ['id', 'name'] });
+      const providerUser = await users.findOne({ where: { id: booking.providerId }, attributes: ['id', 'name'] });
+      const customerName = (customerUser && customerUser.name) || 'Customer';
+      const providerName = (providerUser && providerUser.name) || 'Provider';
+
+      if (isCustomer) {
+        // Customer cancelled -> notify Provider & Customer
+        await sendBookingNotification(
+          booking.providerId,
+          userId,
+          'Booking Cancelled',
+          `Customer ${customerName} has cancelled booking #${booking.bookingNumber}.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}`,
+          booking.id,
+          'provider_booking'
+        );
+        await sendBookingNotification(
+          userId,
+          booking.providerId,
+          'Booking Cancelled',
+          `You have cancelled booking #${booking.bookingNumber}.${isRefunded ? ' Amount has been refunded to your wallet.' : ''}`,
+          booking.id,
+          'user_booking'
+        );
+      } else {
+        // Provider cancelled -> notify Customer & Provider
+        await sendBookingNotification(
+          booking.userId,
+          userId,
+          'Booking Cancelled',
+          `Provider ${providerName} has cancelled booking #${booking.bookingNumber}.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}.${isRefunded ? ' Amount has been refunded to your wallet.' : ''}`,
+          booking.id,
+          'user_booking'
+        );
+        await sendBookingNotification(
+          userId,
+          booking.userId,
+          'Booking Cancelled',
+          `You have cancelled booking #${booking.bookingNumber}.`,
+          booking.id,
+          'provider_booking'
+        );
+      }
+
+      return helper.success(res, "Booking cancelled successfully", {
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        bookingStatus: 'cancelled',
+        refunded: isRefunded,
+        refundAmount: isRefunded ? bookingAmount : 0
+      });
+
+    } catch (error) {
+      await t.rollback();
+      console.error("cancelBooking error:", error);
+      return helper.error(res, error.message || "Failed to cancel booking");
+    }
+  },
 };
