@@ -88,14 +88,17 @@ const RolesList = () => {
     });
   };
 
-  const toggleModulePermissions = (moduleActions) => {
+  const toggleModulePermissions = (modKey, moduleActions) => {
     setForm((prev) => {
       const current = new Set(prev.permissions);
-      const allSelected = moduleActions.every((a) => current.has(a.key));
+      const keys = (moduleActions || []).map((a) =>
+        typeof a === 'object' && a !== null ? a.key : `${modKey}:${a}`
+      );
+      const allSelected = keys.length > 0 && keys.every((k) => current.has(k));
       if (allSelected) {
-        moduleActions.forEach((a) => current.delete(a.key));
+        keys.forEach((k) => current.delete(k));
       } else {
-        moduleActions.forEach((a) => current.add(a.key));
+        keys.forEach((k) => current.add(k));
       }
       return { ...prev, permissions: Array.from(current) };
     });
@@ -104,8 +107,10 @@ const RolesList = () => {
   const selectAllPermissions = () => {
     if (!catalog?.modules) return;
     const all = [];
-    Object.values(catalog.modules).forEach((mod) => {
-      mod.actions.forEach((act) => all.push(act.key));
+    Object.entries(catalog.modules).forEach(([modKey, mod]) => {
+      (mod.actions || []).forEach((act) => {
+        all.push(typeof act === 'object' && act !== null ? act.key : `${modKey}:${act}`);
+      });
     });
     setForm((prev) => ({ ...prev, permissions: all }));
   };
@@ -490,8 +495,11 @@ const RolesList = () => {
                     <div className="row g-3">
                       {Object.entries(catalog.modules).map(([modKey, mod]) => {
                         const currentPerms = new Set(form.permissions);
-                        const allSelected = mod.actions.every((a) => currentPerms.has(a.key));
-                        const someSelected = mod.actions.some((a) => currentPerms.has(a.key));
+                        const modulePermKeys = (mod.actions || []).map((a) =>
+                          typeof a === 'object' && a !== null ? a.key : `${modKey}:${a}`
+                        );
+                        const allSelected = modulePermKeys.length > 0 && modulePermKeys.every((k) => currentPerms.has(k));
+                        const selectedCount = modulePermKeys.filter((k) => currentPerms.has(k)).length;
 
                         return (
                           <div className="col-md-6" key={modKey}>
@@ -518,12 +526,12 @@ const RolesList = () => {
                                     {mod.label}
                                   </span>
                                   <span className="text-xs text-muted ms-2">
-                                    ({mod.actions.filter((a) => currentPerms.has(a.key)).length}/{mod.actions.length})
+                                    ({selectedCount}/{modulePermKeys.length})
                                   </span>
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => toggleModulePermissions(mod.actions)}
+                                  onClick={() => toggleModulePermissions(modKey, mod.actions)}
                                   className="btn btn-xs btn-link p-0 text-decoration-none"
                                   style={{ fontSize: '11px', fontWeight: 600 }}
                                 >
@@ -533,11 +541,16 @@ const RolesList = () => {
 
                               <div style={{ padding: '12px 14px' }}>
                                 <div className="d-flex flex-column gap-2">
-                                  {mod.actions.map((act) => {
-                                    const checked = currentPerms.has(act.key);
+                                  {(mod.actions || []).map((act) => {
+                                    const permKey = typeof act === 'object' && act !== null ? act.key : `${modKey}:${act}`;
+                                    const actionLabel = typeof act === 'object' && act !== null
+                                      ? (act.label || act.name)
+                                      : (act.charAt(0).toUpperCase() + act.slice(1));
+                                    const checked = currentPerms.has(permKey);
+
                                     return (
                                       <label
-                                        key={act.key}
+                                        key={permKey}
                                         style={{
                                           display: 'flex',
                                           alignItems: 'center',
@@ -550,11 +563,11 @@ const RolesList = () => {
                                         <input
                                           type="checkbox"
                                           checked={checked}
-                                          onChange={() => togglePermission(act.key)}
+                                          onChange={() => togglePermission(permKey)}
                                           style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                                         />
-                                        <span style={{ color: checked ? '#0f172a' : '#64748b' }}>
-                                          {act.label}
+                                        <span style={{ color: checked ? '#0f172a' : '#64748b', textTransform: 'capitalize' }}>
+                                          {actionLabel}
                                         </span>
                                       </label>
                                     );
