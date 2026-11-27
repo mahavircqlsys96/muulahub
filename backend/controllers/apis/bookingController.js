@@ -9,16 +9,16 @@ const stripe = require('stripe')(envfile.stripe_secret_key);
 
 const ADMIN_COMMISSION_PERCENT = parseFloat(process.env.ADMIN_COMMISSION || 15);
 
-const sendBookingNotification = async (userId, senderId, title, message, referenceId, extraData = {}) => {
+const sendBookingNotification = async (userId, senderId, title, message, referenceId, notificationType = 'booking', extraData = {}) => {
   try {
     const user = await users.findOne({ where: { id: userId } });
-    await notifications.create({ userId, senderId, title, message, type: 'booking', referenceId });
+    await notifications.create({ userId, senderId, title, message, type: notificationType, referenceId });
     if (user && user.deviceToken) {
       await helper.sendPushNotification({
         token: user.deviceToken,
         title,
         body: message,
-        type: 'booking',
+        type: notificationType,
         sender_id: senderId,
         request_id: referenceId,
         booking_id: referenceId,
@@ -68,7 +68,8 @@ module.exports = {
         userId,
         'New Booking Request',
         `You have a new booking from ${req.auth.name}`,
-        booking.id
+        booking.id,
+        'provider_booking'
       );
 
       return helper.success(res, 'Booking created successfully', booking);
@@ -164,7 +165,8 @@ module.exports = {
         userId,
         'New Booking Request',
         `You have a new booking from ${req.auth.name}`,
-        booking.id
+        booking.id,
+        'provider_booking'
       );
 
       return helper.success(res, 'Booking created successfully', booking);
@@ -247,7 +249,8 @@ module.exports = {
           userId,
           'Booking Quote Received',
           `You received a quote for booking #${booking.bookingNumber} from ${providerName}.`,
-          booking.id
+          booking.id,
+          'user_booking'
         );
         // Push to Provider
         await sendBookingNotification(
@@ -255,7 +258,8 @@ module.exports = {
           booking.userId,
           'Quote Sent',
           `Your quote for booking #${booking.bookingNumber} has been sent to ${customerName}.`,
-          booking.id
+          booking.id,
+          'provider_booking'
         );
         return helper.success(res, 'Counter offer sent successfully', booking);
       } else if (finalStatus === 'accepted') {
@@ -265,7 +269,8 @@ module.exports = {
           userId,
           'Booking Accepted',
           `Your booking #${booking.bookingNumber} has been accepted by ${providerName}.`,
-          booking.id
+          booking.id,
+          'user_booking'
         );
         // Push to Provider
         await sendBookingNotification(
@@ -273,7 +278,8 @@ module.exports = {
           booking.userId,
           'Booking Accepted',
           `You have accepted booking #${booking.bookingNumber} from ${customerName}.`,
-          booking.id
+          booking.id,
+          'provider_booking'
         );
         return helper.success(res, 'Booking accepted successfully', booking);
       } else {
@@ -283,7 +289,8 @@ module.exports = {
           userId,
           'Booking Declined',
           `Your booking #${booking.bookingNumber} has been declined by ${providerName}.`,
-          booking.id
+          booking.id,
+          'user_booking'
         );
         // Push to Provider
         await sendBookingNotification(
@@ -291,7 +298,8 @@ module.exports = {
           booking.userId,
           'Booking Declined',
           `You have declined booking #${booking.bookingNumber} from ${customerName}.`,
-          booking.id
+          booking.id,
+          'provider_booking'
         );
         return helper.success(res, 'Booking ' + finalStatus + ' successfully', booking);
       }
@@ -356,7 +364,8 @@ module.exports = {
           userId,
           'Booking Quote Declined',
           `${customerName} has declined the quote for booking #${booking.bookingNumber}.`,
-          booking.id
+          booking.id,
+          'provider_booking'
         );
         // Push to User
         await sendBookingNotification(
@@ -364,7 +373,8 @@ module.exports = {
           booking.providerId,
           'Booking Quote Declined',
           `You have declined the quote for booking #${booking.bookingNumber}.`,
-          booking.id
+          booking.id,
+          'user_booking'
         );
 
         return helper.success(res, 'Counter offer rejected successfully', booking);
@@ -557,23 +567,23 @@ module.exports = {
       const customerName = (customerUser && customerUser.name) || req.auth.name || 'User';
       const providerName = (providerUser && providerUser.name) || 'Provider';
 
-      // Push to Provider (Provider App)
+      // Push to Provider
       await sendBookingNotification(
         booking.providerId,
         userId,
         'Booking Accepted',
         `${customerName} has accepted your quote for booking #${booking.bookingNumber}.`,
         booking.id,
-        { role: 'provider', target: 'provider_app' }
+        'provider_booking'
       );
-      // Push to User (User App)
+      // Push to User
       await sendBookingNotification(
         userId,
         booking.providerId,
         'Booking Accepted',
         `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
         booking.id,
-        { role: 'user', target: 'user_app' }
+        'user_booking'
       );
 
       return helper.success(res, 'Counter offer accepted successfully', booking);
@@ -1370,7 +1380,8 @@ module.exports = {
         booking.providerId,
         'Booking Started',
         `${providerName} has started booking #${booking.bookingNumber}.`,
-        bookingId
+        bookingId,
+        'user_booking'
       );
       // Push to Provider
       await sendBookingNotification(
@@ -1378,7 +1389,8 @@ module.exports = {
         booking.userId,
         'Booking Started',
         `You have started booking #${booking.bookingNumber} for ${customerName}.`,
-        bookingId
+        bookingId,
+        'provider_booking'
       );
 
       return helper.success(res, `Booking started successfully`);
@@ -1428,7 +1440,8 @@ module.exports = {
         booking.providerId,
         'Tracking Started',
         `${providerName} has started tracking for booking #${booking.bookingNumber}.`,
-        bookingId
+        bookingId,
+        'user_booking'
       );
       // Push to Provider
       await sendBookingNotification(
@@ -1436,7 +1449,8 @@ module.exports = {
         booking.userId,
         'Tracking Started',
         `You have started tracking for booking #${booking.bookingNumber}.`,
-        bookingId
+        bookingId,
+        'provider_booking'
       );
 
       return helper.success(res, `Tracking started successfully`);
@@ -1687,7 +1701,8 @@ module.exports = {
             booking.userId,
             'Earning Received',
             `$${providerAmount.toFixed(2)} has been added to your wallet for completing booking #${booking.bookingNumber}`,
-            booking.id
+            booking.id,
+            'provider_booking'
           );
         }
       }
@@ -1746,7 +1761,8 @@ module.exports = {
         providerId,
         "Booking Completed",
         "Your booking has been completed successfully",
-        bookingId
+        bookingId,
+        'user_booking'
       );
 
       // =========================================
@@ -1800,7 +1816,8 @@ module.exports = {
         userId,
         'New Rating Received',
         `You received a new rating of ${ratingCount} stars`,
-        booking.id
+        booking.id,
+        'provider_booking'
       );
 
       return helper.success(res, 'Rating given successfully', ratingData);

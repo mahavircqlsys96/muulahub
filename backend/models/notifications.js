@@ -26,7 +26,7 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true
     },
     type: {
-      type: DataTypes.ENUM('booking', 'payment', 'withdrawal', 'post', 'system', 'follow'),
+      type: DataTypes.STRING(50),
       allowNull: true,
       defaultValue: "system"
     },
