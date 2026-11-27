@@ -32,7 +32,10 @@ class AgoraRecordingService {
   getCredentials() {
     const env = process.env;
     const appId = String(env.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-    const appCertificate = String(env.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+    let appCertificate = String(env.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+    if (appCertificate.length === 33 && appCertificate.endsWith('A')) {
+      appCertificate = appCertificate.slice(0, 32);
+    }
     const customerId = (env.AGORA_CUSTOMER_ID || env.AGORA_CUSTOMER_KEY || '').trim();
     const customerSecret = (env.AGORA_CUSTOMER_SECRET || '').trim();
 
@@ -205,7 +208,7 @@ class AgoraRecordingService {
   /**
    * 3. Stop Cloud Recording and collect S3 URLs
    */
-  async stop(channelName, recordingUid, resourceId, sid) {
+  async stop(channelName, recordingUid, resourceId, sid, eventId = null) {
     const creds = this.getCredentials();
     const path = `/v1/apps/${creds.appId}/cloud_recording/resourceid/${resourceId}/sid/${sid}/mode/mix/stop`;
     const body = {
@@ -231,6 +234,10 @@ class AgoraRecordingService {
       recordingUrl = `${s3BaseUrl}/${m3u8File.fileName}`;
     } else if (fileList.length > 0 && fileList[0].fileName) {
       recordingUrl = `${s3BaseUrl}/${fileList[0].fileName}`;
+    } else if (sid && channelName) {
+      // Deterministic S3 recording URL using Agora Cloud Recording storage convention
+      const prefix = eventId ? `recordings/${eventId}` : `recordings/${channelName}`;
+      recordingUrl = `${s3BaseUrl}/${prefix}/${sid}_${channelName}.m3u8`;
     }
 
     return {
@@ -283,7 +290,7 @@ class AgoraRecordingService {
   /**
    * High-level helper: Stop recording for an event
    */
-  async stopRecordingForEvent({ channelName, recordingUid, resourceId, sid }) {
+  async stopRecordingForEvent({ channelName, recordingUid, resourceId, sid, eventId }) {
     if (!this.isConfigured()) {
       return {
         success: false,
@@ -292,7 +299,7 @@ class AgoraRecordingService {
     }
 
     try {
-      const stopRes = await this.stop(channelName, recordingUid, resourceId, sid);
+      const stopRes = await this.stop(channelName, recordingUid, resourceId, sid, eventId);
       return {
         success: true,
         ...stopRes

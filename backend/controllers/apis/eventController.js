@@ -8,6 +8,12 @@ const { RtcTokenBuilder, RtcRole, RtmTokenBuilder } = require('agora-token');
 
 const envfile = process.env;
 
+const cleanCert = (cert) => {
+  let c = String(cert || '').replace(/['"]/g, '').trim();
+  if (c.length === 33 && c.endsWith('A')) c = c.slice(0, 32);
+  return c;
+};
+
 module.exports = {
 
   /**
@@ -36,7 +42,8 @@ module.exports = {
               channelName: prev.agoraChannel,
               recordingUid: prev.recordingUid,
               resourceId: prev.recordingResourceId,
-              sid: prev.recordingSid
+              sid: prev.recordingSid,
+              eventId: prev.id
             }).then(stopRes => {
               if (stopRes && stopRes.recordingUrl) {
                 prev.update({ recordingStatus: 'completed', recordingUrl: stopRes.recordingUrl });
@@ -54,7 +61,7 @@ module.exports = {
       );
 
       const appID = String(envfile.AGORA_APP_ID || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-      const appCertificate = String(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+      const appCertificate = cleanCert(envfile.AGORA_APP_CERTIFICATE || 'e211879925b14332b4c77d63578b5763');
 
       const {
         caption,
@@ -412,7 +419,8 @@ module.exports = {
             channelName: event.agoraChannel,
             recordingUid: event.recordingUid,
             resourceId: event.recordingResourceId,
-            sid: event.recordingSid
+            sid: event.recordingSid,
+            eventId: event.id
           });
           if (stopResult && stopResult.success && stopResult.recordingUrl) {
             await event.update({
@@ -757,7 +765,7 @@ module.exports = {
           : 0;
       }
       const resolvedAppId = String(envfile.AGORA_APP_ID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-      const resolvedAppCert = String(envfile.AGORA_APP_CERTIFICATE || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+      const resolvedAppCert = cleanCert(envfile.AGORA_APP_CERTIFICATE || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763');
 
       const uid = eventData.agoraUid ? (parseInt(eventData.agoraUid, 10) || 0) : 0;
       const rtmUserId = String(uid && uid !== 0 ? uid : userId);
@@ -957,7 +965,7 @@ module.exports = {
         }
 
         const resolvedAppId = String(appID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-        const resolvedAppCert = String(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+        const resolvedAppCert = cleanCert(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763');
 
         if (eventData.agoraChannel) {
           try {
@@ -1094,7 +1102,7 @@ module.exports = {
       }
 
       const resolvedAppId = String(appID || eventData.agoraAppId || '35e33cd325614d06a51b1e02628599d4').replace(/['"]/g, '').trim();
-      const resolvedAppCert = String(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763').replace(/['"]/g, '').trim();
+      const resolvedAppCert = cleanCert(appCertificate || eventData.agoraAppCertificate || 'e211879925b14332b4c77d63578b5763');
 
       if (eventData.agoraChannel) {
         const isHost = currentUserId > 0 && event.userId === currentUserId;
