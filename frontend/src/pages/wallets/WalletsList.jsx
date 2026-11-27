@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import apiInstance from '../../utils/apiInstance';
 import { PageHeader, TableCard, TableHead, EmptyRow, LoadingRow, Pagination, StatusBadge, formatCurrency, getCurrencySymbol, SearchBar, ActionBtn } from '../../components/common/PageTable';
+import { usePermissions } from '../../utils/permissions';
 
 const WalletsList = () => {
+  const { can } = usePermissions();
   const [wallets, setWallets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -137,10 +139,14 @@ const WalletsList = () => {
                     </span>
                   </td>
                   <td style={{ padding: '16px', verticalAlign: 'middle' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <ActionBtn icon="account_balance_wallet" title="Credit/Debit" onClick={() => openTxModal(w)} color="#3b82f6" />
-                      <ActionBtn icon={w.isWalletFrozen ? "lock_open" : "lock"} title={w.isWalletFrozen ? "Unfreeze" : "Freeze"} onClick={() => handleToggleFreeze(w.id)} color={w.isWalletFrozen ? "#16a34a" : "#dc2626"} />
-                    </div>
+                    {can('wallets', 'edit') ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <ActionBtn icon="account_balance_wallet" title="Credit/Debit" onClick={() => openTxModal(w)} color="#3b82f6" />
+                        <ActionBtn icon={w.isWalletFrozen ? "lock_open" : "lock"} title={w.isWalletFrozen ? "Unfreeze" : "Freeze"} onClick={() => handleToggleFreeze(w.id)} color={w.isWalletFrozen ? "#16a34a" : "#dc2626"} />
+                      </div>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>Read-Only</span>
+                    )}
                   </td>
                 </tr>
               ))}

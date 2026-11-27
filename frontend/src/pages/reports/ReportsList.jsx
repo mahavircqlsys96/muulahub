@@ -7,8 +7,10 @@ import {
   PageHeader, FilterSelect, TableCard, TableHead, ActionBtn,
   Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate
 } from '../../components/common/PageTable';
+import { usePermissions } from '../../utils/permissions';
 
 const ReportsList = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -93,7 +95,7 @@ const ReportsList = () => {
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={r.status} /></td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(r.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    {r.status === 'pending' && (
+                    {r.status === 'pending' && can('reports', 'edit') && (
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <ActionBtn icon="check_circle" color="#10b981" title="Resolve" onClick={() => updateReport(r.id, 'resolved')} />
                         <ActionBtn icon="cancel" color="#ef4444" title="Reject" onClick={() => updateReport(r.id, 'rejected')} />

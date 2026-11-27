@@ -19,8 +19,10 @@ import {
 
 import { contact_us_list } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
+import { usePermissions } from '../../utils/permissions';
 
 const ContactUs = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
@@ -340,14 +342,16 @@ const ContactUs = () => {
                           }
                         />
 
-                        <ActionBtn
-                          icon="delete"
-                          color="#ef4444"
-                          title="Delete"
-                          onClick={() =>
-                            handleDelete(ticket.id)
-                          }
-                        />
+                        {can('support', 'delete') && (
+                          <ActionBtn
+                            icon="delete"
+                            color="#ef4444"
+                            title="Delete"
+                            onClick={() =>
+                              handleDelete(ticket.id)
+                            }
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

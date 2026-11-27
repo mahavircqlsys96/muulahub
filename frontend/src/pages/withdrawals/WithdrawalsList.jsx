@@ -8,8 +8,10 @@ import {
   Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, formatCurrency, PrimaryBtn
 } from '../../components/common/PageTable';
 import { exportWithdrawalsToPdf } from '../../utils/pdfExport';
+import { usePermissions } from '../../utils/permissions';
 
 const WithdrawalsList = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -141,7 +143,7 @@ const WithdrawalsList = () => {
                   <td style={{ padding: '12px 16px' }}><StatusBadge status={w.status} /></td>
                   <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(w.createdAt)}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    {w.status === 'pending' && (
+                    {w.status === 'pending' && can('withdrawals', 'edit') && (
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <ActionBtn icon="check_circle" color="#10b981" title="Approve" onClick={() => setModal(w)} />
                         <ActionBtn icon="cancel" color="#ef4444" title="Reject" onClick={() => setModal({ ...w, rejectMode: true })} />

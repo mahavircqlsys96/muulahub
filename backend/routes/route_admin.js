@@ -23,7 +23,7 @@ const faqController = require('../controllers/admin/faqController');
 const locationController = require('../controllers/admin/locationController');
 const fraudController = require('../controllers/admin/fraudController');
 const subAdminController = require('../controllers/admin/subAdminController');
-const { requirePermission } = require('../middleware/rbacMiddleware');
+const { requirePermission, requireSuperAdmin } = require('../middleware/rbacMiddleware');
 
 
 // ─── Public Admin Routes ───
@@ -163,18 +163,19 @@ router.get('/notifications', requirePermission('notifications:view'), notificati
 router.get('/fraud-alerts', fraudController.getFraudAlerts);
 
 // ─── Sub-Admin & Role Management ───
+// Sub-Admins cannot add, edit, or delete other sub-admins or roles. Only Super Admin has these permissions.
 router.get('/permissions-catalog', requirePermission('subadmins:view'), subAdminController.getPermissionsCatalog);
 
-router.get('/roles', requirePermission('subadmins:view'), subAdminController.getRoles);
-router.get('/roles/:id', requirePermission('subadmins:view'), subAdminController.getRoleById);
-router.post('/roles', requirePermission('subadmins:manage_roles'), subAdminController.createRole);
-router.put('/roles/:id', requirePermission('subadmins:manage_roles'), subAdminController.updateRole);
-router.delete('/roles/:id', requirePermission('subadmins:manage_roles'), subAdminController.deleteRole);
+router.get('/roles', requirePermission('roles:view'), subAdminController.getRoles);
+router.get('/roles/:id', requirePermission('roles:view'), subAdminController.getRoleById);
+router.post('/roles', requireSuperAdmin, subAdminController.createRole);
+router.put('/roles/:id', requireSuperAdmin, subAdminController.updateRole);
+router.delete('/roles/:id', requireSuperAdmin, subAdminController.deleteRole);
 
 router.get('/subadmins', requirePermission('subadmins:view'), subAdminController.getSubAdmins);
 router.get('/subadmins/:id', requirePermission('subadmins:view'), subAdminController.getSubAdminById);
-router.post('/subadmins', requirePermission('subadmins:create'), subAdminController.createSubAdmin);
-router.put('/subadmins/:id', requirePermission('subadmins:edit'), subAdminController.updateSubAdmin);
-router.delete('/subadmins/:id', requirePermission('subadmins:delete'), subAdminController.deleteSubAdmin);
+router.post('/subadmins', requireSuperAdmin, subAdminController.createSubAdmin);
+router.put('/subadmins/:id', requireSuperAdmin, subAdminController.updateSubAdmin);
+router.delete('/subadmins/:id', requireSuperAdmin, subAdminController.deleteSubAdmin);
 
 module.exports = router;

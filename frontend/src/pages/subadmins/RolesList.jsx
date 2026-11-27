@@ -6,6 +6,7 @@ import apiInstance from '../../services/api';
 import {
   PageHeader, TableCard, TableHead, LoadingRow, EmptyRow, formatDate
 } from '../../components/common/PageTable';
+import { isSuperAdminUser } from '../../utils/permissions';
 
 const ROLE_COLORS = {
   super_admin: { bg: '#fee2e2', color: '#b91c1c' },
@@ -21,6 +22,7 @@ const ROLE_COLORS = {
 };
 
 const RolesList = () => {
+  const isSuperAdmin = isSuperAdminUser();
   const [roles, setRoles] = useState([]);
   const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -197,14 +199,16 @@ const RolesList = () => {
               <i className="material-icons" style={{ fontSize: '18px' }}>admin_panel_settings</i>
               Manage Sub-Admins
             </Link>
-            <button
-              onClick={openAddModal}
-              className="btn btn-primary d-flex align-items-center gap-1"
-              style={{ borderRadius: '8px', fontWeight: 600 }}
-            >
-              <i className="material-icons" style={{ fontSize: '18px' }}>add</i>
-              Create Custom Role
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={openAddModal}
+                className="btn btn-primary d-flex align-items-center gap-1"
+                style={{ borderRadius: '8px', fontWeight: 600 }}
+              >
+                <i className="material-icons" style={{ fontSize: '18px' }}>add</i>
+                Create Custom Role
+              </button>
+            )}
           </div>
         }
       />
@@ -343,14 +347,14 @@ const RolesList = () => {
                             onClick={() => openEditModal(role)}
                             className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
                             style={{ borderRadius: '6px', padding: '6px 12px', fontSize: '12px' }}
-                            title="Edit Permissions & Details"
+                            title={isSuperAdmin ? "Edit Permissions & Details" : "View Permissions"}
                           >
                             <i className="material-icons" style={{ fontSize: '15px' }}>
-                              {role.isSystem ? 'visibility' : 'edit'}
+                              {!isSuperAdmin || role.isSystem ? 'visibility' : 'edit'}
                             </i>
-                            {role.isSystem ? 'View / Edit Permissions' : 'Edit'}
+                            {!isSuperAdmin ? 'View Permissions' : role.isSystem ? 'View / Edit Permissions' : 'Edit'}
                           </button>
-                          {!role.isSystem && (
+                          {isSuperAdmin && !role.isSystem && (
                             <button
                               type="button"
                               onClick={() => handleDelete(role)}
@@ -590,16 +594,18 @@ const RolesList = () => {
                     disabled={saving}
                     style={{ borderRadius: '8px' }}
                   >
-                    Cancel
+                    {isSuperAdmin ? 'Cancel' : 'Close'}
                   </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={saving}
-                    style={{ borderRadius: '8px' }}
-                  >
-                    {saving ? 'Saving...' : 'Save Permissions'}
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={saving}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      {saving ? 'Saving...' : 'Save Permissions'}
+                    </button>
+                  )}
                 </div>
               </form>
             </div>

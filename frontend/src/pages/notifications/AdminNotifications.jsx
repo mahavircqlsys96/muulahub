@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import apiInstance from '../../utils/apiInstance';
 import { PageHeader, PrimaryBtn } from '../../components/common/PageTable';
+import { usePermissions } from '../../utils/permissions';
 
 const AdminNotifications = () => {
+  const { can } = usePermissions();
   const [form, setForm] = useState({ title: '', message: '', target: 'all', countryId: '', cityId: '', categoryId: '' });
   const [sending, setSending] = useState(false);
 
@@ -140,7 +142,13 @@ const AdminNotifications = () => {
             />
           </div>
 
-          <PrimaryBtn icon="send" label={sending ? 'Sending...' : 'Send Notification'} onClick={handleSend} disabled={sending} />
+          {can('notifications', 'add') ? (
+            <PrimaryBtn icon="send" label={sending ? 'Sending...' : 'Send Notification'} onClick={handleSend} disabled={sending} />
+          ) : (
+            <div style={{ color: '#6b7280', fontSize: '13px', fontStyle: 'italic' }}>
+              Your assigned role has read-only access. Notification broadcasting requires Add/Send permission.
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: '24px', background: 'rgba(255,77,109,0.08)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(255,77,109,0.2)' }}>

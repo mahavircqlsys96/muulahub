@@ -21,8 +21,10 @@ import {
 import { get_user_list } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
 import { imageBaseUrl } from '../../services/api';
+import { usePermissions } from '../../utils/permissions';
 
 const UserList = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
@@ -405,6 +407,7 @@ const UserList = () => {
                       ) : (
                         <select
                           value={user.status || 'active'}
+                          disabled={!can('users', 'edit')}
                           onChange={(e) => handleStatusChange(user.id, e.target.value)}
                           style={{
                             padding: '6px 10px',
@@ -457,14 +460,16 @@ const UserList = () => {
                           }
                         />
 
-                        <ActionBtn
-                          icon="delete"
-                          color="#ef4444"
-                          title="Delete"
-                          onClick={() =>
-                            handleDelete(user.id)
-                          }
-                        />
+                        {can('users', 'delete') && (
+                          <ActionBtn
+                            icon="delete"
+                            color="#ef4444"
+                            title="Delete"
+                            onClick={() =>
+                              handleDelete(user.id)
+                            }
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

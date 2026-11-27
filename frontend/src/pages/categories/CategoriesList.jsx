@@ -8,6 +8,7 @@ import {
   ActionBtn, Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, ImageModal
 } from '../../components/common/PageTable';
 import { imageBaseUrl } from '../../services/api';
+import { usePermissions } from '../../utils/permissions';
 
 const btnBlue = {
   background: 'linear-gradient(90deg,#3b82f6,#60a5fa)',
@@ -33,6 +34,7 @@ const btnBlueOutline = {
 };
 
 const CategoriesList = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -197,12 +199,12 @@ const CategoriesList = () => {
       <PageHeader
         title="Service Categories"
         subtitle={`${data.total} categories`}
-        action={(
+        action={can('categories', 'add') ? (
           <button type="button" onClick={() => openModal()} style={btnBlue}>
             <i className="material-icons" style={{ fontSize: '18px' }}>add</i>
             Add Category
           </button>
-        )}
+        ) : null}
       />
 
       <TableCard>
@@ -317,10 +319,12 @@ const CategoriesList = () => {
                   <td style={{ padding: '14px 16px', color: '#6b7280', fontSize: '13px' }}>{formatDate(cat.createdAt)}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      {activeTab !== 'custom' && (
+                      {activeTab !== 'custom' && can('categories', 'edit') && (
                         <ActionBtn icon="edit" color="#f97316" title="Edit" onClick={() => openModal(cat)} />
                       )}
-                      <ActionBtn icon="delete" color="#ef4444" title="Delete" onClick={() => handleDelete(cat.id)} />
+                      {can('categories', 'delete') && (
+                        <ActionBtn icon="delete" color="#ef4444" title="Delete" onClick={() => handleDelete(cat.id)} />
+                      )}
                     </div>
                   </td>
                 </tr>

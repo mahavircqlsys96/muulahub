@@ -98,11 +98,12 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
       // Check explicit item permission (e.g. "posts:view")
       if (item.permission && userPermissions.includes(item.permission)) return true;
 
-      // Check module-level wildcard (e.g. "posts:*")
+      // Check module-level wildcard or any action granted in that module (e.g. "posts:*", "posts:add", "posts:edit")
       if (item.permission) {
         const [mod] = item.permission.split(':');
         if (userPermissions.includes(`${mod}:*`)) return true;
         if (userPermissions.includes(mod)) return true;
+        if (userPermissions.some(p => p.startsWith(`${mod}:`))) return true;
       }
 
       return false;

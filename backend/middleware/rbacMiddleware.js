@@ -2,10 +2,44 @@ const db = require('../models');
 const { hasPermission } = require('../helpers/rolePermissions');
 
 /**
- * Middleware to enforce Role-Based Access Control on admin routes
- * @param {string} requiredPermission - Format: "module:action" (e.g. "users:edit", "payments:refund")
+ * Middleware to enforce that ONLY Super Admin can perform the action
+ * Blocks all sub-admins, even if assigned custom roles or permissions
  */
-const requirePermission = (requiredPermission) => {
+const requireSuperAdmin = (req, res, next) => {
+  const authUser = req.auth;
+
+  if (!authUser || authUser.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      code: 403,
+      msg: "Forbidden: Super Admin privileges required",
+      body: {}
+    });
+  }
+
+  const isSubAdmin = !!authUser.isSubAdmin;
+  const roleSlug = authUser.adminRoleSlug;
+
+  if (isSubAdmin || (roleSlug && roleSlug !== 'super_admin')) {
+    return res.status(403).json({
+      success: false,
+      code: 403,
+      msg: "Access Denied: Only Super Admin has permission to perform this action.",
+      body: {}
+    });
+  }
+
+  next();
+};
+
+/**
+ * Middleware to enforce Role-Based Access Control on admin routes
+ * @param {string} moduleOrPerm - Format: "module:action" (e.g. "users:edit") or module name "users"
+ * @param {string} [action] - Optional action if first argument is module name (e.g. "view", "edit", "add", "delete")
+ */
+const requirePermission = (moduleOrPerm, action) => {
+  const requiredPermission = action ? `${moduleOrPerm}:${action}` : moduleOrPerm;
+
   return async (req, res, next) => {
     try {
       const authUser = req.auth;
@@ -19,25 +53,49 @@ const requirePermission = (requiredPermission) => {
         });
       }
 
-      // If user is not explicitly a subadmin (i.e. main system admin account),
-      // or if their roleSlug is super_admin, ALWAYS grant full access
-      const isSubAdmin = !!authUser.isSubAdmin;
-      const roleSlug = authUser.adminRoleSlug || (!isSubAdmin ? 'super_admin' : '');
+      // Check user active status in database
+      const userRecord = await db.users.findOne({
+        where: { id: authUser.id },
+        attributes: ['id', 'status', 'role', 'isSubAdmin', 'adminRoleId', 'adminRoleSlug', 'adminPermissions', 'deletedAt']
+      });
+
+      if (!userRecord || userRecord.deletedAt !== null) {
+        return res.status(403).json({
+          success: false,
+          code: 403,
+          msg: "Forbidden: Account not found or has been removed",
+          body: {}
+        });
+      }
+
+      if (userRecord.status && userRecord.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          code: 403,
+          msg: "Forbidden: Your account is inactive or suspended. Please contact Super Admin.",
+          body: {}
+        });
+      }
+
+      // If user is not explicitly a subadmin (i.e. primary Super Admin account),
+      // or if roleSlug is super_admin, ALWAYS grant full access automatically
+      const isSubAdmin = !!userRecord.isSubAdmin;
+      const roleSlug = userRecord.adminRoleSlug || (!isSubAdmin ? 'super_admin' : '');
 
       if (!isSubAdmin || roleSlug === 'super_admin' || !roleSlug) {
         return next();
       }
 
-      // Check custom permission overrides on subadmin first
-      let permissions = authUser.adminPermissions;
+      // Read fresh permissions directly from DB record so permission updates take effect immediately
+      let permissions = userRecord.adminPermissions;
       if (typeof permissions === 'string') {
         try { permissions = JSON.parse(permissions); } catch (e) { permissions = []; }
       }
 
       // If not overridden on user, fetch from assigned admin_roles
       if (!permissions || (Array.isArray(permissions) && permissions.length === 0)) {
-        if (authUser.adminRoleId && db.admin_roles) {
-          const roleRecord = await db.admin_roles.findOne({ where: { id: authUser.adminRoleId } });
+        if (userRecord.adminRoleId && db.admin_roles) {
+          const roleRecord = await db.admin_roles.findOne({ where: { id: userRecord.adminRoleId } });
           if (roleRecord && roleRecord.permissions) {
             permissions = roleRecord.permissions;
             if (typeof permissions === 'string') {
@@ -54,7 +112,7 @@ const requirePermission = (requiredPermission) => {
       return res.status(403).json({
         success: false,
         code: 403,
-        msg: `Access Denied: Your assigned role (${roleSlug || 'unassigned'}) does not have permission for [${requiredPermission}].`,
+        msg: `Access Denied: You do not have permission for [${requiredPermission}].`,
         body: {
           requiredPermission,
           roleSlug
@@ -73,6 +131,11 @@ const requirePermission = (requiredPermission) => {
   };
 };
 
+// Alias function for checkPermission("users", "view")
+const checkPermission = (moduleName, action = 'view') => requirePermission(moduleName, action);
+
 module.exports = {
-  requirePermission
+  requirePermission,
+  checkPermission,
+  requireSuperAdmin
 };

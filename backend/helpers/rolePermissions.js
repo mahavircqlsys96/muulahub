@@ -1,84 +1,83 @@
 /**
  * Role Definitions and Permission Matrix for Muula Hub
- * Internal Developer Specification Section 5: Administrative Roles and Visibility
+ * Internal Developer Specification Section 5 & Sub-Admin RBAC Specification
  */
 
 const MODULES = {
-  dashboard: {
-    label: "Dashboard & Analytics",
-    actions: ["view", "export"]
-  },
+  // Main Modules
   users: {
-    label: "Users Management",
-    actions: ["view", "edit", "suspend", "reactivate", "export"]
-  },
-  providers: {
-    label: "Providers & Verification",
-    actions: ["view", "verify", "reject", "badges", "edit"]
-  },
-  bookings: {
-    label: "Bookings",
-    actions: ["view", "edit", "manage", "cancel"]
+    label: "Users",
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
   categories: {
     label: "Service Categories",
-    actions: ["view", "create", "edit", "delete"]
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
-  disputes: {
-    label: "Disputes Management",
-    actions: ["view", "manage", "resolve"]
+  bookings: {
+    label: "Bookings",
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
   payments: {
-    label: "Payments & Revenue",
-    actions: ["view", "refund", "export"]
+    label: "Payments",
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
   withdrawals: {
-    label: "Withdrawals & Payouts",
-    actions: ["view", "approve", "reject", "payout", "export"]
+    label: "Withdrawals",
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
   wallets: {
-    label: "Wallets & Transactions",
-    actions: ["view", "reconcile", "adjust"]
+    label: "Wallets",
+    category: "Main",
+    actions: ["add", "edit", "view", "delete"]
   },
+  subadmins: {
+    label: "Sub-Admins",
+    category: "Main",
+    actions: ["view"] // Sub-admins can NEVER add, edit or delete sub-admins; only Super Admin can!
+  },
+  roles: {
+    label: "Roles & Permissions",
+    category: "Main",
+    actions: ["view"] // Sub-admins can NEVER manage roles; only Super Admin can!
+  },
+
+  // Content Modules
   posts: {
-    label: "Posts & Public Content",
-    actions: ["view", "hide", "remove", "restore"]
+    label: "Posts",
+    category: "Content",
+    actions: ["add", "edit", "view", "delete"]
   },
   reports: {
-    label: "Reports & Moderation",
-    actions: ["view", "review", "uphold", "dismiss", "warn", "suspend", "export"]
-  },
-  events: {
-    label: "Live Streams & Recordings",
-    actions: ["view", "monitor", "terminate"]
-  },
-  support: {
-    label: "Customer Support & Inquiries",
-    actions: ["view", "assign", "respond", "escalate", "close"]
+    label: "Reports",
+    category: "Content",
+    actions: ["add", "edit", "view", "delete"]
   },
   notifications: {
-    label: "Push & In-App Notifications",
-    actions: ["view", "create", "send"]
+    label: "Notifications",
+    category: "Content",
+    actions: ["add", "edit", "view", "delete"]
+  },
+  support: {
+    label: "Support",
+    category: "Content",
+    actions: ["add", "edit", "view", "delete"]
+  },
+
+  // System Modules
+  dashboard: {
+    label: "Dashboard & Analytics",
+    category: "System",
+    actions: ["view"]
   },
   cms: {
     label: "CMS Pages & Policies",
+    category: "System",
     actions: ["view", "edit"]
-  },
-  marketing: {
-    label: "Marketing & Promo Codes",
-    actions: ["view", "promo_create", "promo_manage", "banner_manage"]
-  },
-  locations: {
-    label: "Locations & Countries",
-    actions: ["view", "manage"]
-  },
-  subadmins: {
-    label: "Sub-Admins & Custom Roles",
-    actions: ["view", "create", "edit", "delete", "manage_roles"]
-  },
-  audit: {
-    label: "Audit Logs & Settings",
-    actions: ["view", "export"]
   }
 };
 
@@ -246,8 +245,23 @@ function hasPermission(userPermissions, roleSlug, requiredPerm) {
   if (perms.includes(requiredPerm)) return true;
 
   // Check wildcard on module level (e.g. "users:*" matches "users:edit")
-  const [mod] = requiredPerm.split(':');
+  const [mod, act] = requiredPerm.split(':');
   if (perms.includes(`${mod}:*`)) return true;
+  if (perms.includes(mod)) return true;
+
+  // Action aliases mapping to standard Add/Edit/View/Delete
+  const actionAliases = {
+    add: ['add', 'create', 'send', 'promo_create'],
+    edit: ['edit', 'manage', 'suspend', 'reactivate', 'verify', 'hide', 'review', 'resolve', 'adjust', 'respond', 'update', 'approve', 'toggle', 'badges'],
+    view: ['view', 'list', 'detail', 'export', 'stats'],
+    delete: ['delete', 'remove', 'close', 'cancel']
+  };
+
+  for (const [standardAction, aliases] of Object.entries(actionAliases)) {
+    if (aliases.includes(act)) {
+      if (perms.includes(`${mod}:${standardAction}`)) return true;
+    }
+  }
 
   return false;
 }

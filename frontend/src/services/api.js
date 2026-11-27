@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const API_BASE =
-  import.meta.env.VITE_ADMIN_API_BASE 
+  import.meta.env.VITE_ADMIN_API_BASE
 export const imageBaseUrl =
-  import.meta.env.VITE_IMAGE_BASE 
+  import.meta.env.VITE_IMAGE_BASE
 
 const apiInstance = axios.create({
   baseURL: API_BASE,
@@ -38,7 +38,7 @@ apiInstance.interceptors.response.use(
           try {
             const u = JSON.parse(localStorage.getItem('user') || '{}');
             isSubAdmin = Boolean(u?.isSubAdmin);
-          } catch(e) {}
+          } catch (e) { }
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = isSubAdmin ? '/subadmin' : '/';

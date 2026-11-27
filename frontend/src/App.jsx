@@ -79,52 +79,52 @@ const App = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<Layout />}>
-            <Route path="/dashboard" element={<PrivateRoute element={<Dashboard />} />} />
+            <Route path="/dashboard" element={<PrivateRoute element={<Dashboard />} permission="dashboard:view" moduleName="Dashboard" />} />
             <Route path="/profile" element={<PrivateRoute element={<Profile />} />} />
             <Route path="/changepassword" element={<PrivateRoute element={<ChangePassword />} />} />
 
-            <Route path="/cms/privacy" element={<PrivateRoute element={<Privacy />} />} />
-            <Route path="/cms/about-us" element={<PrivateRoute element={<AboutUs />} />} />
-            <Route path="/cms/terms" element={<PrivateRoute element={<Terms />} />} />
-            <Route path="/cms/faqs" element={<PrivateRoute element={<FAQs />} />} />
-            <Route path="/cms/community-guidelines" element={<PrivateRoute element={<CommunityGuidelines />} />} />
-            <Route path="/locations" element={<PrivateRoute element={<LocationManagement />} />} />
+            <Route path="/cms/privacy" element={<PrivateRoute element={<Privacy />} permission="cms:view" moduleName="Privacy Policy" />} />
+            <Route path="/cms/about-us" element={<PrivateRoute element={<AboutUs />} permission="cms:view" moduleName="About Us" />} />
+            <Route path="/cms/terms" element={<PrivateRoute element={<Terms />} permission="cms:view" moduleName="Terms & Conditions" />} />
+            <Route path="/cms/faqs" element={<PrivateRoute element={<FAQs />} permission="cms:view" moduleName="FAQs" />} />
+            <Route path="/cms/community-guidelines" element={<PrivateRoute element={<CommunityGuidelines />} permission="cms:view" moduleName="Community Guidelines" />} />
+            <Route path="/locations" element={<PrivateRoute element={<LocationManagement />} permission="locations:view" moduleName="Locations" />} />
 
-            <Route path="/usersList" element={<PrivateRoute element={<UsersList />} />} />
-            <Route path="/usersListDeleted" element={<PrivateRoute element={<UsersListDeleted />} />} />
-            <Route path="/usersView/:id" element={<PrivateRoute element={<UsersView />} />} />
+            <Route path="/usersList" element={<PrivateRoute element={<UsersList />} permission="users:view" moduleName="Users" />} />
+            <Route path="/usersListDeleted" element={<PrivateRoute element={<UsersListDeleted />} permission="users:view" moduleName="Users" />} />
+            <Route path="/usersView/:id" element={<PrivateRoute element={<UsersView />} permission="users:view" moduleName="Users" />} />
 
-            <Route path="/contactUs" element={<PrivateRoute element={<ContactUs />} />} />
-            <Route path="/viewContactUs/:id" element={<PrivateRoute element={<ViewContactUs />} />} />
+            <Route path="/contactUs" element={<PrivateRoute element={<ContactUs />} permission="support:view" moduleName="Support" />} />
+            <Route path="/viewContactUs/:id" element={<PrivateRoute element={<ViewContactUs />} permission="support:view" moduleName="Support" />} />
 
-            <Route path="/providers" element={<PrivateRoute element={<ProvidersList />} />} />
-            <Route path="/providers/:id/verification" element={<PrivateRoute element={<ProviderVerification />} />} />
-            <Route path="/providers/:id" element={<PrivateRoute element={<ProviderDetail />} />} />
+            <Route path="/providers" element={<PrivateRoute element={<ProvidersList />} permission="users:view" moduleName="Providers" />} />
+            <Route path="/providers/:id/verification" element={<PrivateRoute element={<ProviderVerification />} permission="users:view" moduleName="Providers" />} />
+            <Route path="/providers/:id" element={<PrivateRoute element={<ProviderDetail />} permission="users:view" moduleName="Providers" />} />
 
-            <Route path="/categories" element={<PrivateRoute element={<CategoriesList />} />} />
+            <Route path="/categories" element={<PrivateRoute element={<CategoriesList />} permission="categories:view" moduleName="Service Categories" />} />
 
-            <Route path="/services" element={<PrivateRoute element={<ServicesList />} />} />
+            <Route path="/services" element={<PrivateRoute element={<ServicesList />} permission="categories:view" moduleName="Services" />} />
 
-            <Route path="/bookings" element={<PrivateRoute element={<BookingsListPage />} />} />
-            <Route path="/bookings/:id" element={<PrivateRoute element={<BookingDetailPage />} />} />
+            <Route path="/bookings" element={<PrivateRoute element={<BookingsListPage />} permission="bookings:view" moduleName="Bookings" />} />
+            <Route path="/bookings/:id" element={<PrivateRoute element={<BookingDetailPage />} permission="bookings:view" moduleName="Bookings" />} />
 
-            <Route path="/payments" element={<PrivateRoute element={<PaymentsList />} />} />
+            <Route path="/payments" element={<PrivateRoute element={<PaymentsList />} permission="payments:view" moduleName="Payments" />} />
 
-            <Route path="/withdrawals" element={<PrivateRoute element={<WithdrawalsList />} />} />
+            <Route path="/withdrawals" element={<PrivateRoute element={<WithdrawalsList />} permission="withdrawals:view" moduleName="Withdrawals" />} />
 
-            <Route path="/posts" element={<PrivateRoute element={<PostsList />} />} />
-            <Route path="/posts/:id" element={<PrivateRoute element={<PostView />} />} />
+            <Route path="/posts" element={<PrivateRoute element={<PostsList />} permission="posts:view" moduleName="Posts" />} />
+            <Route path="/posts/:id" element={<PrivateRoute element={<PostView />} permission="posts:view" moduleName="Posts" />} />
 
-            <Route path="/reports" element={<PrivateRoute element={<ReportsList />} />} />
+            <Route path="/reports" element={<PrivateRoute element={<ReportsList />} permission="reports:view" moduleName="Reports" />} />
 
-            <Route path="/notifications" element={<PrivateRoute element={<AdminNotifications />} />} />
+            <Route path="/notifications" element={<PrivateRoute element={<AdminNotifications />} permission="notifications:view" moduleName="Notifications" />} />
 
-            <Route path="/disputes" element={<PrivateRoute element={<DisputesList />} />} />
-            <Route path="/wallets" element={<PrivateRoute element={<WalletsList />} />} />
-            <Route path="/subadmins" element={<PrivateRoute element={<SubAdminsList />} />} />
-            <Route path="/roles" element={<PrivateRoute element={<RolesList />} />} />
-            <Route path="/promo-codes" element={<PrivateRoute element={<PromoCodes />} />} />
-            <Route path="/fraud-monitoring" element={<PrivateRoute element={<FraudMonitoring />} />} />
+            <Route path="/disputes" element={<PrivateRoute element={<DisputesList />} permission="disputes:view" moduleName="Disputes" />} />
+            <Route path="/wallets" element={<PrivateRoute element={<WalletsList />} permission="wallets:view" moduleName="Wallets" />} />
+            <Route path="/subadmins" element={<PrivateRoute element={<SubAdminsList />} permission="subadmins:view" moduleName="Sub-Admins" />} />
+            <Route path="/roles" element={<PrivateRoute element={<RolesList />} permission="roles:view" moduleName="Roles & Permissions" />} />
+            <Route path="/promo-codes" element={<PrivateRoute element={<PromoCodes />} permission="marketing:view" moduleName="Promo Codes" />} />
+            <Route path="/fraud-monitoring" element={<PrivateRoute element={<FraudMonitoring />} permission="dashboard:view" moduleName="Fraud Monitoring" />} />
           </Route>
           <Route element={<PublicLayout />}>
             <Route path="/home" element={<Home />} />

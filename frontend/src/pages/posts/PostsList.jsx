@@ -9,8 +9,10 @@ import {
   Pagination, EmptyRow, LoadingRow, StatusBadge, formatDate, ImageModal
 } from '../../components/common/PageTable';
 import { imageBaseUrl } from '../../services/api';
+import { usePermissions } from '../../utils/permissions';
 
 const PostsList = () => {
+  const { can } = usePermissions();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [data, setData] = useState({ list: [], total: 0, totalPages: 1 });
@@ -139,10 +141,10 @@ const PostsList = () => {
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <ActionBtn icon="visibility" color="#6366f1" title="View Details" onClick={() => navigate(`/posts/${p.id}`)} />
-                      {p.status !== 'active' && (
+                      {can('posts', 'edit') && p.status !== 'active' && (
                         <ActionBtn icon="check_circle" color="#10b981" title="Activate" onClick={() => updateStatus(p.id, 'active')} />
                       )}
-                      {p.status !== 'deleted' && (
+                      {can('posts', 'delete') && p.status !== 'deleted' && (
                         <ActionBtn icon="delete" color="#ef4444" title="Delete" onClick={() => deletePost(p.id)} />
                       )}
                     </div>

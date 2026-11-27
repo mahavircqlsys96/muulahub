@@ -78,6 +78,10 @@ module.exports = {
    */
   createRole: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to manage roles");
+      }
+
       const v = new Validator(req.body, {
         name: 'required|string|minLength:3|maxLength:100',
         permissions: 'required|array'
@@ -114,6 +118,10 @@ module.exports = {
    */
   updateRole: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to manage roles");
+      }
+
       const { id } = req.params;
       const role = await admin_roles.findOne({ where: { id } });
       if (!role) return helper.failed(res, "Role not found");
@@ -138,6 +146,10 @@ module.exports = {
    */
   deleteRole: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to manage roles");
+      }
+
       const { id } = req.params;
       const role = await admin_roles.findOne({ where: { id } });
       if (!role) return helper.failed(res, "Role not found");
@@ -266,6 +278,10 @@ module.exports = {
    */
   createSubAdmin: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to add new sub-admins");
+      }
+
       const v = new Validator(req.body, {
         name: 'required|string|minLength:2',
         email: 'required|email',
@@ -275,7 +291,7 @@ module.exports = {
       const errors = await helper.checkValidation(v);
       if (errors) return helper.failed(res, errors);
 
-      const { name, email, password, phone, countryCode, adminRoleId, adminPermissions } = req.body;
+      const { name, email, password, phone, countryCode, adminRoleId, adminPermissions, status } = req.body;
 
       // Check role existence
       const role = await admin_roles.findOne({ where: { id: adminRoleId } });
@@ -305,7 +321,7 @@ module.exports = {
         existingUser.adminRoleId = role.id;
         existingUser.adminRoleSlug = role.slug;
         existingUser.adminPermissions = Array.isArray(adminPermissions) ? adminPermissions : null;
-        existingUser.status = 'active';
+        existingUser.status = status && ['active', 'inactive', 'blocked'].includes(status) ? status : 'active';
         existingUser.deletedAt = null;
         if (phone) existingUser.phone = phone;
         if (countryCode) existingUser.countryCode = countryCode;
@@ -348,7 +364,7 @@ module.exports = {
         adminRoleId: role.id,
         adminRoleSlug: role.slug,
         adminPermissions: Array.isArray(adminPermissions) ? adminPermissions : null,
-        status: 'active'
+        status: status && ['active', 'inactive', 'blocked'].includes(status) ? status : 'active'
       });
 
       return helper.success(res, "Sub-admin created successfully", {
@@ -372,6 +388,10 @@ module.exports = {
    */
   updateSubAdmin: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to update sub-admins");
+      }
+
       const { id } = req.params;
       const subAdmin = await users.findOne({ where: { id, role: 'admin', deletedAt: null } });
       if (!subAdmin) return helper.failed(res, "Sub-admin not found");
@@ -427,6 +447,10 @@ module.exports = {
    */
   deleteSubAdmin: async (req, res) => {
     try {
+      if (req.auth.isSubAdmin || (req.auth.adminRoleSlug && req.auth.adminRoleSlug !== 'super_admin')) {
+        return helper.failed(res, "Only Super Admin has permission to delete sub-admins");
+      }
+
       const { id } = req.params;
 
       if (parseInt(id) === req.auth.id) {
