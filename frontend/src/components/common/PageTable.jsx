@@ -40,13 +40,13 @@ export const StatusBadge = ({ status, map }) => {
   );
 };
 
-export const PageHeader = ({ title, subtitle, action }) => (
+export const PageHeader = ({ title, subtitle, action, actions }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
     <div>
       <h5 style={{ margin: 0, fontWeight: '700', color: '#111827' }}>{title}</h5>
       {subtitle && <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>{subtitle}</p>}
     </div>
-    {action}
+    {action || actions}
   </div>
 );
 
@@ -104,9 +104,11 @@ export const TableHead = ({ columns }) => (
   <thead>
     <tr style={{ background: '#f9fafb' }}>
       {columns.map((col, i) => {
-        const displayCol = (col === '#' || col === 'S No.' || col === 'S.No.' || col === 'S. No.') ? 'Sr. No.' : col;
+        const rawLabel = typeof col === 'object' && col !== null ? (col.label || col.name || '') : col;
+        const align = typeof col === 'object' && col?.align ? col.align : 'left';
+        const displayCol = (rawLabel === '#' || rawLabel === 'S No.' || rawLabel === 'S.No.' || rawLabel === 'S. No.') ? 'Sr. No.' : rawLabel;
         return (
-          <th key={i} style={{ padding: '12px 16px', fontWeight: '600', color: '#374151', fontSize: '13px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
+          <th key={i} style={{ padding: '12px 16px', fontWeight: '600', color: '#374151', fontSize: '13px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', textAlign: align }}>
             {displayCol}
           </th>
         );

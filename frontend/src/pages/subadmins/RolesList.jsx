@@ -210,12 +210,12 @@ const RolesList = () => {
           <table className="table align-items-center mb-0">
             <TableHead
               columns={[
-                { label: 'Role & Description' },
-                { label: 'Slug / Key' },
-                { label: 'Type' },
-                { label: 'Assigned Users' },
-                { label: 'Permissions Count' },
-                { label: 'Actions', align: 'center' }
+                'Role & Description',
+                'Slug / Key',
+                'Type',
+                'Assigned Users',
+                'Permissions Count',
+                'Actions'
               ]}
             />
             <tbody>

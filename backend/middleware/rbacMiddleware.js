@@ -19,15 +19,20 @@ const requirePermission = (requiredPermission) => {
         });
       }
 
-      const roleSlug = authUser.adminRoleSlug || 'super_admin';
+      // If user is not explicitly a subadmin (i.e. main system admin account),
+      // or if their roleSlug is super_admin, ALWAYS grant full access
+      const isSubAdmin = !!authUser.isSubAdmin;
+      const roleSlug = authUser.adminRoleSlug || (!isSubAdmin ? 'super_admin' : '');
 
-      // Super admin has full access to all endpoints
-      if (roleSlug === 'super_admin') {
+      if (!isSubAdmin || roleSlug === 'super_admin' || !roleSlug) {
         return next();
       }
 
       // Check custom permission overrides on subadmin first
       let permissions = authUser.adminPermissions;
+      if (typeof permissions === 'string') {
+        try { permissions = JSON.parse(permissions); } catch (e) { permissions = []; }
+      }
 
       // If not overridden on user, fetch from assigned admin_roles
       if (!permissions || (Array.isArray(permissions) && permissions.length === 0)) {
@@ -35,6 +40,9 @@ const requirePermission = (requiredPermission) => {
           const roleRecord = await db.admin_roles.findOne({ where: { id: authUser.adminRoleId } });
           if (roleRecord && roleRecord.permissions) {
             permissions = roleRecord.permissions;
+            if (typeof permissions === 'string') {
+              try { permissions = JSON.parse(permissions); } catch (e) { permissions = []; }
+            }
           }
         }
       }
@@ -46,7 +54,7 @@ const requirePermission = (requiredPermission) => {
       return res.status(403).json({
         success: false,
         code: 403,
-        msg: `Access Denied: Your assigned role (${roleSlug}) does not have permission for [${requiredPermission}].`,
+        msg: `Access Denied: Your assigned role (${roleSlug || 'unassigned'}) does not have permission for [${requiredPermission}].`,
         body: {
           requiredPermission,
           roleSlug
