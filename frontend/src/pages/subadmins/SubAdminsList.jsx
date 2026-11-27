@@ -50,6 +50,18 @@ const ACTIONS = [
   { key: 'delete', label: 'Delete' },
 ];
 
+const getAllPermissionKeys = () => {
+  const all = [];
+  ALL_MODULES.forEach(mod => {
+    ACTIONS.forEach(act => {
+      if (!mod.superAdminOnlyActions?.includes(act.key)) {
+        all.push(`${mod.key}:${act.key}`);
+      }
+    });
+  });
+  return all;
+};
+
 const SubAdminsList = () => {
   const isSuperAdmin = isSuperAdminUser();
 
@@ -114,10 +126,14 @@ const SubAdminsList = () => {
     setEditingAdmin(null);
     setFormError('');
 
-    // Pre-populate with default permissions of the first role
-    const defaultRoleId = roles.length > 0 ? roles[0].id : '';
+    // Pre-populate with default permissions of the first sub-admin role
+    const subAdminRoles = roles.filter(r => r.slug !== 'super_admin');
+    const defaultRoleId = subAdminRoles.length > 0 ? subAdminRoles[0].id : (roles[0]?.id || '');
     const firstRole = roles.find(r => r.id === defaultRoleId);
-    const initialPerms = firstRole && Array.isArray(firstRole.permissions) ? [...firstRole.permissions] : [];
+    let initialPerms = firstRole && Array.isArray(firstRole.permissions) ? [...firstRole.permissions] : [];
+    if (initialPerms.includes('*')) {
+      initialPerms = getAllPermissionKeys();
+    }
 
     setForm({
       name: '',
@@ -148,6 +164,12 @@ const SubAdminsList = () => {
     } else if (admin.adminRole && Array.isArray(admin.adminRole.permissions)) {
       perms = [...admin.adminRole.permissions];
     }
+    if (perms.includes('*')) {
+      perms = getAllPermissionKeys();
+    }
+
+    const subAdminRoles = roles.filter(r => r.slug !== 'super_admin');
+    const fallbackRoleId = subAdminRoles.length > 0 ? subAdminRoles[0].id : (roles[0]?.id || '');
 
     setForm({
       name: admin.name || '',
@@ -156,7 +178,7 @@ const SubAdminsList = () => {
       password: '',
       phone: admin.phone || '',
       countryCode: admin.countryCode || '+1',
-      adminRoleId: admin.adminRoleId || (roles[0]?.id || ''),
+      adminRoleId: admin.adminRoleId || fallbackRoleId,
       status: admin.status || 'active',
       customPermissions: perms
     });
@@ -169,25 +191,32 @@ const SubAdminsList = () => {
     setViewModalOpen(true);
   };
 
-  // Handle Role Selection change in Add/Edit modal -> updates permissions defaults if empty
+  // Handle Role Selection change in Add/Edit modal -> updates permissions defaults
   const handleRoleChange = (selectedRoleId) => {
     const roleObj = roles.find(r => r.id === parseInt(selectedRoleId));
-    const rolePerms = roleObj && Array.isArray(roleObj.permissions) ? roleObj.permissions : [];
+    let rolePerms = roleObj && Array.isArray(roleObj.permissions) ? [...roleObj.permissions] : [];
+    if (rolePerms.includes('*')) {
+      rolePerms = getAllPermissionKeys();
+    }
     setForm(prev => ({
       ...prev,
       adminRoleId: selectedRoleId,
-      customPermissions: rolePerms.length > 0 ? [...rolePerms] : prev.customPermissions
+      customPermissions: rolePerms.length > 0 ? rolePerms : prev.customPermissions
     }));
   };
 
-  // Permission Checkbox Toggle
+  // Permission Checkbox Toggle - ensures independent toggling without auto-selecting all
   const togglePermission = (modKey, actKey) => {
     const permKey = `${modKey}:${actKey}`;
     setForm(prev => {
-      const exists = prev.customPermissions.includes(permKey);
+      let current = prev.customPermissions.includes('*')
+        ? getAllPermissionKeys()
+        : [...prev.customPermissions];
+
+      const exists = current.includes(permKey);
       const next = exists
-        ? prev.customPermissions.filter(p => p !== permKey && p !== '*')
-        : [...prev.customPermissions, permKey];
+        ? current.filter(p => p !== permKey && p !== '*')
+        : [...current, permKey];
       return { ...prev, customPermissions: next };
     });
   };
@@ -206,10 +235,13 @@ const SubAdminsList = () => {
       return true;
     }).map(a => a.key);
 
-    const allChecked = applicableActions.every(act => isChecked(modKey, act));
-
     setForm(prev => {
-      let next = prev.customPermissions.filter(p => !p.startsWith(`${modKey}:`) && p !== '*');
+      let current = prev.customPermissions.includes('*')
+        ? getAllPermissionKeys()
+        : [...prev.customPermissions];
+
+      const allChecked = applicableActions.every(act => current.includes(`${modKey}:${act}`));
+      let next = current.filter(p => !p.startsWith(`${modKey}:`) && p !== '*');
       if (!allChecked) {
         applicableActions.forEach(act => {
           next.push(`${modKey}:${act}`);
@@ -221,15 +253,7 @@ const SubAdminsList = () => {
 
   // Select All permissions across all modules
   const handleSelectAll = () => {
-    const all = [];
-    ALL_MODULES.forEach(mod => {
-      ACTIONS.forEach(act => {
-        if (!mod.superAdminOnlyActions?.includes(act.key)) {
-          all.push(`${mod.key}:${act.key}`);
-        }
-      });
-    });
-    setForm(prev => ({ ...prev, customPermissions: all }));
+    setForm(prev => ({ ...prev, customPermissions: getAllPermissionKeys() }));
   };
 
   // Clear All permissions
@@ -631,15 +655,17 @@ const SubAdminsList = () => {
       {modalOpen && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-          zIndex: 9999, padding: '24px 16px', overflowY: 'auto'
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '20px 16px', overflowY: 'auto'
         }}>
           <div style={{
-            background: '#fff', borderRadius: '16px', maxWidth: '840px', width: '100%',
-            margin: '20px auto 40px auto', padding: '28px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+            background: '#fff', borderRadius: '16px', maxWidth: '860px', width: '100%',
+            maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+            margin: 'auto', padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexShrink: 0 }}>
               <div>
                 <h5 style={{ margin: 0, fontWeight: '700', color: '#111827' }}>
                   {editingAdmin ? `Edit Sub-Admin: ${editingAdmin.name}` : 'Add New Sub-Admin'}
@@ -660,14 +686,14 @@ const SubAdminsList = () => {
               <div style={{
                 background: '#fee2e2', border: '1px solid #fecaca', color: '#b91c1c',
                 padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
-                marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px'
+                marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0
               }}>
                 <i className="material-icons" style={{ fontSize: '18px' }}>error_outline</i>
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSave}>
+            <form onSubmit={handleSave} style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
               {/* Account Credentials */}
               <div className="row">
                 <div className="col-md-6 mb-3">
@@ -737,7 +763,7 @@ const SubAdminsList = () => {
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px' }}
                   >
                     <option value="">Select a role</option>
-                    {roles.map(r => (
+                    {roles.filter(r => r.slug !== 'super_admin').map(r => (
                       <option key={r.id} value={r.id}>{r.name} ({r.slug})</option>
                     ))}
                   </select>

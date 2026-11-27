@@ -70,20 +70,38 @@ const RolesList = () => {
     setModalOpen(true);
   };
 
+  const getAllCatalogPermKeys = () => {
+    if (!catalog?.modules) return [];
+    const all = [];
+    Object.entries(catalog.modules).forEach(([modKey, mod]) => {
+      (mod.actions || []).forEach((act) => {
+        all.push(typeof act === 'object' && act !== null ? act.key : `${modKey}:${act}`);
+      });
+    });
+    return all;
+  };
+
   const openEditModal = (role) => {
     setEditingRole(role);
+    let perms = Array.isArray(role.permissions) ? [...role.permissions] : [];
+    if (perms.includes('*')) {
+      perms = getAllCatalogPermKeys();
+    }
     setForm({
       name: role.name || '',
       slug: role.slug || '',
       description: role.description || '',
-      permissions: Array.isArray(role.permissions) ? [...role.permissions] : []
+      permissions: perms
     });
     setModalOpen(true);
   };
 
   const togglePermission = (key) => {
     setForm((prev) => {
-      const perms = new Set(prev.permissions);
+      let current = prev.permissions.includes('*')
+        ? getAllCatalogPermKeys()
+        : [...prev.permissions];
+      const perms = new Set(current);
       if (perms.has(key)) perms.delete(key);
       else perms.add(key);
       return { ...prev, permissions: Array.from(perms) };
@@ -92,29 +110,25 @@ const RolesList = () => {
 
   const toggleModulePermissions = (modKey, moduleActions) => {
     setForm((prev) => {
-      const current = new Set(prev.permissions);
+      let current = prev.permissions.includes('*')
+        ? getAllCatalogPermKeys()
+        : [...prev.permissions];
+      const currentSet = new Set(current);
       const keys = (moduleActions || []).map((a) =>
         typeof a === 'object' && a !== null ? a.key : `${modKey}:${a}`
       );
-      const allSelected = keys.length > 0 && keys.every((k) => current.has(k));
+      const allSelected = keys.length > 0 && keys.every((k) => currentSet.has(k));
       if (allSelected) {
-        keys.forEach((k) => current.delete(k));
+        keys.forEach((k) => currentSet.delete(k));
       } else {
-        keys.forEach((k) => current.add(k));
+        keys.forEach((k) => currentSet.add(k));
       }
-      return { ...prev, permissions: Array.from(current) };
+      return { ...prev, permissions: Array.from(currentSet) };
     });
   };
 
   const selectAllPermissions = () => {
-    if (!catalog?.modules) return;
-    const all = [];
-    Object.entries(catalog.modules).forEach(([modKey, mod]) => {
-      (mod.actions || []).forEach((act) => {
-        all.push(typeof act === 'object' && act !== null ? act.key : `${modKey}:${act}`);
-      });
-    });
-    setForm((prev) => ({ ...prev, permissions: all }));
+    setForm((prev) => ({ ...prev, permissions: getAllCatalogPermKeys() }));
   };
 
   const deselectAllPermissions = () => {
@@ -547,9 +561,11 @@ const RolesList = () => {
                                 <div className="d-flex flex-column gap-2">
                                   {(mod.actions || []).map((act) => {
                                     const permKey = typeof act === 'object' && act !== null ? act.key : `${modKey}:${act}`;
-                                    const actionLabel = typeof act === 'object' && act !== null
-                                      ? (act.label || act.name)
-                                      : (act.charAt(0).toUpperCase() + act.slice(1));
+                                    const rawLabel = typeof act === 'object' && act !== null
+                                      ? (act.label || act.name || act.key)
+                                      : (typeof act === 'string' && act.length > 0 ? act : 'action');
+                                    const actionLabel = rawLabel.includes(':') ? rawLabel.split(':').pop() : rawLabel;
+                                    const displayLabel = actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1);
                                     const checked = currentPerms.has(permKey);
 
                                     return (
@@ -568,10 +584,10 @@ const RolesList = () => {
                                           type="checkbox"
                                           checked={checked}
                                           onChange={() => togglePermission(permKey)}
-                                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#6366f1' }}
                                         />
-                                        <span style={{ color: checked ? '#0f172a' : '#64748b', textTransform: 'capitalize' }}>
-                                          {actionLabel}
+                                        <span style={{ color: checked ? '#0f172a' : '#64748b', fontWeight: checked ? 600 : 400, textTransform: 'capitalize' }}>
+                                          {displayLabel}
                                         </span>
                                       </label>
                                     );
