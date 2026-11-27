@@ -87,6 +87,8 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
     "/cms/terms": "Terms & Conditions",
     "/cms/faqs": "FAQs",
     "/cms/community-guidelines": "Community Guidelines",
+    "/subadmins": "Sub-Admins",
+    "/roles": "Roles & Permissions",
     "/profile": "Profile",
     "/changepassword": "Change Password",
   };
@@ -140,9 +142,26 @@ const Navbar = ({ toggleSidebar, closeSidebar, windowWidth }) => {
         <ul className="navbar-nav navbar-right d-flex align-items-center">
           <li className="d-flex align-items-center ms-auto position-relative">
 
-            <h6 className="mb-0 me-2">
-              {user?.name}
-            </h6>
+            <div className="d-flex flex-column align-items-end me-2">
+              <h6 className="mb-0 text-sm font-weight-bold">
+                {user?.name || "Admin"}
+              </h6>
+              <span
+                className="badge"
+                style={{
+                  fontSize: "10px",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  backgroundColor: user?.isSubAdmin ? "#e0e7ff" : "#fee2e2",
+                  color: user?.isSubAdmin ? "#3730a3" : "#b91c1c",
+                  fontWeight: 600,
+                  marginTop: "2px",
+                  lineHeight: "1.2"
+                }}
+              >
+                {user?.roleName || (user?.isSubAdmin ? "Sub-Admin" : "Super Admin")}
+              </span>
+            </div>
 
             <div className="dropdown" ref={dropdownRef}>
               <button

@@ -52,6 +52,29 @@ module.exports = function (sequelize, DataTypes) {
       allowNull: true,
       defaultValue: "user"
     },
+    adminRoleId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'admin_roles', key: 'id' }
+    },
+    adminRoleSlug: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Role slug for admins/subadmins (e.g. super_admin, operations_admin, finance_admin, etc.)'
+    },
+    adminPermissions: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Custom permission overrides for sub-admin if any'
+    },
+    isSubAdmin: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0,
+      comment: '1 for subadmin users created under admin panel'
+    },
     isProvider: {
       type: DataTypes.TINYINT,
       allowNull: true,

@@ -54,4 +54,23 @@ sequelize.query("ALTER TABLE `events` ADD COLUMN `recordingUid` VARCHAR(255) NUL
 sequelize.query("ALTER TABLE `events` ADD COLUMN `recordingStatus` VARCHAR(50) DEFAULT 'idle'").catch(() => {});
 sequelize.query("ALTER TABLE `events` ADD COLUMN `recordingUrl` TEXT NULL").catch(() => {});
 
+// Ensure admin_roles table and sub-admin columns exist safely
+sequelize.query(`
+  CREATE TABLE IF NOT EXISTS \`admin_roles\` (
+    \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+    \`name\` VARCHAR(100) NOT NULL,
+    \`slug\` VARCHAR(100) NOT NULL UNIQUE,
+    \`description\` TEXT NULL,
+    \`permissions\` JSON NULL,
+    \`isSystem\` TINYINT NOT NULL DEFAULT 0,
+    \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`).catch(() => {});
+
+sequelize.query("ALTER TABLE `users` ADD COLUMN `adminRoleId` INT NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `adminRoleSlug` VARCHAR(100) NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `adminPermissions` JSON NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `isSubAdmin` TINYINT DEFAULT 0").catch(() => {});
+
 module.exports = db;

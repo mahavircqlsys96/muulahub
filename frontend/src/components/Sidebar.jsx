@@ -1,24 +1,27 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const menuSections = [
   {
     label: "MAIN",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
+      { to: "/dashboard", label: "Dashboard", icon: "dashboard", permission: null },
     ]
   },
   {
     label: "MANAGEMENT",
     items: [
-      { to: "/usersList", label: "Users", icon: "people", activePaths: ["/usersView"] },
+      { to: "/usersList", label: "Users", icon: "people", activePaths: ["/usersView"], permission: "users:view" },
       // { to: "/providers",   label: "Providers",        icon: "verified_user",          activePaths: ["/providers/"] },
-      { to: "/categories", label: "Service Categories", icon: "category" },
-      { to: "/bookings", label: "Bookings", icon: "event_available", activePaths: ["/bookings/"] },
+      { to: "/categories", label: "Service Categories", icon: "category", permission: "categories:view" },
+      { to: "/bookings", label: "Bookings", icon: "event_available", activePaths: ["/bookings/"], permission: "bookings:view" },
       // { to: "/disputes", label: "Disputes", icon: "gavel" },
-      { to: "/payments", label: "Payments", icon: "payments" },
-      { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet" },
-      { to: "/wallets", label: "Wallets", icon: "account_balance" },
+      { to: "/payments", label: "Payments", icon: "payments", permission: "payments:view" },
+      { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet", permission: "withdrawals:view" },
+      { to: "/wallets", label: "Wallets", icon: "account_balance", permission: "wallets:view" },
+      { to: "/subadmins", label: "Sub-Admins", icon: "admin_panel_settings", permission: "subadmins:view" },
+      { to: "/roles", label: "Roles & Permissions", icon: "security", permission: "roles:view" },
       // { to: "/locations", label: "Locations", icon: "public" },
       // { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
     ]
@@ -26,20 +29,20 @@ const menuSections = [
   {
     label: "CONTENT",
     items: [
-      { to: "/posts", label: "Posts", icon: "photo_library" },
-      { to: "/reports", label: "Reports", icon: "flag" },
-      { to: "/notifications", label: "Notifications", icon: "notifications" },
-      { to: "/contactUs", label: "Support", icon: "support_agent", activePaths: ["/viewContactUs"] },
+      { to: "/posts", label: "Posts", icon: "photo_library", permission: "posts:view" },
+      { to: "/reports", label: "Reports", icon: "flag", permission: "reports:view" },
+      { to: "/notifications", label: "Notifications", icon: "notifications", permission: "notifications:view" },
+      { to: "/contactUs", label: "Support", icon: "support_agent", activePaths: ["/viewContactUs"], permission: "support:view" },
     ]
   },
   {
     label: "CMS PAGES",
     items: [
-      { to: "/cms/about-us", label: "About Us", icon: "info" },
-      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip" },
-      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel" },
-      { to: "/cms/faqs", label: "FAQs", icon: "help_outline" },
-      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule" }
+      { to: "/cms/about-us", label: "About Us", icon: "info", permission: "cms:view" },
+      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip", permission: "cms:view" },
+      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel", permission: "cms:view" },
+      { to: "/cms/faqs", label: "FAQs", icon: "help_outline", permission: "cms:view" },
+      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule", permission: "cms:view" }
     ]
   },
   // {
@@ -56,6 +59,25 @@ const isActivePath = (to, activePaths = []) =>
   activePaths.some((p) => window.location.pathname.startsWith(p));
 
 const Sidebar = ({ handleLinkClick, isCollapsed }) => {
+  const reduxUser = useSelector((state) => state.users?.user);
+  let localUser = null;
+  try {
+    localUser = JSON.parse(localStorage.getItem("user") || "null");
+  } catch (e) {}
+
+  const currentUser = reduxUser || localUser;
+  const isSuperAdmin = !currentUser?.isSubAdmin || currentUser?.roleSlug === "super_admin";
+  const userPermissions = Array.isArray(currentUser?.permissions) ? currentUser.permissions : [];
+
+  // Filter menu sections by subadmin permissions
+  const visibleSections = menuSections.map((section) => {
+    const visibleItems = section.items.filter((item) => {
+      if (isSuperAdmin || !item.permission) return true;
+      return userPermissions.includes(item.permission);
+    });
+    return { ...section, items: visibleItems };
+  }).filter((section) => section.items.length > 0);
+
   const renderNavItem = ({ to, label, icon, activePaths = [] }) => (
     <li key={to} style={{ margin: "2px 8px" }}>
       <NavLink
@@ -173,7 +195,7 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
           scrollbarColor: "rgba(249,25,66,0.2) transparent",
         }}
       >
-        {menuSections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label} style={{ marginBottom: "6px" }}>
             {!isCollapsed && (
               <div

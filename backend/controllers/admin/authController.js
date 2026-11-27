@@ -1,5 +1,6 @@
 require('dotenv').config();
-const { users } = require("../../models");
+const db = require("../../models");
+const { users, admin_roles } = db;
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -7,8 +8,6 @@ const helper = require('../../helpers/helper')
 const path = require('path');
 
 module.exports = {
-
-
 
     login: async (req, res) => {
         const { email, password } = req.body;
@@ -24,22 +23,57 @@ module.exports = {
             if (admin.role != 'admin') {
                 return helper.failed(res, "Incorrect email or password");
             }
+            if (admin.status === 'blocked' || admin.status === 'inactive') {
+                return helper.failed(res, "Your account has been deactivated. Contact Super Admin.");
+            }
             let time = Math.floor(Date.now() / 1000);
             await admin.update({ loginTime: time });
+
+            let roleSlug = admin.adminRoleSlug || (admin.isSubAdmin ? 'sub_admin' : 'super_admin');
+            let permissions = admin.adminPermissions;
+            let roleName = "Super Admin";
+
+            if (admin.adminRoleId && admin_roles) {
+              const roleObj = await admin_roles.findOne({ where: { id: admin.adminRoleId } });
+              if (roleObj) {
+                roleSlug = roleObj.slug;
+                roleName = roleObj.name;
+                if (!permissions || !permissions.length) {
+                  permissions = roleObj.permissions;
+                }
+              }
+            } else if (roleSlug === 'super_admin') {
+              permissions = ["*"];
+            }
+
             const token = jwt.sign(
                 {
                     data: {
                         id: admin.id,
                         name: admin.name,
+                        role: admin.role,
+                        adminRoleSlug: roleSlug,
                         login_time: time,
                     },
                 },
                 process.env.crypto_key,
             );
-            return helper.success(res, "Login successfully", { token });
+            return helper.success(res, "Login successfully", {
+                token,
+                user: {
+                    id: admin.id,
+                    name: admin.name,
+                    email: admin.email,
+                    role: admin.role,
+                    roleSlug,
+                    roleName,
+                    permissions: permissions || ["*"],
+                    isSubAdmin: !!admin.isSubAdmin
+                }
+            });
         } catch (error) {
-            console.log(error, "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
-            // return helper.failed(res, "Something went wrong");
+            console.log(error, "login error")
+            return helper.failed(res, "Something went wrong: " + error.message);
         }
     },
 
@@ -51,9 +85,31 @@ module.exports = {
                 return helper.failed(res, "Admin not found");
             }
             const row = admin.toJSON ? admin.toJSON() : admin;
+
+            let roleSlug = admin.adminRoleSlug || (admin.isSubAdmin ? 'sub_admin' : 'super_admin');
+            let permissions = admin.adminPermissions;
+            let roleName = "Super Admin";
+
+            if (admin.adminRoleId && admin_roles) {
+              const roleObj = await admin_roles.findOne({ where: { id: admin.adminRoleId } });
+              if (roleObj) {
+                roleSlug = roleObj.slug;
+                roleName = roleObj.name;
+                if (!permissions || !permissions.length) {
+                  permissions = roleObj.permissions;
+                }
+              }
+            } else if (roleSlug === 'super_admin') {
+              permissions = ["*"];
+            }
+
             const payload = {
                 ...row,
                 profile_picture: row.profileImage || row.profile_picture,
+                roleSlug,
+                roleName,
+                permissions: permissions || ["*"],
+                isSubAdmin: !!admin.isSubAdmin
             };
             return helper.success(res, "Admin profile retrieved successfully", payload);
         } catch (err) {

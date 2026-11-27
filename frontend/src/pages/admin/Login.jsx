@@ -81,9 +81,12 @@ const Login = () => {
       setLoading(true);
       try {
         const res = await apiInstance.post('/login', { email, password });
-        const { token } = res.data?.body;
+        const { token, user } = res.data?.body || {};
         if (token) {
           localStorage.setItem('token', token);
+          if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+          }
           localStorage.setItem('loginmessage', 'true');
           navigate('/dashboard');
         } else {

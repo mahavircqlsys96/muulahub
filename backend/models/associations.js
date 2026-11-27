@@ -260,4 +260,10 @@ module.exports = (db) => {
     bank_accounts.belongsTo(users, { foreignKey: 'userId', as: 'user' });
     users.hasMany(bank_accounts, { foreignKey: 'userId', as: 'bankAccounts' });
   }
+
+  // Admin Roles <-> Users (Sub-Admins)
+  if (db.admin_roles && users) {
+    users.belongsTo(db.admin_roles, { foreignKey: 'adminRoleId', as: 'adminRole' });
+    db.admin_roles.hasMany(users, { foreignKey: 'adminRoleId', as: 'subAdmins' });
+  }
 };

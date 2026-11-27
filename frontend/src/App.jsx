@@ -57,6 +57,8 @@ const DisputesList = lazy(() => import("./pages/disputes/DisputesList"));
 const WalletsList = lazy(() => import("./pages/wallets/WalletsList"));
 const PromoCodes = lazy(() => import("./pages/marketing/PromoCodes"));
 const FraudMonitoring = lazy(() => import("./pages/management/FraudMonitoring"));
+const SubAdminsList = lazy(() => import("./pages/subadmins/SubAdminsList"));
+const RolesList = lazy(() => import("./pages/subadmins/RolesList"));
 
 const fallback = (
   <div className="d-flex justify-content-center align-items-center p-5">
@@ -116,6 +118,8 @@ const App = () => {
 
             <Route path="/disputes" element={<PrivateRoute element={<DisputesList />} />} />
             <Route path="/wallets" element={<PrivateRoute element={<WalletsList />} />} />
+            <Route path="/subadmins" element={<PrivateRoute element={<SubAdminsList />} />} />
+            <Route path="/roles" element={<PrivateRoute element={<RolesList />} />} />
             <Route path="/promo-codes" element={<PrivateRoute element={<PromoCodes />} />} />
             <Route path="/fraud-monitoring" element={<PrivateRoute element={<FraudMonitoring />} />} />
           </Route>
