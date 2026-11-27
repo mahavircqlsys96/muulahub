@@ -9,7 +9,7 @@ const stripe = require('stripe')(envfile.stripe_secret_key);
 
 const ADMIN_COMMISSION_PERCENT = parseFloat(process.env.ADMIN_COMMISSION || 15);
 
-const sendBookingNotification = async (userId, senderId, title, message, referenceId) => {
+const sendBookingNotification = async (userId, senderId, title, message, referenceId, extraData = {}) => {
   try {
     const user = await users.findOne({ where: { id: userId } });
     await notifications.create({ userId, senderId, title, message, type: 'booking', referenceId });
@@ -20,7 +20,10 @@ const sendBookingNotification = async (userId, senderId, title, message, referen
         body: message,
         type: 'booking',
         sender_id: senderId,
-        request_id: referenceId
+        request_id: referenceId,
+        booking_id: referenceId,
+        bookingId: referenceId,
+        ...extraData
       });
     }
   } catch (err) {
@@ -554,24 +557,23 @@ module.exports = {
       const customerName = (customerUser && customerUser.name) || req.auth.name || 'User';
       const providerName = (providerUser && providerUser.name) || 'Provider';
 
-      // Push to Provider
+      // Push to Provider (Provider App)
       await sendBookingNotification(
         booking.providerId,
         userId,
         'Booking Accepted',
-        // `Provider ${customerName} has accepted your booking request #${booking.bookingNumber}.`,
-        `You have accepted booking #${booking.bookingNumber} with ${customerName}.`,
-
-        booking.id
+        `${customerName} has accepted your quote for booking #${booking.bookingNumber}.`,
+        booking.id,
+        { role: 'provider', target: 'provider_app' }
       );
-      // Push to User
+      // Push to User (User App)
       await sendBookingNotification(
         userId,
         booking.providerId,
         'Booking Accepted',
-        `Provider ${providerName} has accepted your booking request #${booking.bookingNumber}.`,
-        // `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
-        booking.id
+        `You have accepted booking #${booking.bookingNumber} with ${providerName}.`,
+        booking.id,
+        { role: 'user', target: 'user_app' }
       );
 
       return helper.success(res, 'Counter offer accepted successfully', booking);
