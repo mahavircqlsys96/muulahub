@@ -11,13 +11,22 @@ export const getCurrentUser = () => {
   }
 };
 
+export const isSubAdminUser = () => {
+  const user = getCurrentUser();
+  if (!user) return false;
+  if (user.isSubAdmin === 1 || user.isSubAdmin === true || user.isSubAdmin === '1') return true;
+  if (user.roleSlug && user.roleSlug !== 'super_admin') return true;
+  if (user.adminRoleSlug && user.adminRoleSlug !== 'super_admin') return true;
+  if (localStorage.getItem('portalType') === 'subadmin') return true;
+  if (Array.isArray(user.permissions) && !user.permissions.includes('*')) return true;
+  return false;
+};
+
 export const isSuperAdminUser = () => {
   const user = getCurrentUser();
   if (!user) return false;
-  // Super Admin if not sub-admin or explicitly has super_admin roleSlug
-  const isSubAdmin = Boolean(user.isSubAdmin);
-  const roleSlug = user.roleSlug || user.adminRoleSlug;
-  return (!isSubAdmin && user.role === 'admin') || roleSlug === 'super_admin';
+  if (isSubAdminUser()) return false;
+  return user.role === 'admin';
 };
 
 export const checkUserPermission = (moduleName, action = 'view') => {

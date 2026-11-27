@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { isSuperAdminUser } from "../utils/permissions";
+import { isSuperAdminUser, isSubAdminUser } from "../utils/permissions";
 
 const menuSections = [
   {
@@ -86,48 +86,50 @@ const Sidebar = ({ handleLinkClick, isCollapsed }) => {
   }
 
   // Filter menu sections by subadmin permissions
-  const visibleSections = menuSections.map((section) => {
-    // If section is marked superAdminOnly and user is not superadmin, hide entire section
-    if (section.superAdminOnly && !isSuperAdmin) {
-      return { ...section, items: [] };
-    }
-
-    const visibleItems = section.items.filter((item) => {
-      // Super Admin sees all modules without restriction
-      if (isSuperAdmin) return true;
-
-      // Sub-Admins: Strictly NEVER show subadmins, roles, or CMS tables
-      if (
-        item.superAdminOnly ||
-        item.to === "/subadmins" ||
-        item.to === "/roles" ||
-        item.to.startsWith("/cms") ||
-        section.label === "CMS PAGES"
-      ) {
+  const visibleSections = menuSections
+    .filter((section) => {
+      // If user is subadmin, NEVER show CMS PAGES section
+      if (!isSuperAdmin && (section.superAdminOnly || section.label === "CMS PAGES")) {
         return false;
       }
+      return true;
+    })
+    .map((section) => {
+      const visibleItems = section.items.filter((item) => {
+        // Sub-Admins: Strictly NEVER show subadmins, roles, or CMS tables
+        if (!isSuperAdmin) {
+          if (
+            item.superAdminOnly ||
+            item.to === "/subadmins" ||
+            item.to === "/roles" ||
+            item.to.startsWith("/cms")
+          ) {
+            return false;
+          }
+        }
 
-      // Sub-Admins: ONLY show modules that are explicitly in their permissions!
-      if (!isSubAdmin) return false;
+        // Super Admin sees all modules without restriction
+        if (isSuperAdmin) return true;
 
-      // Wildcard full access
-      if (userPermissions.includes('*')) return true;
+        // Sub-Admins: ONLY show modules that are explicitly in their permissions!
+        if (!isSubAdmin) return false;
 
-      // Check explicit item permission (e.g. "posts:view")
-      if (item.permission && userPermissions.includes(item.permission)) return true;
+        // Check explicit item permission (e.g. "posts:view")
+        if (item.permission && userPermissions.includes(item.permission)) return true;
 
-      // Check module-level wildcard or any action granted in that module (e.g. "posts:*", "posts:add", "posts:edit")
-      if (item.permission) {
-        const [mod] = item.permission.split(':');
-        if (userPermissions.includes(`${mod}:*`)) return true;
-        if (userPermissions.includes(mod)) return true;
-        if (userPermissions.some(p => p.startsWith(`${mod}:`))) return true;
-      }
+        // Check module-level wildcard or any action granted in that module (e.g. "posts:*", "posts:add", "posts:edit")
+        if (item.permission) {
+          const [mod] = item.permission.split(':');
+          if (userPermissions.includes(`${mod}:*`)) return true;
+          if (userPermissions.includes(mod)) return true;
+          if (userPermissions.some(p => p.startsWith(`${mod}:`))) return true;
+        }
 
-      return false;
-    });
-    return { ...section, items: visibleItems };
-  }).filter((section) => section.items.length > 0);
+        return false;
+      });
+      return { ...section, items: visibleItems };
+    })
+    .filter((section) => section.items.length > 0);
 
   const renderNavItem = ({ to, label, icon, activePaths = [] }) => (
     <li key={to} style={{ margin: "2px 8px" }}>

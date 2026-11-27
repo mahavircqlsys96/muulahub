@@ -22,7 +22,7 @@ const ROLE_COLORS = {
   analyst: { bg: '#f1f5f9', color: '#334155' },
 };
 
-// 12 Standard Modules defined in Specification
+// Standard Modules assignable to Sub-Admins
 const MAIN_MODULES = [
   { key: 'users', label: 'Users', icon: 'people' },
   { key: 'categories', label: 'Service Categories', icon: 'category' },
@@ -30,8 +30,6 @@ const MAIN_MODULES = [
   { key: 'payments', label: 'Payments', icon: 'payments' },
   { key: 'withdrawals', label: 'Withdrawals', icon: 'account_balance_wallet' },
   { key: 'wallets', label: 'Wallets', icon: 'account_balance' },
-  { key: 'subadmins', label: 'Sub-Admins', icon: 'admin_panel_settings', superAdminOnlyActions: ['add', 'edit', 'delete'] },
-  { key: 'roles', label: 'Roles & Permissions', icon: 'security', superAdminOnlyActions: ['add', 'edit', 'delete'] },
 ];
 
 const CONTENT_MODULES = [
