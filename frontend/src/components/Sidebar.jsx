@@ -21,8 +21,8 @@ const menuSections = [
       { to: "/payments", label: "Payments", icon: "payments", permission: "payments:view" },
       { to: "/withdrawals", label: "Withdrawals", icon: "account_balance_wallet", permission: "withdrawals:view" },
       { to: "/wallets", label: "Wallets", icon: "account_balance", permission: "wallets:view" },
-      { to: "/subadmins", label: "Sub-Admins", icon: "admin_panel_settings", permission: "subadmins:view", superAdminOnly: true },
-      { to: "/roles", label: "Roles & Permissions", icon: "security", permission: "roles:view", superAdminOnly: true },
+      // { to: "/subadmins", label: "Sub-Admins", icon: "admin_panel_settings", permission: "subadmins:view", superAdminOnly: true },
+      // { to: "/roles", label: "Roles & Permissions", icon: "security", permission: "roles:view", superAdminOnly: true },
       // { to: "/locations", label: "Locations", icon: "public" },
       // { to: "/fraud-monitoring", label: "Fraud Monitoring", icon: "security" },
     ]
@@ -37,17 +37,17 @@ const menuSections = [
       { to: "/support-tickets", label: "Support Tickets", icon: "confirmation_number", activePaths: ["/support-tickets/"], permission: "support:view" },
     ]
   },
-  {
-    label: "CMS PAGES",
-    superAdminOnly: true,
-    items: [
-      { to: "/cms/about-us", label: "About Us", icon: "info", permission: "cms:view", superAdminOnly: true },
-      { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip", permission: "cms:view", superAdminOnly: true },
-      { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel", permission: "cms:view", superAdminOnly: true },
-      { to: "/cms/faqs", label: "FAQs", icon: "help_outline", permission: "cms:view", superAdminOnly: true },
-      { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule", permission: "cms:view", superAdminOnly: true }
-    ]
-  },
+  // {
+  //   label: "CMS PAGES",
+  //   superAdminOnly: true,
+  //   items: [
+  //     { to: "/cms/about-us", label: "About Us", icon: "info", permission: "cms:view", superAdminOnly: true },
+  //     { to: "/cms/privacy", label: "Privacy Policy", icon: "privacy_tip", permission: "cms:view", superAdminOnly: true },
+  //     { to: "/cms/terms", label: "Terms & Conditions", icon: "gavel", permission: "cms:view", superAdminOnly: true },
+  //     { to: "/cms/faqs", label: "FAQs", icon: "help_outline", permission: "cms:view", superAdminOnly: true },
+  //     { to: "/cms/community-guidelines", label: "Community Guidelines", icon: "rule", permission: "cms:view", superAdminOnly: true }
+  //   ]
+  // },
   // {
   //   label: "MARKETING",
   //   items: [
