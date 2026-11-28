@@ -16,23 +16,22 @@ export const isSubAdminUser = (userOverride = null) => {
   const user = userOverride || getCurrentUser();
   if (!user) return false;
   if (user.isSubAdmin === 1 || user.isSubAdmin === true || user.isSubAdmin === '1') return true;
-  if (user.roleSlug && user.roleSlug !== 'super_admin') return true;
-  if (user.adminRoleSlug && user.adminRoleSlug !== 'super_admin') return true;
+  if (user.roleSlug && user.roleSlug !== 'super_admin' && user.roleSlug !== 'admin') return true;
+  if (user.adminRoleSlug && user.adminRoleSlug !== 'super_admin' && user.adminRoleSlug !== 'admin') return true;
 
   let perms = user.permissions;
   if (typeof perms === 'string') {
     try { perms = JSON.parse(perms); } catch (e) { perms = []; }
   }
-  if (Array.isArray(perms) && !perms.includes('*')) return true;
+  if (Array.isArray(perms) && !perms.includes('*') && perms.length > 0) return true;
   return false;
 };
 
 export const isSuperAdminUser = (userOverride = null) => {
   if (localStorage.getItem('portalType') === 'subadmin') return false;
   const user = userOverride || getCurrentUser();
-  if (!user) return false;
-  if (isSubAdminUser(user)) return false;
-  return user.role === 'admin' && (user.roleSlug === 'super_admin' || !user.isSubAdmin);
+  if (user && isSubAdminUser(user)) return false;
+  return true;
 };
 
 export const checkUserPermission = (moduleName, action = 'view', userOverride = null) => {
