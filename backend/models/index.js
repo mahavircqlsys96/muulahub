@@ -84,4 +84,49 @@ sequelize.query("ALTER TABLE `users` ADD COLUMN `licenseSubmittedAt` DATETIME NU
 // Ensure counterStatus on bookings supports pending, accepted, reject, rejected, and cancelled safely
 sequelize.query("ALTER TABLE `bookings` MODIFY COLUMN `counterStatus` ENUM('pending', 'accepted', 'reject', 'rejected', 'cancelled') DEFAULT 'pending'").catch(() => {});
 
+// Ensure support_tickets table exists safely
+sequelize.query(`
+  CREATE TABLE IF NOT EXISTS \`support_tickets\` (
+    \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    \`userId\` BIGINT NOT NULL,
+    \`ticketNumber\` VARCHAR(50) NOT NULL UNIQUE,
+    \`subject\` VARCHAR(255) NOT NULL,
+    \`description\` TEXT NOT NULL,
+    \`status\` ENUM('Pending', 'Resolved', 'Rejected') NOT NULL DEFAULT 'Pending',
+    \`adminRemark\` TEXT NULL,
+    \`resolvedAt\` DATETIME NULL,
+    \`rejectedAt\` DATETIME NULL,
+    \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX \`idx_support_tickets_userId\` (\`userId\`),
+    INDEX \`idx_support_tickets_status\` (\`status\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`).catch(() => {});
+
+// Ensure phone_verifications table exists safely
+sequelize.query(`
+  CREATE TABLE IF NOT EXISTS \`phone_verifications\` (
+    \`id\` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    \`userId\` BIGINT NOT NULL,
+    \`sessionToken\` VARCHAR(255) NOT NULL UNIQUE,
+    \`step\` ENUM('old_phone_pending', 'old_phone_verified', 'new_phone_pending', 'completed') NOT NULL DEFAULT 'old_phone_pending',
+    \`oldPhone\` VARCHAR(50) NULL,
+    \`oldCountryCode\` VARCHAR(10) NULL,
+    \`oldOtp\` VARCHAR(10) NULL,
+    \`oldOtpExpiresAt\` DATETIME NULL,
+    \`oldOtpAttempts\` INT DEFAULT 0,
+    \`oldOtpLastSentAt\` DATETIME NULL,
+    \`newPhone\` VARCHAR(50) NULL,
+    \`newCountryCode\` VARCHAR(10) NULL,
+    \`newOtp\` VARCHAR(10) NULL,
+    \`newOtpExpiresAt\` DATETIME NULL,
+    \`newOtpAttempts\` INT DEFAULT 0,
+    \`newOtpLastSentAt\` DATETIME NULL,
+    \`expiresAt\` DATETIME NOT NULL,
+    \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX \`idx_phone_verifications_userId\` (\`userId\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`).catch(() => {});
+
 module.exports = db;

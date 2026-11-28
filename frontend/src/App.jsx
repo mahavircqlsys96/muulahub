@@ -30,6 +30,8 @@ const UsersView = lazy(() => import("./pages/users/UsersView"));
 
 const ContactUs = lazy(() => import("./pages/contactUs/ContactUs"));
 const ViewContactUs = lazy(() => import("./pages/contactUs/ViewContactUs"));
+const SupportTicketsList = lazy(() => import("./pages/supportTickets/SupportTicketsList"));
+const SupportTicketDetail = lazy(() => import("./pages/supportTickets/SupportTicketDetail"));
 
 const ProvidersList = lazy(() => import("./pages/providers/ProvidersList"));
 const ProviderVerification = lazy(() => import("./pages/providers/ProviderVerification"));
@@ -97,6 +99,9 @@ const App = () => {
 
             <Route path="/contactUs" element={<PrivateRoute element={<ContactUs />} permission="support:view" moduleName="Support" />} />
             <Route path="/viewContactUs/:id" element={<PrivateRoute element={<ViewContactUs />} permission="support:view" moduleName="Support" />} />
+
+            <Route path="/support-tickets" element={<PrivateRoute element={<SupportTicketsList />} permission="support:view" moduleName="Support Tickets" />} />
+            <Route path="/support-tickets/:id" element={<PrivateRoute element={<SupportTicketDetail />} permission="support:view" moduleName="Support Tickets" />} />
 
             <Route path="/providers" element={<PrivateRoute element={<ProvidersList />} permission="users:view" moduleName="Providers" />} />
             <Route path="/providers/:id/verification" element={<PrivateRoute element={<ProviderVerification />} permission="users:view" moduleName="Providers" />} />

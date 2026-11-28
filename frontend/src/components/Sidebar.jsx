@@ -34,6 +34,7 @@ const menuSections = [
       { to: "/reports", label: "Reports", icon: "flag", permission: "reports:view" },
       { to: "/notifications", label: "Notifications", icon: "notifications", permission: "notifications:view" },
       { to: "/contactUs", label: "Support", icon: "support_agent", activePaths: ["/viewContactUs"], permission: "support:view" },
+      { to: "/support-tickets", label: "Support Tickets", icon: "confirmation_number", activePaths: ["/support-tickets/"], permission: "support:view" },
     ]
   },
   {

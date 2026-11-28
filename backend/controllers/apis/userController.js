@@ -1,4 +1,5 @@
 const envfile = process.env;
+const crypto = require('crypto');
 const helper = require('../../helpers/helper');
 const { Validator } = require('node-input-validator');
 const { Op, fn, col } = require('sequelize');
@@ -1311,6 +1312,426 @@ module.exports = {
     } catch (error) {
       console.error("getLicenseStatus error:", error);
       return helper.error(res, "Failed to retrieve license status: " + error.message);
+    }
+  },
+
+  /**
+   * ========================================================
+   * FEATURE 1: UPDATE PHONE NUMBER WITH TWO-STEP OTP VERIFICATION
+   * ========================================================
+   */
+
+  /**
+   * Step 1: Send OTP to current registered (old) phone number
+   */
+  sendOldPhoneOtp: async (req, res) => {
+    try {
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
+      if (!userId) return helper.unauthorized(res, "Authentication required.");
+
+      const user = await users.findOne({ where: { id: userId, deletedAt: null } });
+      if (!user) return helper.failed(res, "User not found.");
+
+      if (!user.phone) {
+        return helper.failed(res, "No phone number is registered with your account.");
+      }
+
+      const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+      const now = new Date();
+
+      // Check if an active session exists
+      let session = await phoneVerifications.findOne({
+        where: {
+          userId: user.id,
+          step: { [Op.in]: ['old_phone_pending', 'old_phone_verified', 'new_phone_pending'] },
+          expiresAt: { [Op.gt]: now }
+        }
+      });
+
+      // Cooldown check (60 seconds)
+      if (session && session.oldOtpLastSentAt && (now.getTime() - new Date(session.oldOtpLastSentAt).getTime()) < 60000) {
+        const remainingSec = Math.ceil((60000 - (now.getTime() - new Date(session.oldOtpLastSentAt).getTime())) / 1000);
+        return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
+      }
+
+      // Generate 4-digit OTP
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+      const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes overall
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+
+      if (session) {
+        await session.update({
+          sessionToken,
+          step: 'old_phone_pending',
+          oldPhone: user.phone,
+          oldCountryCode: user.countryCode || '',
+          oldOtp: otp,
+          oldOtpExpiresAt: otpExpiresAt,
+          oldOtpAttempts: 0,
+          oldOtpLastSentAt: now,
+          newPhone: null,
+          newCountryCode: null,
+          newOtp: null,
+          newOtpExpiresAt: null,
+          newOtpAttempts: 0,
+          expiresAt: sessionExpiresAt
+        });
+      } else {
+        session = await phoneVerifications.create({
+          userId: user.id,
+          sessionToken,
+          step: 'old_phone_pending',
+          oldPhone: user.phone,
+          oldCountryCode: user.countryCode || '',
+          oldOtp: otp,
+          oldOtpExpiresAt: otpExpiresAt,
+          oldOtpAttempts: 0,
+          oldOtpLastSentAt: now,
+          expiresAt: sessionExpiresAt
+        });
+      }
+
+      // Send OTP via Twilio
+      const fullPhone = `${user.countryCode || ''}${user.phone}`;
+      await helper.sendPhoneOtp(fullPhone, otp);
+
+      // Mask phone for user response (e.g., +1 ********45)
+      const rawPhone = String(user.phone);
+      const masked = (user.countryCode ? user.countryCode + ' ' : '') +
+        (rawPhone.length > 4 ? rawPhone.slice(0, 2) + '*'.repeat(Math.max(0, rawPhone.length - 4)) + rawPhone.slice(-2) : '****');
+
+      return helper.success(res, "OTP has been sent to your registered phone number.", {
+        verificationSessionToken: sessionToken,
+        maskedPhone: masked,
+        expiresIn: 300,
+        step: "old_phone_pending"
+      });
+    } catch (error) {
+      console.error("sendOldPhoneOtp error:", error);
+      return helper.error(res, "Failed to send OTP to registered phone number: " + error.message);
+    }
+  },
+
+  /**
+   * Step 1.2: Verify OTP for old phone number
+   */
+  verifyOldPhoneOtp: async (req, res) => {
+    try {
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
+      if (!userId) return helper.unauthorized(res, "Authentication required.");
+
+      const { otp, verificationSessionToken } = req.body;
+      if (!otp) return helper.failed(res, "OTP is required.");
+      if (!verificationSessionToken) return helper.failed(res, "Verification session token is required.");
+
+      const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+      const session = await phoneVerifications.findOne({
+        where: {
+          sessionToken: verificationSessionToken,
+          userId: userId
+        }
+      });
+
+      if (!session) {
+        return helper.unauthorized(res, "Invalid or expired verification session.");
+      }
+
+      if (session.step !== 'old_phone_pending') {
+        return helper.failed(res, "Invalid step for this verification session.");
+      }
+
+      const now = new Date();
+      if (now > new Date(session.expiresAt) || now > new Date(session.oldOtpExpiresAt)) {
+        return helper.failed(res, "OTP has expired. Please request a new OTP.");
+      }
+
+      // Max attempts check (5 attempts)
+      if (session.oldOtpAttempts >= 5) {
+        await session.destroy();
+        return helper.failed(res, "Too many failed attempts. Please restart phone verification.");
+      }
+
+      if (String(session.oldOtp).trim() !== String(otp).trim()) {
+        await session.increment('oldOtpAttempts');
+        const remaining = 5 - (session.oldOtpAttempts + 1);
+        return helper.failed(res, remaining > 0 ? `Incorrect OTP. ${remaining} attempt(s) remaining.` : "Too many failed attempts. Session closed.");
+      }
+
+      // Verified successfully! Advance step to old_phone_verified
+      await session.update({
+        step: 'old_phone_verified',
+        oldOtp: null,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+
+      return helper.success(res, "Old phone number verified successfully. Please enter your new phone number.", {
+        verificationSessionToken: session.sessionToken,
+        step: "old_phone_verified"
+      });
+    } catch (error) {
+      console.error("verifyOldPhoneOtp error:", error);
+      return helper.error(res, "Failed to verify old phone OTP: " + error.message);
+    }
+  },
+
+  /**
+   * Step 2: Send OTP to new phone number
+   */
+  sendNewPhoneOtp: async (req, res) => {
+    try {
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
+      if (!userId) return helper.unauthorized(res, "Authentication required.");
+
+      const { newPhone, countryCode, verificationSessionToken } = req.body;
+      if (!newPhone) return helper.failed(res, "New phone number is required.");
+      if (!countryCode) return helper.failed(res, "Country code is required.");
+      if (!verificationSessionToken) return helper.failed(res, "Verification session token is required.");
+
+      const cleanPhone = String(newPhone).replace(/[^0-9]/g, '');
+      const cleanCountryCode = String(countryCode).trim();
+
+      if (cleanPhone.length < 7 || cleanPhone.length > 15) {
+        return helper.failed(res, "Please enter a valid phone number (7-15 digits).");
+      }
+
+      const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+      const session = await phoneVerifications.findOne({
+        where: {
+          sessionToken: verificationSessionToken,
+          userId: userId
+        }
+      });
+
+      if (!session) {
+        return helper.unauthorized(res, "Invalid or expired verification session.");
+      }
+
+      if (!['old_phone_verified', 'new_phone_pending'].includes(session.step)) {
+        return helper.failed(res, "Please verify your old phone number before entering a new one.");
+      }
+
+      const now = new Date();
+      if (now > new Date(session.expiresAt)) {
+        await session.destroy();
+        return helper.failed(res, "Verification session has expired. Please start again.");
+      }
+
+      // Ensure new phone is not identical to current phone
+      if (session.oldPhone === cleanPhone && session.oldCountryCode === cleanCountryCode) {
+        return helper.failed(res, "New phone number cannot be the same as your current registered phone number.");
+      }
+
+      // Check uniqueness in users table
+      const duplicateUser = await users.findOne({
+        where: {
+          phone: cleanPhone,
+          deletedAt: null,
+          id: { [Op.ne]: userId }
+        }
+      });
+
+      if (duplicateUser) {
+        return helper.failed(res, "This phone number is already registered with another account.");
+      }
+
+      // Cooldown check (60s)
+      if (session.step === 'new_phone_pending' && session.newOtpLastSentAt && (now.getTime() - new Date(session.newOtpLastSentAt).getTime()) < 60000) {
+        const remainingSec = Math.ceil((60000 - (now.getTime() - new Date(session.newOtpLastSentAt).getTime())) / 1000);
+        return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
+      }
+
+      // Generate 4-digit OTP for new number
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+      await session.update({
+        step: 'new_phone_pending',
+        newPhone: cleanPhone,
+        newCountryCode: cleanCountryCode,
+        newOtp: otp,
+        newOtpExpiresAt: otpExpiresAt,
+        newOtpAttempts: 0,
+        newOtpLastSentAt: now,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+
+      // Send OTP to new phone number
+      const fullPhone = `${cleanCountryCode}${cleanPhone}`;
+      await helper.sendPhoneOtp(fullPhone, otp);
+
+      return helper.success(res, "OTP has been sent to your new phone number.", {
+        verificationSessionToken: session.sessionToken,
+        expiresIn: 300,
+        step: "new_phone_pending"
+      });
+    } catch (error) {
+      console.error("sendNewPhoneOtp error:", error);
+      return helper.error(res, "Failed to send OTP to new phone number: " + error.message);
+    }
+  },
+
+  /**
+   * Step 3: Verify OTP for new phone number and update database
+   */
+  verifyNewPhoneOtp: async (req, res) => {
+    try {
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
+      if (!userId) return helper.unauthorized(res, "Authentication required.");
+
+      const { otp, verificationSessionToken } = req.body;
+      if (!otp) return helper.failed(res, "OTP is required.");
+      if (!verificationSessionToken) return helper.failed(res, "Verification session token is required.");
+
+      const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+      const session = await phoneVerifications.findOne({
+        where: {
+          sessionToken: verificationSessionToken,
+          userId: userId
+        }
+      });
+
+      if (!session) {
+        return helper.unauthorized(res, "Invalid or expired verification session.");
+      }
+
+      if (session.step !== 'new_phone_pending') {
+        return helper.failed(res, "Invalid step for this verification session.");
+      }
+
+      const now = new Date();
+      if (now > new Date(session.expiresAt) || now > new Date(session.newOtpExpiresAt)) {
+        return helper.failed(res, "OTP has expired. Please request a new OTP.");
+      }
+
+      // Max attempts check (5 attempts)
+      if (session.newOtpAttempts >= 5) {
+        await session.destroy();
+        return helper.failed(res, "Too many failed attempts. Please restart phone verification.");
+      }
+
+      if (String(session.newOtp).trim() !== String(otp).trim()) {
+        await session.increment('newOtpAttempts');
+        const remaining = 5 - (session.newOtpAttempts + 1);
+        return helper.failed(res, remaining > 0 ? `Incorrect OTP. ${remaining} attempt(s) remaining.` : "Too many failed attempts. Session closed.");
+      }
+
+      // Final uniqueness check before mutating user record
+      const duplicateUser = await users.findOne({
+        where: {
+          phone: session.newPhone,
+          deletedAt: null,
+          id: { [Op.ne]: userId }
+        }
+      });
+      if (duplicateUser) {
+        await session.destroy();
+        return helper.failed(res, "This phone number is already registered with another account.");
+      }
+
+      // Update user's registered phone number & country code
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) return helper.failed(res, "User not found.");
+
+      await user.update({
+        phone: session.newPhone,
+        countryCode: session.newCountryCode,
+        otpVerify: 'verified'
+      });
+
+      // Invalidate the session
+      await session.destroy();
+
+      return helper.success(res, "Phone number updated successfully.", {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        countryCode: user.countryCode,
+        isApproved: user.isApproved,
+        isVerified: user.isVerified
+      });
+    } catch (error) {
+      console.error("verifyNewPhoneOtp error:", error);
+      return helper.error(res, "Failed to verify new phone OTP: " + error.message);
+    }
+  },
+
+  /**
+   * Resend OTP for old or new phone number with cooldown
+   */
+  resendPhoneOtp: async (req, res) => {
+    try {
+      const userId = (req.auth && req.auth.id) || (req.user && req.user.id);
+      if (!userId) return helper.unauthorized(res, "Authentication required.");
+
+      const { verificationSessionToken, type } = req.body;
+      if (!verificationSessionToken) return helper.failed(res, "Verification session token is required.");
+
+      const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+      const session = await phoneVerifications.findOne({
+        where: {
+          sessionToken: verificationSessionToken,
+          userId: userId
+        }
+      });
+
+      if (!session) {
+        return helper.unauthorized(res, "Invalid or expired verification session.");
+      }
+
+      const now = new Date();
+      if (now > new Date(session.expiresAt)) {
+        await session.destroy();
+        return helper.failed(res, "Verification session has expired. Please restart.");
+      }
+
+      const isNew = type === 'new' || session.step === 'new_phone_pending';
+      const lastSent = isNew ? session.newOtpLastSentAt : session.oldOtpLastSentAt;
+
+      // Cooldown check (60s)
+      if (lastSent && (now.getTime() - new Date(lastSent).getTime()) < 60000) {
+        const remainingSec = Math.ceil((60000 - (now.getTime() - new Date(lastSent).getTime())) / 1000);
+        return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
+      }
+
+      // Generate new 4-digit OTP
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      if (isNew) {
+        if (!session.newPhone) {
+          return helper.failed(res, "New phone number is not set. Please provide new phone number first.");
+        }
+        await session.update({
+          newOtp: otp,
+          newOtpExpiresAt: otpExpiresAt,
+          newOtpAttempts: 0,
+          newOtpLastSentAt: now
+        });
+        const fullPhone = `${session.newCountryCode || ''}${session.newPhone}`;
+        await helper.sendPhoneOtp(fullPhone, otp);
+        return helper.success(res, "OTP has been resent to your new phone number.", {
+          expiresIn: 300,
+          step: "new_phone_pending"
+        });
+      } else {
+        await session.update({
+          oldOtp: otp,
+          oldOtpExpiresAt: otpExpiresAt,
+          oldOtpAttempts: 0,
+          oldOtpLastSentAt: now
+        });
+        const fullPhone = `${session.oldCountryCode || ''}${session.oldPhone}`;
+        await helper.sendPhoneOtp(fullPhone, otp);
+        return helper.success(res, "OTP has been resent to your registered phone number.", {
+          expiresIn: 300,
+          step: "old_phone_pending"
+        });
+      }
+    } catch (error) {
+      console.error("resendPhoneOtp error:", error);
+      return helper.error(res, "Failed to resend OTP: " + error.message);
     }
   },
 

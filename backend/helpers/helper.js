@@ -570,6 +570,47 @@ module.exports = {
       throw error;
     }
   },
+  sendPhoneOtp: async (phoneNumber, otp) => {
+    try {
+      if (!phoneNumber) return false;
+      let cleanPhone = String(phoneNumber).replace(/\s+/g, "");
+      if (!cleanPhone.startsWith("+")) {
+        cleanPhone = "+" + cleanPhone;
+      }
+
+      // Try Twilio WhatsApp first
+      try {
+        const message = await client.messages.create({
+          from: "whatsapp:+14155238886",
+          to: `whatsapp:${cleanPhone}`,
+          body: `Your Muulahub verification code is ${otp}. Valid for 5 minutes. Do not share this OTP with anyone.`,
+        });
+        console.log("OTP sent via WhatsApp SID:", message?.sid);
+        return true;
+      } catch (waErr) {
+        console.log("Twilio WhatsApp failed, attempting SMS:", waErr.message);
+      }
+
+      // Try Twilio SMS
+      try {
+        const fromNumber = process.env.TWILIO_PHONE_NUMBER || "+14155238886";
+        const message = await client.messages.create({
+          from: fromNumber,
+          to: cleanPhone,
+          body: `Your Muulahub verification code is ${otp}. Valid for 5 minutes. Do not share this OTP with anyone.`,
+        });
+        console.log("OTP sent via SMS SID:", message?.sid);
+        return true;
+      } catch (smsErr) {
+        console.log("Twilio SMS failed:", smsErr.message);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("sendPhoneOtp Error:", err.message);
+      return false;
+    }
+  },
   deleteFileIfExists: (filePath) => {
     try {
       console.log('filepath', filePath)

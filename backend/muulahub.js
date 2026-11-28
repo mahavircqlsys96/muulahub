@@ -87,6 +87,8 @@ ROUTES MOUNT
 */
 app.use('/admin', AdminRouter);
 app.use('/mobile', apisRouter(io));
+app.use('/api/v1/admin', AdminRouter);
+app.use('/api/v1', apisRouter(io));
 
 require('./socket/socket')(io);
 

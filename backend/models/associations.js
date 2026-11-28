@@ -266,4 +266,18 @@ module.exports = (db) => {
     users.belongsTo(db.admin_roles, { foreignKey: 'adminRoleId', as: 'adminRole' });
     db.admin_roles.hasMany(users, { foreignKey: 'adminRoleId', as: 'subAdmins' });
   }
+
+  // Support Tickets <-> Users
+  const supportTickets = db.supportTickets || db.support_tickets;
+  if (supportTickets && users) {
+    supportTickets.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(supportTickets, { foreignKey: 'userId', as: 'supportTickets' });
+  }
+
+  // Phone Verifications <-> Users
+  const phoneVerifications = db.phoneVerifications || db.phone_verifications;
+  if (phoneVerifications && users) {
+    phoneVerifications.belongsTo(users, { foreignKey: 'userId', as: 'user' });
+    users.hasMany(phoneVerifications, { foreignKey: 'userId', as: 'phoneVerifications' });
+  }
 };

@@ -23,6 +23,7 @@ const faqController = require('../controllers/admin/faqController');
 const locationController = require('../controllers/admin/locationController');
 const fraudController = require('../controllers/admin/fraudController');
 const subAdminController = require('../controllers/admin/subAdminController');
+const supportTicketController = require('../controllers/admin/supportTicketController');
 const { requirePermission, requireSuperAdmin } = require('../middleware/rbacMiddleware');
 
 
@@ -163,6 +164,15 @@ router.put('/wallets/:id/freeze', requirePermission('wallets:adjust'), walletCon
 // Notifications
 router.post('/notifications/bulk', requirePermission('notifications:send'), notificationController.sendBulkNotification);
 router.get('/notifications', requirePermission('notifications:view'), notificationController.notificationList);
+
+// Support Tickets
+router.get('/ticketList', requirePermission('support:view'), supportTicketController.ticketList);
+router.get('/admin/ticketList', requirePermission('support:view'), supportTicketController.ticketList);
+router.get('/ticketDetail/:id', requirePermission('support:view'), supportTicketController.ticketDetail);
+router.get('/admin/ticketDetail/:id', requirePermission('support:view'), supportTicketController.ticketDetail);
+router.put('/updateTicketStatus/:id?', requirePermission('support:edit'), supportTicketController.updateTicketStatus);
+router.post('/updateTicketStatus', requirePermission('support:edit'), supportTicketController.updateTicketStatus);
+router.post('/admin/updateTicketStatus', requirePermission('support:edit'), supportTicketController.updateTicketStatus);
 
 // Fraud Monitoring
 router.get('/fraud-alerts', fraudController.getFraudAlerts);
