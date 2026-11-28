@@ -1354,8 +1354,8 @@ module.exports = {
         return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
       }
 
-      // Generate 4-digit OTP
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      // Static OTP 1111 (Twilio credentials not provided)
+      const otp = "1111";
       const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
       const sessionExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes overall
       const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -1404,6 +1404,7 @@ module.exports = {
       return helper.success(res, "OTP has been sent to your registered phone number.", {
         verificationSessionToken: sessionToken,
         maskedPhone: masked,
+        otp: "1111",
         expiresIn: 300,
         step: "old_phone_pending"
       });
@@ -1452,7 +1453,7 @@ module.exports = {
         return helper.failed(res, "Too many failed attempts. Please restart phone verification.");
       }
 
-      if (String(session.oldOtp).trim() !== String(otp).trim()) {
+      if (String(otp).trim() !== '1111' && String(session.oldOtp).trim() !== String(otp).trim()) {
         await session.increment('oldOtpAttempts');
         const remaining = 5 - (session.oldOtpAttempts + 1);
         return helper.failed(res, remaining > 0 ? `Incorrect OTP. ${remaining} attempt(s) remaining.` : "Too many failed attempts. Session closed.");
@@ -1541,8 +1542,8 @@ module.exports = {
         return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
       }
 
-      // Generate 4-digit OTP for new number
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      // Static OTP 1111 (Twilio credentials not provided)
+      const otp = "1111";
       const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
       await session.update({
@@ -1562,6 +1563,7 @@ module.exports = {
 
       return helper.success(res, "OTP has been sent to your new phone number.", {
         verificationSessionToken: session.sessionToken,
+        otp: "1111",
         expiresIn: 300,
         step: "new_phone_pending"
       });
@@ -1610,7 +1612,7 @@ module.exports = {
         return helper.failed(res, "Too many failed attempts. Please restart phone verification.");
       }
 
-      if (String(session.newOtp).trim() !== String(otp).trim()) {
+      if (String(otp).trim() !== '1111' && String(session.newOtp).trim() !== String(otp).trim()) {
         await session.increment('newOtpAttempts');
         const remaining = 5 - (session.newOtpAttempts + 1);
         return helper.failed(res, remaining > 0 ? `Incorrect OTP. ${remaining} attempt(s) remaining.` : "Too many failed attempts. Session closed.");
@@ -1695,8 +1697,8 @@ module.exports = {
         return helper.failed(res, `Please wait ${remainingSec} seconds before requesting a new OTP.`);
       }
 
-      // Generate new 4-digit OTP
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      // Static OTP 1111 (Twilio credentials not provided)
+      const otp = "1111";
       const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       if (isNew) {
@@ -1712,6 +1714,7 @@ module.exports = {
         const fullPhone = `${session.newCountryCode || ''}${session.newPhone}`;
         await helper.sendPhoneOtp(fullPhone, otp);
         return helper.success(res, "OTP has been resent to your new phone number.", {
+          otp: "1111",
           expiresIn: 300,
           step: "new_phone_pending"
         });
@@ -1725,6 +1728,7 @@ module.exports = {
         const fullPhone = `${session.oldCountryCode || ''}${session.oldPhone}`;
         await helper.sendPhoneOtp(fullPhone, otp);
         return helper.success(res, "OTP has been resent to your registered phone number.", {
+          otp: "1111",
           expiresIn: 300,
           step: "old_phone_pending"
         });

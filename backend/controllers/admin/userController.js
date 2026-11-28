@@ -459,13 +459,13 @@ module.exports = {
 
                     if (normalizedStatus === 'Approved') {
                         notifTitle = "License Verification Approved";
-                        notifBody = "Congratulations! Your driving license verification has been approved.";
+                        notifBody = "Congratulations! Your License Verification has been approved.";
                     } else if (normalizedStatus === 'Rejected') {
                         notifTitle = "License Verification Rejected";
-                        notifBody = `Your driving license verification was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`;
+                        notifBody = `Your License Verification was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`;
                     } else if (normalizedStatus === 'Pending') {
                         notifTitle = "License Verification Under Review";
-                        notifBody = "Your driving license verification is currently under review.";
+                        notifBody = "Your License Verification is currently under review.";
                     }
 
                     await helper.sendPushNotification({

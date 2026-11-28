@@ -120,23 +120,22 @@ module.exports = (io) => {
 
   // Feature 1: Update Phone Number with Two-Step OTP Verification
   router.post('/sendOldPhoneOtp', userController.sendOldPhoneOtp);
-  router.post('/api/v1/sendOldPhoneOtp', userController.sendOldPhoneOtp);
+
   router.post('/verifyOldPhoneOtp', userController.verifyOldPhoneOtp);
-  router.post('/api/v1/verifyOldPhoneOtp', userController.verifyOldPhoneOtp);
+
   router.post('/sendNewPhoneOtp', userController.sendNewPhoneOtp);
-  router.post('/api/v1/sendNewPhoneOtp', userController.sendNewPhoneOtp);
   router.post('/verifyNewPhoneOtp', userController.verifyNewPhoneOtp);
-  router.post('/api/v1/verifyNewPhoneOtp', userController.verifyNewPhoneOtp);
+
   router.post('/resendPhoneOtp', userController.resendPhoneOtp);
-  router.post('/api/v1/resendPhoneOtp', userController.resendPhoneOtp);
+
 
   // Feature 2: Support Ticket System (Mobile User)
   router.post('/raiseTicket', supportTicketController.raiseTicket);
-  router.post('/api/v1/raiseTicket', supportTicketController.raiseTicket);
+
   router.get('/myTickets', supportTicketController.myTickets);
-  router.get('/api/v1/myTickets', supportTicketController.myTickets);
+
   router.get('/ticketDetail/:id', supportTicketController.ticketDetail);
-  router.get('/api/v1/ticketDetail/:id', supportTicketController.ticketDetail);
+
   // Provider
   router.post('/addProviderCategory', providerController.addProviderCategory);
   router.get('/getProviderInsights', providerController.getProviderInsights);

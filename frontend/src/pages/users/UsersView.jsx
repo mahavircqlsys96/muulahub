@@ -541,22 +541,22 @@ const UsersView = () => {
                           userDetails?.isApproved === 'Approved'
                             ? '#dcfce7'
                             : userDetails?.isApproved === 'Rejected'
-                            ? '#fee2e2'
-                            : '#fef3c7',
+                              ? '#fee2e2'
+                              : '#fef3c7',
                         color:
                           userDetails?.isApproved === 'Approved'
                             ? '#15803d'
                             : userDetails?.isApproved === 'Rejected'
-                            ? '#b91c1c'
-                            : '#b45309',
+                              ? '#b91c1c'
+                              : '#b45309',
                       }}
                     >
                       <i className="material-icons" style={{ fontSize: '15px' }}>
                         {userDetails?.isApproved === 'Approved'
                           ? 'check_circle'
                           : userDetails?.isApproved === 'Rejected'
-                          ? 'cancel'
-                          : 'hourglass_empty'}
+                            ? 'cancel'
+                            : 'hourglass_empty'}
                       </i>
                       {userDetails?.isApproved || 'Pending'}
                     </span>
@@ -627,18 +627,18 @@ const UsersView = () => {
                           userDetails?.loginType === 'google'
                             ? '#fee2e2'
                             : userDetails?.loginType === 'apple'
-                            ? '#f3f4f6'
-                            : userDetails?.loginType === 'facebook'
-                            ? '#dbeafe'
-                            : '#e0e7ff',
+                              ? '#f3f4f6'
+                              : userDetails?.loginType === 'facebook'
+                                ? '#dbeafe'
+                                : '#e0e7ff',
                         color:
                           userDetails?.loginType === 'google'
                             ? '#dc2626'
                             : userDetails?.loginType === 'apple'
-                            ? '#111827'
-                            : userDetails?.loginType === 'facebook'
-                            ? '#1d4ed8'
-                            : '#4338ca',
+                              ? '#111827'
+                              : userDetails?.loginType === 'facebook'
+                                ? '#1d4ed8'
+                                : '#4338ca',
                       }}
                     >
                       {userDetails?.loginType || 'email'}
@@ -763,8 +763,8 @@ const UsersView = () => {
                     {userDetails?.currency
                       ? `${getCurrencySymbol(userDetails.currency)}${Number(userDetails?.total_spent ?? 0).toFixed(2)}`
                       : userDetails?.total_spent !== undefined && userDetails?.total_spent !== null
-                      ? `${Number(userDetails.total_spent).toFixed(2)}`
-                      : '0.00'}
+                        ? `${Number(userDetails.total_spent).toFixed(2)}`
+                        : '0.00'}
                   </div>
                 </div>
 
@@ -843,7 +843,7 @@ const UsersView = () => {
         </TableCard>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* ── DRIVING LICENSE VERIFICATION CARD ── */}
+          {/* ── License Verification CARD ── */}
           <TableCard>
             <div
               style={{
@@ -860,7 +860,7 @@ const UsersView = () => {
                 <i className="material-icons" style={{ color: '#2563eb', fontSize: '22px' }}>
                   badge
                 </i>
-                <h3 style={sectionTitleStyle}>Driving License Verification</h3>
+                <h3 style={sectionTitleStyle}>License Verification</h3>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -877,22 +877,22 @@ const UsersView = () => {
                       userDetails?.isApproved === 'Approved'
                         ? '#dcfce7'
                         : userDetails?.isApproved === 'Rejected'
-                        ? '#fee2e2'
-                        : '#fef3c7',
+                          ? '#fee2e2'
+                          : '#fef3c7',
                     color:
                       userDetails?.isApproved === 'Approved'
                         ? '#15803d'
                         : userDetails?.isApproved === 'Rejected'
-                        ? '#b91c1c'
-                        : '#b45309',
+                          ? '#b91c1c'
+                          : '#b45309',
                   }}
                 >
                   <i className="material-icons" style={{ fontSize: '16px' }}>
                     {userDetails?.isApproved === 'Approved'
                       ? 'check_circle'
                       : userDetails?.isApproved === 'Rejected'
-                      ? 'cancel'
-                      : 'hourglass_empty'}
+                        ? 'cancel'
+                        : 'hourglass_empty'}
                   </i>
                   {userDetails?.isApproved || 'Pending'}
                 </span>
@@ -1276,8 +1276,8 @@ const UsersView = () => {
                         border: 'none',
                         background:
                           userDetails?.isVerified === 1 ||
-                          userDetails?.isVerified === true ||
-                          userDetails?.isVerified === '1'
+                            userDetails?.isVerified === true ||
+                            userDetails?.isVerified === '1'
                             ? '#4b5563'
                             : '#2563eb',
                         color: '#fff',
@@ -1293,8 +1293,8 @@ const UsersView = () => {
                         verified
                       </i>
                       {userDetails?.isVerified === 1 ||
-                      userDetails?.isVerified === true ||
-                      userDetails?.isVerified === '1'
+                        userDetails?.isVerified === true ||
+                        userDetails?.isVerified === '1'
                         ? 'Remove Blue Tick'
                         : 'Grant Blue Tick'}
                     </button>
