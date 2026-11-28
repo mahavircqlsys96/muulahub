@@ -28,8 +28,15 @@ export const contact_us_list = createAsyncThunk("fetch/contact_us_list", async (
   return response?.data?.body;
 });
 
-export const get_user_list = createAsyncThunk("fetch/get_user_list", async ({ page, limit, search, role }) => {
-  const response = await apiInstance.get(`/userList?page=${page}&limit=${limit}&search=${search}&role=${role}`);
+export const get_user_list = createAsyncThunk("fetch/get_user_list", async ({ page, limit, search, role, approvalStatus, verificationStatus }) => {
+  let url = `/userList?page=${page}&limit=${limit}&search=${encodeURIComponent(search || "")}&role=${role || "user"}`;
+  if (approvalStatus && approvalStatus !== 'all') {
+    url += `&approvalStatus=${encodeURIComponent(approvalStatus)}`;
+  }
+  if (verificationStatus !== undefined && verificationStatus !== null && verificationStatus !== 'all' && verificationStatus !== '') {
+    url += `&verificationStatus=${encodeURIComponent(verificationStatus)}`;
+  }
+  const response = await apiInstance.get(url);
   return response?.data?.body;
 });
 

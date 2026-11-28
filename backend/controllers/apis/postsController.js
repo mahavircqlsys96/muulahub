@@ -339,6 +339,7 @@ module.exports = {
               "name",
               "profileImage",
               "profileImageProvider",
+              "isVerified",
               [
                 db.sequelize.literal(`(
                   SELECT IFNULL(ROUND(AVG(rating),1),0)
@@ -466,6 +467,7 @@ module.exports = {
               "name",
               "profileImage",
               "profileImageProvider",
+              "isVerified",
             ],
           },
 
@@ -621,7 +623,7 @@ module.exports = {
               {
                 model: users,
                 as: "commenter",
-                attributes: ["id", "name", "profileImage", "profileImageProvider"],
+                attributes: ["id", "name", "profileImage", "profileImageProvider", "isVerified"],
               }
             ]
           }
@@ -664,7 +666,7 @@ module.exports = {
               ]
             ]
           },
-          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }],
           order: [['createdAt', 'ASC']]
         });
 
@@ -1038,7 +1040,7 @@ module.exports = {
             ]
           ]
         },
-        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }]
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }]
       });
 
       const responseComment = commentWithUser ? (commentWithUser.toJSON ? commentWithUser.toJSON() : commentWithUser) : {};
@@ -1096,7 +1098,7 @@ module.exports = {
             ]
           ]
         },
-        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }],
         order: [['createdAt', 'DESC']],
         limit,
         offset,
@@ -1133,7 +1135,7 @@ module.exports = {
               ]
             ]
           },
-          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+          include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }],
           order: [['createdAt', 'ASC']]
         });
 
@@ -1205,7 +1207,7 @@ module.exports = {
             ]
           ]
         },
-        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }],
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }],
         order: [['createdAt', 'ASC']],
         limit,
         offset,
@@ -1278,7 +1280,7 @@ module.exports = {
             ]
           ]
         },
-        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage'] }]
+        include: [{ model: users, as: 'commenter', attributes: ['id', 'name', 'profileImage', 'isVerified'] }]
       });
 
       return helper.success(res, 'Comment updated successfully', updated);
@@ -1514,7 +1516,7 @@ module.exports = {
           {
             model: users,
             as: "user",
-            attributes: ["id", "name", "profileImage", "profileImageProvider"],
+            attributes: ["id", "name", "profileImage", "profileImageProvider", "isVerified"],
           },
           {
             model: post_media,

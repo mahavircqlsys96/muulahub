@@ -543,6 +543,12 @@ module.exports = {
           "currency",
           "referralCode",
           "isProvider",
+          "isApproved",
+          "isVerified",
+          "licenseFront",
+          "licenseBack",
+          "licenseRejectionReason",
+          "licenseSubmittedAt",
           "latitude",
           "longitude",
           "location",
@@ -1212,6 +1218,12 @@ module.exports = {
           "currency",
           "referralCode",
           "isProvider",
+          "isApproved",
+          "isVerified",
+          "licenseFront",
+          "licenseBack",
+          "licenseRejectionReason",
+          "licenseSubmittedAt",
           [
             sequelize.literal(`(
               SELECT COUNT(*)

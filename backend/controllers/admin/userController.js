@@ -12,35 +12,49 @@ module.exports = {
         try {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
-            const search = req.query.search || '';
+            const search = (req.query.search || '').trim();
             const offset = (page - 1) * limit;
             let role = req.query.role || 'user';
 
-            let whereClause = { role, deletedAt: null };
+            const approvalFilter = req.query.isApproved || req.query.approvalStatus || req.query.licenseStatus;
+            const verificationFilter = req.query.isVerified !== undefined ? req.query.isVerified : (req.query.verificationStatus || req.query.blueTick);
+
+            let andConditions = [{ role, deletedAt: null }];
+
+            if (approvalFilter && approvalFilter !== 'all' && approvalFilter !== '') {
+                const normalized = approvalFilter.charAt(0).toUpperCase() + approvalFilter.slice(1).toLowerCase();
+                andConditions.push({ isApproved: normalized });
+            }
+
+            if (verificationFilter !== undefined && verificationFilter !== 'all' && verificationFilter !== '') {
+                if (verificationFilter === '1' || verificationFilter === 1 || verificationFilter === 'true' || verificationFilter === 'verified') {
+                    andConditions.push({ isVerified: 1 });
+                } else if (verificationFilter === '0' || verificationFilter === 0 || verificationFilter === 'false' || verificationFilter === 'unverified') {
+                    andConditions.push({ isVerified: 0 });
+                }
+            }
 
             if (search) {
-                whereClause = {
-                    [Op.and]: [
-                        { role },
-                        {
-                            [Op.or]: [
-                                { name: { [Op.like]: `%${search}%` } },
-                                { email: { [Op.like]: `%${search}%` } },
-
-                                Sequelize.where(
-                                    Sequelize.fn(
-                                        "CONCAT",
-                                        Sequelize.col("name"),
-                                        " ",
-
-                                    ),
-                                    { [Op.like]: `%${search}%` }
-                                ),
-                            ],
-                        },
-                    ],
-                };
+                andConditions.push({
+                    [Op.or]: [
+                        { name: { [Op.like]: `%${search}%` } },
+                        { email: { [Op.like]: `%${search}%` } },
+                        { phone: { [Op.like]: `%${search}%` } },
+                        { userName: { [Op.like]: `%${search}%` } },
+                        Sequelize.where(
+                            Sequelize.fn(
+                                "CONCAT",
+                                Sequelize.col("name"),
+                                " "
+                            ),
+                            { [Op.like]: `%${search}%` }
+                        )
+                    ]
+                });
             }
+
+            const whereClause = { [Op.and]: andConditions };
+
             const { count, rows: user_list } = await users.findAndCountAll({
                 where: whereClause,
                 limit,
@@ -403,6 +417,134 @@ module.exports = {
         } catch (error) {
             console.log(error)
             return helper.failed(res, 'Something went wrong')
+        }
+    },
+
+    /**
+     * Admin License Approval Action (Approve | Reject | Pending)
+     */
+    updateLicenseApproval: async (req, res) => {
+        try {
+            const targetId = req.params.id || req.body.id || req.body.userId;
+            const { status, rejectionReason } = req.body;
+
+            if (!targetId) {
+                return helper.failed(res, "User ID is required");
+            }
+
+            const validStatuses = ['Approved', 'Rejected', 'Pending', 'approved', 'rejected', 'pending'];
+            if (!status || !validStatuses.includes(status)) {
+                return helper.failed(res, "Valid status is required ('Approved', 'Rejected', or 'Pending')");
+            }
+
+            const normalizedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+            const user = await users.findOne({ where: { id: targetId } });
+            if (!user) {
+                return helper.failed(res, "User not found");
+            }
+
+            const updateData = {
+                isApproved: normalizedStatus,
+                licenseRejectionReason: normalizedStatus === 'Rejected' ? (rejectionReason || user.licenseRejectionReason || null) : null
+            };
+
+            await user.update(updateData);
+
+            // Send Push Notification
+            try {
+                if (user.deviceToken) {
+                    let notifTitle = "License Verification Update";
+                    let notifBody = `Your driving license status has been updated to ${normalizedStatus}.`;
+
+                    if (normalizedStatus === 'Approved') {
+                        notifTitle = "License Verification Approved";
+                        notifBody = "Congratulations! Your driving license verification has been approved.";
+                    } else if (normalizedStatus === 'Rejected') {
+                        notifTitle = "License Verification Rejected";
+                        notifBody = `Your driving license verification was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`;
+                    } else if (normalizedStatus === 'Pending') {
+                        notifTitle = "License Verification Under Review";
+                        notifBody = "Your driving license verification is currently under review.";
+                    }
+
+                    await helper.sendPushNotification({
+                        token: user.deviceToken,
+                        title: notifTitle,
+                        body: notifBody,
+                        type: "license_verification",
+                        sender_id: req.auth?.id || null
+                    });
+                }
+            } catch (pushErr) {
+                console.error("Push error on license update:", pushErr.message);
+            }
+
+            return helper.success(res, `License status updated to ${normalizedStatus} successfully`, {
+                id: user.id,
+                name: user.name,
+                isApproved: user.isApproved,
+                licenseRejectionReason: user.licenseRejectionReason
+            });
+        } catch (error) {
+            console.error("updateLicenseApproval error:", error);
+            return helper.failed(res, "Failed to update license status: " + error.message);
+        }
+    },
+
+    /**
+     * Admin Blue Tick Verification Action (Mark as Verified / Remove Verification)
+     */
+    updateBlueTickStatus: async (req, res) => {
+        try {
+            const targetId = req.params.id || req.body.id || req.body.userId;
+            const rawVerified = req.body.isVerified !== undefined ? req.body.isVerified : req.body.status;
+
+            if (!targetId) {
+                return helper.failed(res, "User ID is required");
+            }
+
+            const newVerifiedStatus = (rawVerified === 1 || rawVerified === '1' || rawVerified === true || rawVerified === 'verified') ? 1 : 0;
+
+            const user = await users.findOne({ where: { id: targetId } });
+            if (!user) {
+                return helper.failed(res, "User not found");
+            }
+
+            await user.update({ isVerified: newVerifiedStatus });
+
+            // Send Push Notification
+            try {
+                if (user.deviceToken) {
+                    const notifTitle = newVerifiedStatus === 1 ? "Verification Badge Granted" : "Verification Badge Updated";
+                    const notifBody = newVerifiedStatus === 1
+                        ? "Congratulations! Your profile has received the verified blue tick badge."
+                        : "Your verified blue tick badge has been removed.";
+
+                    await helper.sendPushNotification({
+                        token: user.deviceToken,
+                        title: notifTitle,
+                        body: notifBody,
+                        type: "blue_tick_verification",
+                        sender_id: req.auth?.id || null
+                    });
+                }
+            } catch (pushErr) {
+                console.error("Push error on blue tick update:", pushErr.message);
+            }
+
+            return helper.success(
+                res,
+                newVerifiedStatus === 1 ? "User verified with blue tick successfully" : "User blue tick verification removed successfully",
+                {
+                    id: user.id,
+                    name: user.name,
+                    isVerified: user.isVerified
+                }
+            );
+        } catch (error) {
+            console.error("updateBlueTickStatus error:", error);
+            return helper.failed(res, "Failed to update blue tick status: " + error.message);
         }
     },
     generateUserQR: async (req, res) => {

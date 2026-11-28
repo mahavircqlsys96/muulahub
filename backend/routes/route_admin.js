@@ -85,6 +85,10 @@ router.get('/viewUser/:id/:role', requirePermission('users:view'), userControlle
 router.get('/userCategories/:id', requirePermission('users:view'), userController.getUserCategories);
 router.put('/toggleUserStatus/:id', requirePermission('users:suspend'), userController.toggleUserStatus);
 router.put('/updateApprovalStatus', requirePermission('users:edit'), userController.updateApprovalStatus);
+router.put('/updateLicenseApproval/:id?', requirePermission('users:edit'), userController.updateLicenseApproval);
+router.post('/updateLicenseApproval', requirePermission('users:edit'), userController.updateLicenseApproval);
+router.put('/updateBlueTickStatus/:id?', requirePermission('users:edit'), userController.updateBlueTickStatus);
+router.post('/updateBlueTickStatus', requirePermission('users:edit'), userController.updateBlueTickStatus);
 router.delete('/deleteUser/:id', requirePermission('users:edit'), userController.deleteUser);
 router.put('/restoreUser/:id', requirePermission('users:reactivate'), userController.restoreUser);
 router.post('/generateUserQR', requirePermission('users:view'), userController.generateUserQR);

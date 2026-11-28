@@ -17,9 +17,11 @@ import {
 } from '../../components/common/PageTable';
 
 import { toast, ToastContainer } from 'react-toastify';
+import Swal from 'sweetalert2';
 import { imageBaseUrl } from '../../services/api';
 import { get_user_details } from '../../utils/thunkApis';
 import apiInstance from '../../utils/apiInstance';
+import { usePermissions } from '../../utils/permissions';
 
 const sectionTitleStyle = {
   margin: 0,
@@ -46,11 +48,14 @@ const UsersView = () => {
 
   const userDetails = useSelector((state) => state.users.userDetails);
   const role = 'user';
+  const { can } = usePermissions();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
   const [previewTitle, setPreviewTitle] = useState('');
+  const [licenseActionLoading, setLicenseActionLoading] = useState(false);
+  const [blueTickActionLoading, setBlueTickActionLoading] = useState(false);
 
   const limit = 5;
 
@@ -192,6 +197,91 @@ const UsersView = () => {
     }
   };
 
+  const handleToggleBlueTick = async () => {
+    const isCurrentlyVerified = userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1';
+    const nextStatus = isCurrentlyVerified ? 0 : 1;
+
+    const result = await Swal.fire({
+      title: isCurrentlyVerified ? 'Remove Blue Tick?' : 'Grant Verified Blue Tick?',
+      text: isCurrentlyVerified
+        ? `Are you sure you want to remove the verified badge from ${userDetails?.name || 'this user'}?`
+        : `Are you sure you want to grant the verified blue tick badge to ${userDetails?.name || 'this user'}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#9ca3af',
+      confirmButtonText: isCurrentlyVerified ? 'Yes, remove' : 'Yes, verify user'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setBlueTickActionLoading(true);
+      await apiInstance.put(`/updateBlueTickStatus/${id}`, { isVerified: nextStatus });
+      toast.success(nextStatus === 1 ? 'User verified with blue tick' : 'Blue tick verification removed');
+      fetchUserDetails();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update blue tick status');
+    } finally {
+      setBlueTickActionLoading(false);
+    }
+  };
+
+  const handleUpdateLicenseStatus = async (status) => {
+    let rejectionReason = null;
+
+    if (status === 'Rejected') {
+      const { value: text, isConfirmed } = await Swal.fire({
+        title: 'Reject Driving License',
+        input: 'textarea',
+        inputLabel: 'Rejection Reason (visible to user)',
+        inputPlaceholder: 'Please enter reason for rejection (e.g. Blurry photo, expired license)...',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#9ca3af',
+        confirmButtonText: 'Confirm Reject',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'Please enter a rejection reason.';
+          }
+        }
+      });
+
+      if (!isConfirmed) return;
+      rejectionReason = text ? text.trim() : '';
+    } else {
+      const confirmText = status === 'Approved'
+        ? `Are you sure you want to APPROVE the driving license for ${userDetails?.name || 'this user'}?`
+        : `Are you sure you want to reset the license status to PENDING?`;
+
+      const result = await Swal.fire({
+        title: `${status} License?`,
+        text: confirmText,
+        icon: status === 'Approved' ? 'success' : 'question',
+        showCancelButton: true,
+        confirmButtonColor: status === 'Approved' ? '#16a34a' : '#d97706',
+        cancelButtonColor: '#9ca3af',
+        confirmButtonText: `Yes, ${status}`
+      });
+
+      if (!result.isConfirmed) return;
+    }
+
+    try {
+      setLicenseActionLoading(true);
+      await apiInstance.put(`/updateLicenseApproval/${id}`, {
+        status,
+        rejectionReason
+      });
+      toast.success(`License status updated to ${status}`);
+      fetchUserDetails();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update license approval status');
+    } finally {
+      setLicenseActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
     fetchBookings();
@@ -313,9 +403,22 @@ const UsersView = () => {
                     fontSize: '22px',
                     fontWeight: '700',
                     color: '#111827',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
                   }}
                 >
-                  {userDetails?.name || '—'}
+                  <span>{userDetails?.name || '—'}</span>
+                  {(userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1') && (
+                    <i
+                      className="material-icons"
+                      style={{ fontSize: '22px', color: '#2563eb' }}
+                      title="Verified User (Blue Tick)"
+                    >
+                      verified
+                    </i>
+                  )}
                 </h3>
 
                 <div style={{ color: '#6b7280', fontSize: '14px' }}>
@@ -330,6 +433,147 @@ const UsersView = () => {
                   gap: '16px',
                 }}
               >
+                <div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#9ca3af',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Verified Badge (Blue Tick)
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        background:
+                          userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                            ? '#eff6ff'
+                            : '#f9fafb',
+                        color:
+                          userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                            ? '#1d4ed8'
+                            : '#6b7280',
+                        border:
+                          userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                            ? '1px solid #bfdbfe'
+                            : '1px solid #e5e7eb',
+                      }}
+                    >
+                      <i
+                        className="material-icons"
+                        style={{
+                          fontSize: '15px',
+                          color:
+                            userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                              ? '#2563eb'
+                              : '#9ca3af',
+                        }}
+                      >
+                        {userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                          ? 'verified'
+                          : 'radio_button_unchecked'}
+                      </i>
+                      {userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                        ? 'Verified'
+                        : 'Not Verified'}
+                    </span>
+
+                    {can('users', 'edit') && (
+                      <button
+                        type="button"
+                        disabled={blueTickActionLoading}
+                        onClick={handleToggleBlueTick}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #d1d5db',
+                          background: '#fff',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          color: '#374151',
+                        }}
+                      >
+                        {userDetails?.isVerified === 1 || userDetails?.isVerified === true || userDetails?.isVerified === '1'
+                          ? 'Remove'
+                          : 'Verify'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#9ca3af',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    License Approval Status
+                  </div>
+                  <div>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        background:
+                          userDetails?.isApproved === 'Approved'
+                            ? '#dcfce7'
+                            : userDetails?.isApproved === 'Rejected'
+                            ? '#fee2e2'
+                            : '#fef3c7',
+                        color:
+                          userDetails?.isApproved === 'Approved'
+                            ? '#15803d'
+                            : userDetails?.isApproved === 'Rejected'
+                            ? '#b91c1c'
+                            : '#b45309',
+                      }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '15px' }}>
+                        {userDetails?.isApproved === 'Approved'
+                          ? 'check_circle'
+                          : userDetails?.isApproved === 'Rejected'
+                          ? 'cancel'
+                          : 'hourglass_empty'}
+                      </i>
+                      {userDetails?.isApproved || 'Pending'}
+                    </span>
+                    {userDetails?.isApproved === 'Rejected' && userDetails?.licenseRejectionReason && (
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: '#b91c1c',
+                          marginTop: '4px',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        Reason: {userDetails.licenseRejectionReason}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div>
                   <div
                     style={{
@@ -599,6 +843,467 @@ const UsersView = () => {
         </TableCard>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* ── DRIVING LICENSE VERIFICATION CARD ── */}
+          <TableCard>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid #f3f4f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="material-icons" style={{ color: '#2563eb', fontSize: '22px' }}>
+                  badge
+                </i>
+                <h3 style={sectionTitleStyle}>Driving License Verification</h3>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    background:
+                      userDetails?.isApproved === 'Approved'
+                        ? '#dcfce7'
+                        : userDetails?.isApproved === 'Rejected'
+                        ? '#fee2e2'
+                        : '#fef3c7',
+                    color:
+                      userDetails?.isApproved === 'Approved'
+                        ? '#15803d'
+                        : userDetails?.isApproved === 'Rejected'
+                        ? '#b91c1c'
+                        : '#b45309',
+                  }}
+                >
+                  <i className="material-icons" style={{ fontSize: '16px' }}>
+                    {userDetails?.isApproved === 'Approved'
+                      ? 'check_circle'
+                      : userDetails?.isApproved === 'Rejected'
+                      ? 'cancel'
+                      : 'hourglass_empty'}
+                  </i>
+                  {userDetails?.isApproved || 'Pending'}
+                </span>
+
+                {userDetails?.licenseSubmittedAt && (
+                  <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    Submitted {formatDate(userDetails.licenseSubmittedAt)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: '20px' }}>
+              {userDetails?.isApproved === 'Rejected' && userDetails?.licenseRejectionReason && (
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    marginBottom: '18px',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    color: '#991b1b',
+                    fontSize: '13px',
+                  }}
+                >
+                  <i
+                    className="material-icons"
+                    style={{ fontSize: '18px', color: '#dc2626', marginTop: '1px' }}
+                  >
+                    info
+                  </i>
+                  <div>
+                    <div style={{ fontWeight: '600', marginBottom: '2px' }}>
+                      Rejection Reason (Visible to User)
+                    </div>
+                    <div>{userDetails.licenseRejectionReason}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* License Front & Back Images */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '20px',
+                  marginBottom: '20px',
+                }}
+              >
+                {/* Front Image */}
+                <div
+                  style={{
+                    background: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                      License Front Image
+                    </span>
+                    {userDetails?.licenseFront && (
+                      <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>
+                        Uploaded
+                      </span>
+                    )}
+                  </div>
+
+                  {userDetails?.licenseFront ? (
+                    <div style={{ position: 'relative', textAlign: 'center' }}>
+                      <img
+                        src={
+                          userDetails.licenseFront.startsWith('http')
+                            ? userDetails.licenseFront
+                            : `${imageBaseUrl}${userDetails.licenseFront}`
+                        }
+                        alt="License Front"
+                        style={{
+                          width: '100%',
+                          height: '180px',
+                          objectFit: 'contain',
+                          background: '#fff',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                          cursor: 'zoom-in',
+                        }}
+                        onClick={() => {
+                          const src = userDetails.licenseFront.startsWith('http')
+                            ? userDetails.licenseFront
+                            : `${imageBaseUrl}${userDetails.licenseFront}`;
+                          setPreviewImage(src);
+                          setPreviewTitle(`${userDetails?.name || 'User'} - License Front`);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const src = userDetails.licenseFront.startsWith('http')
+                            ? userDetails.licenseFront
+                            : `${imageBaseUrl}${userDetails.licenseFront}`;
+                          setPreviewImage(src);
+                          setPreviewTitle(`${userDetails?.name || 'User'} - License Front`);
+                        }}
+                        style={{
+                          marginTop: '8px',
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#2563eb',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <i className="material-icons" style={{ fontSize: '16px' }}>
+                          zoom_in
+                        </i>
+                        Preview Full Image
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        height: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#9ca3af',
+                        background: '#fff',
+                        borderRadius: '8px',
+                        border: '1px dashed #d1d5db',
+                        gap: '6px',
+                      }}
+                    >
+                      <i
+                        className="material-icons"
+                        style={{ fontSize: '32px', color: '#d1d5db' }}
+                      >
+                        image_not_supported
+                      </i>
+                      <span style={{ fontSize: '13px' }}>Front image not uploaded</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Back Image */}
+                <div
+                  style={{
+                    background: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                      License Back Image
+                    </span>
+                    {userDetails?.licenseBack && (
+                      <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600' }}>
+                        Uploaded
+                      </span>
+                    )}
+                  </div>
+
+                  {userDetails?.licenseBack ? (
+                    <div style={{ position: 'relative', textAlign: 'center' }}>
+                      <img
+                        src={
+                          userDetails.licenseBack.startsWith('http')
+                            ? userDetails.licenseBack
+                            : `${imageBaseUrl}${userDetails.licenseBack}`
+                        }
+                        alt="License Back"
+                        style={{
+                          width: '100%',
+                          height: '180px',
+                          objectFit: 'contain',
+                          background: '#fff',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                          cursor: 'zoom-in',
+                        }}
+                        onClick={() => {
+                          const src = userDetails.licenseBack.startsWith('http')
+                            ? userDetails.licenseBack
+                            : `${imageBaseUrl}${userDetails.licenseBack}`;
+                          setPreviewImage(src);
+                          setPreviewTitle(`${userDetails?.name || 'User'} - License Back`);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const src = userDetails.licenseBack.startsWith('http')
+                            ? userDetails.licenseBack
+                            : `${imageBaseUrl}${userDetails.licenseBack}`;
+                          setPreviewImage(src);
+                          setPreviewTitle(`${userDetails?.name || 'User'} - License Back`);
+                        }}
+                        style={{
+                          marginTop: '8px',
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#2563eb',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <i className="material-icons" style={{ fontSize: '16px' }}>
+                          zoom_in
+                        </i>
+                        Preview Full Image
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        height: '180px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#9ca3af',
+                        background: '#fff',
+                        borderRadius: '8px',
+                        border: '1px dashed #d1d5db',
+                        gap: '6px',
+                      }}
+                    >
+                      <i
+                        className="material-icons"
+                        style={{ fontSize: '32px', color: '#d1d5db' }}
+                      >
+                        image_not_supported
+                      </i>
+                      <span style={{ fontSize: '13px' }}>Back image not uploaded</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Admin Actions for License & Blue Tick */}
+              {can('users', 'edit') && (
+                <div
+                  style={{
+                    paddingTop: '16px',
+                    borderTop: '1px solid #e5e7eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                    Verification Actions:
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={licenseActionLoading || userDetails?.isApproved === 'Approved'}
+                      onClick={() => handleUpdateLicenseStatus('Approved')}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background:
+                          userDetails?.isApproved === 'Approved' ? '#86efac' : '#16a34a',
+                        color: '#fff',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor:
+                          userDetails?.isApproved === 'Approved' ? 'default' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '16px' }}>
+                        check
+                      </i>
+                      Approve License
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={licenseActionLoading || userDetails?.isApproved === 'Rejected'}
+                      onClick={() => handleUpdateLicenseStatus('Rejected')}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background:
+                          userDetails?.isApproved === 'Rejected' ? '#fca5a5' : '#dc2626',
+                        color: '#fff',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor:
+                          userDetails?.isApproved === 'Rejected' ? 'default' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '16px' }}>
+                        close
+                      </i>
+                      Reject License
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={licenseActionLoading || userDetails?.isApproved === 'Pending'}
+                      onClick={() => handleUpdateLicenseStatus('Pending')}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid #d97706',
+                        background: '#fff',
+                        color: '#d97706',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor:
+                          userDetails?.isApproved === 'Pending' ? 'default' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '16px' }}>
+                        schedule
+                      </i>
+                      Set Pending
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={blueTickActionLoading}
+                      onClick={handleToggleBlueTick}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background:
+                          userDetails?.isVerified === 1 ||
+                          userDetails?.isVerified === true ||
+                          userDetails?.isVerified === '1'
+                            ? '#4b5563'
+                            : '#2563eb',
+                        color: '#fff',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <i className="material-icons" style={{ fontSize: '16px' }}>
+                        verified
+                      </i>
+                      {userDetails?.isVerified === 1 ||
+                      userDetails?.isVerified === true ||
+                      userDetails?.isVerified === '1'
+                        ? 'Remove Blue Tick'
+                        : 'Grant Blue Tick'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TableCard>
+
           <TableCard>
             <div
               style={{

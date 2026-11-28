@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import {
   PageHeader,
   SearchBar,
+  FilterSelect,
   TableCard,
   TableHead,
   ActionBtn,
@@ -31,6 +32,8 @@ const UserList = () => {
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState('');
+  const [verificationFilter, setVerificationFilter] = useState('');
 
   const [data, setData] = useState({
     list: [],
@@ -40,6 +43,7 @@ const UserList = () => {
 
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(null);
+  const [blueTickLoading, setBlueTickLoading] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [previewTitle, setPreviewTitle] = useState('');
 
@@ -55,7 +59,9 @@ const UserList = () => {
           page,
           limit,
           search,
-          role
+          role,
+          approvalStatus: approvalFilter,
+          verificationStatus: verificationFilter
         })
       );
 
@@ -69,7 +75,7 @@ const UserList = () => {
     } finally {
       setLoading(false);
     }
-  }, [dispatch, page, search]);
+  }, [dispatch, page, search, approvalFilter, verificationFilter]);
 
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
@@ -78,14 +84,34 @@ const UserList = () => {
       setSearchParams(
         {
           page,
-          search
+          search,
+          approvalStatus: approvalFilter,
+          verificationStatus: verificationFilter
         },
         { replace: true }
       );
     }, 400);
 
     return () => clearTimeout(delayDebounce);
-  }, [page, search]);
+  }, [page, search, approvalFilter, verificationFilter]);
+
+  const handleToggleBlueTick = async (id, newVerified) => {
+    setBlueTickLoading(id);
+    try {
+      await apiInstance.put(`/updateBlueTickStatus/${id}`, { isVerified: newVerified });
+      toast.success(newVerified === 1 ? 'User verified with blue tick' : 'Blue tick verification removed');
+      setData((prev) => ({
+        ...prev,
+        list: prev.list.map((item) =>
+          item.id === id ? { ...item, isVerified: newVerified } : item
+        )
+      }));
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update blue tick status');
+    } finally {
+      setBlueTickLoading(null);
+    }
+  };
 
   const handleStatusChange = async (id, newStatus) => {
     setStatusLoading(id);
@@ -208,8 +234,37 @@ const UserList = () => {
               setPage(1);
               setSearch(e.target.value);
             }}
-            placeholder="Search users..."
+            placeholder="Search users by name, email, phone..."
           />
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <FilterSelect
+              value={approvalFilter}
+              onChange={(e) => {
+                setPage(1);
+                setApprovalFilter(e.target.value);
+              }}
+              options={[
+                { value: '', label: 'All License Statuses' },
+                { value: 'Pending', label: 'License: Pending' },
+                { value: 'Approved', label: 'License: Approved' },
+                { value: 'Rejected', label: 'License: Rejected' },
+              ]}
+            />
+
+            <FilterSelect
+              value={verificationFilter}
+              onChange={(e) => {
+                setPage(1);
+                setVerificationFilter(e.target.value);
+              }}
+              options={[
+                { value: '', label: 'All Verification' },
+                { value: 'verified', label: 'Blue Tick: Verified' },
+                { value: 'unverified', label: 'Blue Tick: Not Verified' },
+              ]}
+            />
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -224,6 +279,8 @@ const UserList = () => {
                 'Sr. No.',
                 'User',
                 'Phone',
+                'License Status',
+                'Blue Tick',
                 'Login Type',
                 'Bookings',
                 'Status',
@@ -233,247 +290,355 @@ const UserList = () => {
             />
 
             <tbody>
-              {loading && <LoadingRow cols={8} />}
+              {loading && <LoadingRow cols={10} />}
 
               {!loading && !data.list?.length && (
                 <EmptyRow
-                  cols={8}
+                  cols={10}
                   message="No users found"
                 />
               )}
 
               {!loading &&
-                data.list?.map((user, index) => (
-                  <tr
-                    key={user.id}
-                    style={{
-                      borderBottom:
-                        '1px solid #f3f4f6'
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: '14px 16px',
-                        color: '#9ca3af',
-                        fontSize: '13px'
-                      }}
-                    >
-                      {(page - 1) * limit + index + 1}
-                    </td>
+                data.list?.map((user, index) => {
+                  const isVerifiedUser = user.isVerified === 1 || user.isVerified === true || user.isVerified === '1';
+                  const licenseStatus = user.isApproved || 'Pending';
 
-                    <td
+                  return (
+                    <tr
+                      key={user.id}
                       style={{
-                        padding: '14px 16px'
+                        borderBottom: '1px solid #f3f4f6'
                       }}
                     >
-                      <div
+                      <td
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px'
+                          padding: '14px 16px',
+                          color: '#9ca3af',
+                          fontSize: '13px'
                         }}
                       >
-                        <img
-                          src={
-                            user.profileImage ||
-                            user.profile_picture
-                              ? `${imageBaseUrl}${
-                                  user.profileImage ||
-                                  user.profile_picture
-                                }`
-                              : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  user.name || 'U'
-                                )}&background=3b82f6&color=fff`
-                          }
-                          alt={user.name}
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '10px',
-                            objectFit: 'cover',
-                            cursor: 'zoom-in'
-                          }}
-                          onClick={() => {
-                            const src = user.profileImage || user.profile_picture
-                              ? `${imageBaseUrl}${user.profileImage || user.profile_picture}`
-                              : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=3b82f6&color=fff`;
-                            setPreviewImage(src);
-                            setPreviewTitle(user.name);
-                          }}
-                        />
+                        {(page - 1) * limit + index + 1}
+                      </td>
 
-                        <div>
-                          <div
-                            style={{
-                              fontWeight: '600',
-                              color: '#111827',
-                              fontSize: '14px'
-                            }}
-                          >
-                            {user.name}
-                          </div>
-
-                          <div
-                            style={{
-                              color: '#9ca3af',
-                              fontSize: '12px'
-                            }}
-                          >
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td
-                      style={{
-                        padding: '14px 16px',
-                        color: '#374151',
-                        fontSize: '13px'
-                      }}
-                    >
-                      {user.phone ? (
-                        <span>
-                          {(user.countryCode || user.country_code) ? (
-                            <span style={{ color: '#6b7280', marginRight: '4px', fontWeight: '500' }}>
-                              {user.countryCode || user.country_code}
-                            </span>
-                          ) : null}
-                          {user.phone}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    <td
-                      style={{
-                        padding: '14px 16px',
-                        color: '#374151',
-                        fontSize: '13px'
-                      }}
-                    >
-                      <span
+                      <td
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          textTransform: 'capitalize',
-                          background:
-                            user.loginType === 'google'
-                              ? '#fee2e2'
-                              : user.loginType === 'apple'
-                              ? '#f3f4f6'
-                              : user.loginType === 'facebook'
-                              ? '#dbeafe'
-                              : '#e0e7ff',
-                          color:
-                            user.loginType === 'google'
-                              ? '#dc2626'
-                              : user.loginType === 'apple'
-                              ? '#111827'
-                              : user.loginType === 'facebook'
-                              ? '#1d4ed8'
-                              : '#4338ca'
+                          padding: '14px 16px'
                         }}
                       >
-                        {user.loginType || 'email'}
-                      </span>
-                    </td>
-
-                    <td
-                      style={{
-                        padding: '14px 16px',
-                        color: '#374151',
-                        fontSize: '13px'
-                      }}
-                    >
-                      {user.total_bookings ?? 0}
-                    </td>
-
-                    <td
-                      style={{
-                        padding: '14px 16px'
-                      }}
-                    >
-                      {statusLoading === user.id ? (
                         <div
-                          className="spinner-border spinner-border-sm text-primary"
-                          role="status"
-                        />
-                      ) : (
-                        <select
-                          value={user.status || 'active'}
-                          disabled={!can('users', 'edit')}
-                          onChange={(e) => handleStatusChange(user.id, e.target.value)}
                           style={{
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            border: '1px solid #e5e7eb',
-                            outline: 'none',
-                            fontSize: '12px',
-                            background: user.status === 'blocked' ? '#fee2e2' : user.status === 'inactive' ? '#f3f4f6' : '#dcfce7',
-                            color: user.status === 'blocked' ? '#dc2626' : user.status === 'inactive' ? '#6b7280' : '#16a34a',
-                            fontWeight: '600',
-                            cursor: 'pointer'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
                           }}
                         >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="blocked">Blocked</option>
-                        </select>
-                      )}
-                    </td>
+                          <img
+                            src={
+                              user.profileImage || user.profile_picture
+                                ? `${imageBaseUrl}${user.profileImage || user.profile_picture}`
+                                : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                    user.name || 'U'
+                                  )}&background=3b82f6&color=fff`
+                            }
+                            alt={user.name}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '10px',
+                              objectFit: 'cover',
+                              cursor: 'zoom-in'
+                            }}
+                            onClick={() => {
+                              const src = user.profileImage || user.profile_picture
+                                ? `${imageBaseUrl}${user.profileImage || user.profile_picture}`
+                                : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'U')}&background=3b82f6&color=fff`;
+                              setPreviewImage(src);
+                              setPreviewTitle(user.name);
+                            }}
+                          />
 
-                    <td
-                      style={{
-                        padding: '14px 16px',
-                        color: '#6b7280',
-                        fontSize: '13px'
-                      }}
-                    >
-                      {formatDate(user.createdAt)}
-                    </td>
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: '600',
+                                color: '#111827',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <span>{user.name}</span>
+                              {isVerifiedUser && (
+                                <i
+                                  className="material-icons"
+                                  style={{
+                                    fontSize: '16px',
+                                    color: '#2563eb',
+                                    lineHeight: 1
+                                  }}
+                                  title="Verified User (Blue Tick)"
+                                >
+                                  verified
+                                </i>
+                              )}
+                            </div>
 
-                    <td
-                      style={{
-                        padding: '14px 16px'
-                      }}
-                    >
-                      <div
+                            <div
+                              style={{
+                                color: '#9ca3af',
+                                fontSize: '12px'
+                              }}
+                            >
+                              {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td
                         style={{
-                          display: 'flex',
-                          gap: '6px'
+                          padding: '14px 16px',
+                          color: '#374151',
+                          fontSize: '13px'
                         }}
                       >
-                        <ActionBtn
-                          icon="visibility"
-                          color="#3b82f6"
-                          title="View"
-                          onClick={() =>
-                            navigate(
-                              `/usersView/${user.id}?page=${page}&search=${search}`
-                            )
-                          }
-                        />
+                        {user.phone ? (
+                          <span>
+                            {(user.countryCode || user.country_code) ? (
+                              <span style={{ color: '#6b7280', marginRight: '4px', fontWeight: '500' }}>
+                                {user.countryCode || user.country_code}
+                              </span>
+                            ) : null}
+                            {user.phone}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
 
-                        {can('users', 'delete') && (
+                      {/* License Approval Status */}
+                      <td
+                        style={{
+                          padding: '14px 16px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span
+                            title={licenseStatus === 'Rejected' && user.licenseRejectionReason ? `Reason: ${user.licenseRejectionReason}` : ''}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 9px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              width: 'fit-content',
+                              background:
+                                licenseStatus === 'Approved'
+                                  ? '#dcfce7'
+                                  : licenseStatus === 'Rejected'
+                                  ? '#fee2e2'
+                                  : '#fef3c7',
+                              color:
+                                licenseStatus === 'Approved'
+                                  ? '#15803d'
+                                  : licenseStatus === 'Rejected'
+                                  ? '#b91c1c'
+                                  : '#b45309'
+                            }}
+                          >
+                            <i
+                              className="material-icons"
+                              style={{ fontSize: '14px' }}
+                            >
+                              {licenseStatus === 'Approved' ? 'check_circle' : licenseStatus === 'Rejected' ? 'cancel' : 'hourglass_empty'}
+                            </i>
+                            {licenseStatus}
+                          </span>
+
+                          {(user.licenseFront || user.licenseBack) && (
+                            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                              Docs uploaded
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Blue Tick Verification Status & Toggle */}
+                      <td
+                        style={{
+                          padding: '14px 16px'
+                        }}
+                      >
+                        <button
+                          type="button"
+                          disabled={!can('users', 'edit') || blueTickLoading === user.id}
+                          onClick={() => handleToggleBlueTick(user.id, isVerifiedUser ? 0 : 1)}
+                          title={can('users', 'edit') ? (isVerifiedUser ? 'Click to remove Blue Tick' : 'Click to grant Blue Tick') : ''}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            border: isVerifiedUser ? '1px solid #bfdbfe' : '1px solid #e5e7eb',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: isVerifiedUser ? '#eff6ff' : '#f9fafb',
+                            color: isVerifiedUser ? '#1d4ed8' : '#6b7280',
+                            cursor: can('users', 'edit') ? 'pointer' : 'default',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {blueTickLoading === user.id ? (
+                            <span className="spinner-border spinner-border-sm" style={{ width: '12px', height: '12px' }} />
+                          ) : (
+                            <i
+                              className="material-icons"
+                              style={{
+                                fontSize: '15px',
+                                color: isVerifiedUser ? '#2563eb' : '#9ca3af'
+                              }}
+                            >
+                              {isVerifiedUser ? 'verified' : 'radio_button_unchecked'}
+                            </i>
+                          )}
+                          {isVerifiedUser ? 'Verified' : 'Unverified'}
+                        </button>
+                      </td>
+
+                      <td
+                        style={{
+                          padding: '14px 16px',
+                          color: '#374151',
+                          fontSize: '13px'
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            textTransform: 'capitalize',
+                            background:
+                              user.loginType === 'google'
+                                ? '#fee2e2'
+                                : user.loginType === 'apple'
+                                ? '#f3f4f6'
+                                : user.loginType === 'facebook'
+                                ? '#dbeafe'
+                                : '#e0e7ff',
+                            color:
+                              user.loginType === 'google'
+                                ? '#dc2626'
+                                : user.loginType === 'apple'
+                                ? '#111827'
+                                : user.loginType === 'facebook'
+                                ? '#1d4ed8'
+                                : '#4338ca'
+                          }}
+                        >
+                          {user.loginType || 'email'}
+                        </span>
+                      </td>
+
+                      <td
+                        style={{
+                          padding: '14px 16px',
+                          color: '#374151',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {user.total_bookings ?? 0}
+                      </td>
+
+                      <td
+                        style={{
+                          padding: '14px 16px'
+                        }}
+                      >
+                        {statusLoading === user.id ? (
+                          <div
+                            className="spinner-border spinner-border-sm text-primary"
+                            role="status"
+                          />
+                        ) : (
+                          <select
+                            value={user.status || 'active'}
+                            disabled={!can('users', 'edit')}
+                            onChange={(e) => handleStatusChange(user.id, e.target.value)}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #e5e7eb',
+                              outline: 'none',
+                              fontSize: '12px',
+                              background: user.status === 'blocked' ? '#fee2e2' : user.status === 'inactive' ? '#f3f4f6' : '#dcfce7',
+                              color: user.status === 'blocked' ? '#dc2626' : user.status === 'inactive' ? '#6b7280' : '#16a34a',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="blocked">Blocked</option>
+                          </select>
+                        )}
+                      </td>
+
+                      <td
+                        style={{
+                          padding: '14px 16px',
+                          color: '#6b7280',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {formatDate(user.createdAt)}
+                      </td>
+
+                      <td
+                        style={{
+                          padding: '14px 16px'
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '6px'
+                          }}
+                        >
                           <ActionBtn
-                            icon="delete"
-                            color="#ef4444"
-                            title="Delete"
+                            icon="visibility"
+                            color="#3b82f6"
+                            title="View"
                             onClick={() =>
-                              handleDelete(user.id)
+                              navigate(
+                                `/usersView/${user.id}?page=${page}&search=${search}`
+                              )
                             }
                           />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+
+                          {can('users', 'delete') && (
+                            <ActionBtn
+                              icon="delete"
+                              color="#ef4444"
+                              title="Delete"
+                              onClick={() =>
+                                handleDelete(user.id)
+                              }
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

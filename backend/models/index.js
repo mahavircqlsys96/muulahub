@@ -73,6 +73,14 @@ sequelize.query("ALTER TABLE `users` ADD COLUMN `adminRoleSlug` VARCHAR(100) NUL
 sequelize.query("ALTER TABLE `users` ADD COLUMN `adminPermissions` JSON NULL").catch(() => {});
 sequelize.query("ALTER TABLE `users` ADD COLUMN `isSubAdmin` TINYINT DEFAULT 0").catch(() => {});
 
+// Ensure User License Verification and Blue Tick fields exist safely
+sequelize.query("ALTER TABLE `users` ADD COLUMN `isApproved` ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending'").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `isVerified` TINYINT DEFAULT 0").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `licenseFront` VARCHAR(500) NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `licenseBack` VARCHAR(500) NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `licenseRejectionReason` TEXT NULL").catch(() => {});
+sequelize.query("ALTER TABLE `users` ADD COLUMN `licenseSubmittedAt` DATETIME NULL").catch(() => {});
+
 // Ensure counterStatus on bookings supports pending, accepted, reject, rejected, and cancelled safely
 sequelize.query("ALTER TABLE `bookings` MODIFY COLUMN `counterStatus` ENUM('pending', 'accepted', 'reject', 'rejected', 'cancelled') DEFAULT 'pending'").catch(() => {});
 

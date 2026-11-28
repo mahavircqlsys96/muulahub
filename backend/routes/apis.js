@@ -110,6 +110,13 @@ module.exports = (io) => {
   router.get('/walletDetails', userController.walletDetails);
   router.put('/updateLocation', userController.updateLocation);
   router.get('/getLocation', userController.getLocation);
+
+  // License & Blue Tick Verification (Mobile User)
+  router.post('/uploadLicense', userController.uploadLicense);
+  router.post('/uploadDriverLicense', userController.uploadLicense);
+  router.post('/uploadLicenseDocument', userController.uploadLicense);
+  router.get('/getLicenseStatus', userController.getLicenseStatus);
+  router.get('/licenseStatus', userController.getLicenseStatus);
   // Provider
   router.post('/addProviderCategory', providerController.addProviderCategory);
   router.get('/getProviderInsights', providerController.getProviderInsights);

@@ -1214,4 +1214,104 @@ module.exports = {
     }
   },
 
+  /**
+   * Upload or re-upload user driving license (front and back)
+   * Resets isApproved to 'Pending', clears any rejection reason, and records timestamp
+   */
+  uploadLicense: async (req, res) => {
+    try {
+      const userId = req.auth.id;
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) return helper.failed(res, "User not found");
+
+      let licenseFrontUrl = req.body.licenseFront || req.body.license_front || req.body.front || null;
+      let licenseBackUrl = req.body.licenseBack || req.body.license_back || req.body.back || null;
+
+      // Handle file uploads (multipart/form-data)
+      if (req.files) {
+        const frontFile = req.files.licenseFront || req.files.license_front || req.files.front;
+        const backFile = req.files.licenseBack || req.files.license_back || req.files.back;
+
+        if (frontFile) {
+          licenseFrontUrl = await helper.fileUpload(frontFile, "licenses");
+        }
+        if (backFile) {
+          licenseBackUrl = await helper.fileUpload(backFile, "licenses");
+        }
+      }
+
+      if (!licenseFrontUrl || !licenseBackUrl) {
+        return helper.failed(
+          res,
+          "Both license front and back images are required (licenseFront and licenseBack)."
+        );
+      }
+
+      await user.update({
+        licenseFront: licenseFrontUrl,
+        licenseBack: licenseBackUrl,
+        isApproved: 'Pending',
+        licenseRejectionReason: null,
+        licenseSubmittedAt: new Date()
+      });
+
+      // Send push notification confirmation to user
+      try {
+        if (user.deviceToken) {
+          await helper.sendPushNotification({
+            token: user.deviceToken,
+            title: "License Documents Submitted",
+            body: "Your driving license has been submitted and is currently under review.",
+            type: "license_verification",
+            sender_id: user.id
+          });
+        }
+      } catch (pushErr) {
+        console.error("Push notification error on license upload:", pushErr.message);
+      }
+
+      return helper.success(res, "License uploaded successfully. Your verification is under review.", {
+        userId: user.id,
+        isApproved: user.isApproved,
+        isVerified: user.isVerified,
+        licenseFront: user.licenseFront,
+        licenseBack: user.licenseBack,
+        licenseRejectionReason: user.licenseRejectionReason,
+        licenseSubmittedAt: user.licenseSubmittedAt
+      });
+    } catch (error) {
+      console.error("uploadLicense error:", error);
+      return helper.error(res, "Failed to upload license: " + error.message);
+    }
+  },
+
+  /**
+   * Get current user's license verification status and details
+   */
+  getLicenseStatus: async (req, res) => {
+    try {
+      const userId = req.auth.id;
+      const user = await users.findOne({
+        where: { id: userId },
+        attributes: [
+          'id',
+          'name',
+          'email',
+          'isApproved',
+          'isVerified',
+          'licenseFront',
+          'licenseBack',
+          'licenseRejectionReason',
+          'licenseSubmittedAt'
+        ]
+      });
+      if (!user) return helper.failed(res, "User not found");
+
+      return helper.success(res, "License verification status retrieved", user);
+    } catch (error) {
+      console.error("getLicenseStatus error:", error);
+      return helper.error(res, "Failed to retrieve license status: " + error.message);
+    }
+  },
+
 };

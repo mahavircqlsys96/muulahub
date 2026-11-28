@@ -79,7 +79,42 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.TINYINT,
       allowNull: true,
       defaultValue: 0,
-
+    },
+    isApproved: {
+      type: DataTypes.ENUM('Pending', 'Approved', 'Rejected'),
+      allowNull: true,
+      defaultValue: "Pending",
+      comment: 'User driving license approval status (Pending, Approved, Rejected)'
+    },
+    isVerified: {
+      type: DataTypes.TINYINT,
+      allowNull: true,
+      defaultValue: 0,
+      comment: 'Blue tick verification status (0 = Not Verified, 1 = Verified)'
+    },
+    licenseFront: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Driving license front image path/URL'
+    },
+    licenseBack: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Driving license back image path/URL'
+    },
+    licenseRejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Admin license rejection reason if rejected'
+    },
+    licenseSubmittedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Timestamp when license images were submitted or re-submitted'
     },
     providerStatus: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
