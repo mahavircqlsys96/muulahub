@@ -79,7 +79,7 @@ module.exports = function (sequelize, DataTypes) {
       defaultValue: "pending"
     },
     counterStatus: {
-      type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
+      type: DataTypes.ENUM('pending', 'accepted', 'reject', 'rejected', 'cancelled'),
       allowNull: true,
       defaultValue: "pending"
     },

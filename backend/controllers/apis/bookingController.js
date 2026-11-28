@@ -323,7 +323,7 @@ module.exports = {
 
       const v = new Validator(req.body, {
         bookingId: 'required',
-        status: 'required|in:accepted,reject',
+        status: 'required|in:accepted,reject,rejected',
         type: 'in:1,2,3' // 1 for stripe, 2 for wallet, 3 for both
       });
       const errors = await helper.checkValidation(v);
@@ -355,10 +355,10 @@ module.exports = {
         return helper.failed(res, 'Counter offer has already been responded to');
       }
 
-      if (status === 'reject') {
+      if (status === 'reject' || status === 'rejected') {
         await booking.update({
           bookingStatus: 'cancelled',
-          counterStatus: 'rejected'
+          counterStatus: 'reject'
         });
 
         const customerUser = await users.findOne({ where: { id: userId }, attributes: ['id', 'name'] });
@@ -596,8 +596,8 @@ module.exports = {
 
       return helper.success(res, 'Counter offer accepted successfully', booking);
     } catch (error) {
-      console.log("userRespondToCounterOffer error:", error);
-      return helper.error(res, 'Something went wrong');
+      console.error("acceptRejectRequestUser error:", error);
+      return helper.error(res, error.message || 'Something went wrong');
     }
   },
 
@@ -1979,7 +1979,7 @@ module.exports = {
       };
 
       if (booking.counterStatus === 'pending') {
-        updateData.counterStatus = 'cancelled';
+        updateData.counterStatus = 'reject';
       }
 
       if (cancellationReason) {

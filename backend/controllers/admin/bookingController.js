@@ -28,7 +28,7 @@ const resolveBookingStatus = (b) => {
   if (b.counterStatus === 'accepted' && bStatus === 'pending') {
     return 'Quote accepted';
   }
-  if (b.counterStatus === 'rejected' && bStatus === 'pending') {
+  if ((b.counterStatus === 'rejected' || b.counterStatus === 'reject') && bStatus === 'pending') {
     return 'Quote rejected';
   }
   return b.bookingStatus || 'pending';
